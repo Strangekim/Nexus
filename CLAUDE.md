@@ -45,6 +45,19 @@ Claude Code CLI를 내부적으로 래핑하여, 웹에서 자연어로 AI에게
 - JSON 프로퍼티: `camelCase`
 - 에러 응답: `{ error: { code: string, message: string } }` 형식 통일
 - 알림 type 값: `snake_case` (예: `lock_request`, `task_complete`)
+- **모든 주석은 한글로 작성한다** (코드 내 주석, JSDoc, TODO 등 모두 한글)
+- **파일당 60~100줄 초과 시 리팩토링을 검토한다**: 컴포넌트 분리, 훅 추출, 유틸 함수 분리, 서비스/라우트/스키마 파일 분리 등을 적용하여 파일 크기를 관리한다
+
+## 코드 작성 패턴 (Skills 참조)
+코드 작성 시 아래 Skills의 패턴을 따른다. 일관된 코드 구조를 유지하기 위해 반드시 참조:
+
+| Skill | 설명 |
+|-------|------|
+| `nextjs-patterns` | Next.js App Router 페이지, 레이아웃, 클라이언트/서버 컴포넌트 패턴 |
+| `fastify-routes` | Fastify 라우트 플러그인 구조, 스키마 검증, 서비스 레이어 분리 |
+| `tanstack-query` | useQuery/useMutation 훅, API 함수 분리, queryKey 컨벤션 |
+| `zustand-store` | 스토어 생성, persist 미들웨어, 슬라이스 패턴 |
+| `socketio-client` | Socket.IO 서버 설정, 클라이언트 훅, 이벤트 구독 패턴 |
 
 ## 디자인 규칙
 - **디자인 레퍼런스**: Claude Web / Claude Desktop UI를 최대한 참고
