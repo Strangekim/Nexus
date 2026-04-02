@@ -61,7 +61,8 @@ const skillsRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['content'],
-        properties: { content: { type: 'string' } },
+        // maxLength: 500KB 제한 — 지나치게 큰 파일 업로드 방지
+        properties: { content: { type: 'string', maxLength: 500000 } },
       },
     },
   }, async (request) => {
@@ -91,7 +92,8 @@ const skillsRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['content'],
-        properties: { content: { type: 'string' } },
+        // maxLength: 500KB 제한 — 지나치게 큰 파일 업로드 방지
+        properties: { content: { type: 'string', maxLength: 500000 } },
       },
     },
   }, async (request) => {

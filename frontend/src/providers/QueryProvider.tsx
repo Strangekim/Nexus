@@ -6,11 +6,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
 
-/** API 에러 응답 타입 */
-interface ApiError {
-  error?: { code?: string; message?: string };
-}
-
 /** 에러에서 HTTP 상태 코드 추출 */
 function getStatusCode(error: unknown): number | undefined {
   return (error as { status?: number; statusCode?: number })?.status

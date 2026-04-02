@@ -65,7 +65,9 @@ export function useCodeViewer(): UseCodeViewerReturn {
         language: detectLanguage(path),
         isLoading: false,
       }));
-    } catch {
+    } catch (err) {
+      // 파일 로드 실패 — 에러 상태로 전환하여 UI에 메시지 표시
+      console.error('[useCodeViewer] 파일 로드 실패:', err);
       setState((prev) => ({
         ...prev,
         content: null,

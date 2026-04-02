@@ -104,6 +104,8 @@ export function NotificationSettings() {
   const [phone, setPhone] = useState(user?.phone ?? '');
   // SMS 저장 중 상태 (저장 버튼 비활성화용)
   const [saving, setSaving] = useState(false);
+  // SMS 저장 에러 메시지
+  const [smsError, setSmsError] = useState<string | null>(null);
   // 브라우저 알림 권한 상태 — 'default' | 'granted' | 'denied'
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
 
@@ -123,8 +125,9 @@ export function NotificationSettings() {
       const updated = await patchSettings({ [field]: value });
       // authStore의 user 객체를 서버 응답값으로 업데이트
       setUser({ ...user, ...updated });
-    } catch {
-      // 설정 저장 실패 시 조용히 무시 — 다음 번에 재시도 가능
+    } catch (err) {
+      // 토글 설정 저장 실패 — 콘솔에만 기록, UI는 조용히 유지 (다음 토글 시 재시도 가능)
+      console.error('[NotificationSettings] 토글 설정 저장 실패:', err);
     }
   }
 
@@ -136,9 +139,14 @@ export function NotificationSettings() {
   async function handleSaveSms() {
     if (!user) return;
     setSaving(true);
+    setSmsError(null);
     try {
       const updated = await patchSettings({ phone: phone || null });
       setUser({ ...user, ...updated });
+    } catch (err) {
+      // SMS 전화번호 저장 실패 — 에러 메시지를 UI에 표시
+      console.error('[NotificationSettings] SMS 설정 저장 실패:', err);
+      setSmsError('전화번호 저장에 실패했습니다. 다시 시도해 주세요.');
     } finally {
       setSaving(false);
     }
@@ -242,6 +250,10 @@ export function NotificationSettings() {
               {saving ? '저장 중' : '저장'}
             </Button>
           </div>
+          {/* SMS 저장 실패 시 에러 메시지 표시 */}
+          {smsError && (
+            <p className="text-xs text-red-500 mt-1">{smsError}</p>
+          )}
         </div>
       )}
     </div>

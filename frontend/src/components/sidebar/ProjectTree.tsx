@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { FolderKanban, Folder, Plus, FolderPlus, MessageSquarePlus, GitCommit, Settings } from 'lucide-react';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { useTree } from '@/hooks/useTree';
 import { TreeItem } from './TreeItem';

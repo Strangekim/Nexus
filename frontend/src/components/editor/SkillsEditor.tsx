@@ -1,7 +1,7 @@
 'use client';
 // Skills / CLAUDE.md 웹 편집기 — 탭 전환 + textarea + Ctrl+S 저장
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Check, AlertCircle, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,31 +50,34 @@ function SaveStatus({ isDirty, isSaving, savedAt }: {
 /** Skills / CLAUDE.md 웹 편집기 메인 컴포넌트 */
 export function SkillsEditor({ projectId }: { projectId: string }) {
   const [activeTab, setActiveTab] = useState<TabType>('claude-md');
-  const [claudeContent, setClaudeContent] = useState('');
-  const [skillsContent, setSkillsContent] = useState('');
   const [claudeDirty, setClaudeDirty] = useState(false);
   const [skillsDirty, setSkillsDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const initializedRef = useRef({ claude: false, skills: false });
 
   const { data: claudeData, isLoading: claudeLoading } = useClaudeMd(projectId);
   const { data: skillsData, isLoading: skillsLoading } = useSkillsMd(projectId);
   const saveClaude = useSaveClaudeMd(projectId);
   const saveSkills = useSaveSkillsMd(projectId);
 
-  // 서버 데이터 초기화 (최초 1회)
+  // 서버 데이터에서 직접 초기값 파생 — dirty 상태가 없으면 서버 원본 표시
+  const [claudeContent, setClaudeContent] = useState('');
+  const [skillsContent, setSkillsContent] = useState('');
+
+  // 서버 데이터 초기화 (최초 1회, dirty 상태가 아닐 때만 반영)
   useEffect(() => {
-    if (claudeData && !initializedRef.current.claude) {
+    if (claudeData && !claudeDirty) {
       setClaudeContent(claudeData.content);
-      initializedRef.current.claude = true;
     }
+    // claudeDirty는 의도적으로 deps에서 제외 — 초기 로드 시에만 서버값 적용
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claudeData]);
 
   useEffect(() => {
-    if (skillsData && !initializedRef.current.skills) {
+    if (skillsData && !skillsDirty) {
       setSkillsContent(skillsData.content);
-      initializedRef.current.skills = true;
     }
+    // skillsDirty는 의도적으로 deps에서 제외 — 초기 로드 시에만 서버값 적용
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skillsData]);
 
   // 현재 탭 저장 함수
