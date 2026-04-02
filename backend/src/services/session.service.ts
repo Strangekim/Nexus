@@ -2,20 +2,7 @@
 import prisma from '../lib/prisma.js';
 import path from 'path';
 import { createHttpError } from '../lib/errors.js';
-
-/** worktree 기본 경로 — 이 경로 밖으로 벗어나는 경로 생성은 금지 */
-const WORKTREE_BASE_PATH = '/home/ubuntu/projects-wt';
-
-/**
- * worktreePath가 허용된 base 경로 내에 있는지 검증
- * 경로 트래버설 공격 방지
- */
-function validateWorktreePath(worktreePath: string): void {
-  const resolved = path.resolve(worktreePath);
-  if (!resolved.startsWith(WORKTREE_BASE_PATH + '/') && resolved !== WORKTREE_BASE_PATH) {
-    throw createHttpError(400, '허용되지 않은 worktree 경로입니다');
-  }
-}
+import { createWorktree, removeWorktree } from './worktree.service.js';
 
 /**
  * repoPath에 경로 트래버설 시도(`..`)가 포함되어 있는지 검증
@@ -73,37 +60,49 @@ async function create(dto: {
     }
   }
 
-  // create → update를 원자적으로 처리하여 좀비 세션 방지
-  return prisma.$transaction(async (tx) => {
-    const session = await tx.session.create({
+  // 프로젝트 직속 세션은 worktree 없이 DB 생성만 수행
+  if (!dto.folderId) {
+    return prisma.session.create({
       data: {
         projectId: dto.projectId,
-        folderId: dto.folderId ?? null,
+        folderId: null,
         title: dto.title,
         createdBy: dto.createdBy,
       },
-    });
-
-    // 프로젝트 직속 세션은 worktree 없이 생성 (전반 논의용)
-    if (!dto.folderId) {
-      return tx.session.findUnique({
-        where: { id: session.id },
-        include: { creator: userSelect, locker: userSelect },
-      });
-    }
-
-    // repoPath에 '..' 포함 여부를 먼저 검증 (경로 트래버설 방지)
-    validateRepoPath(project.repoPath);
-    const rawWorktreePath = project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
-    validateWorktreePath(rawWorktreePath);
-    const worktreePath = path.resolve(rawWorktreePath);
-    const branchName = `session/${session.id}`;
-
-    return tx.session.update({
-      where: { id: session.id },
-      data: { worktreePath, branchName },
       include: { creator: userSelect, locker: userSelect },
     });
+  }
+
+  // repoPath 경로 트래버설 방지 검증
+  validateRepoPath(project.repoPath);
+
+  // DB에 세션 먼저 생성하여 sessionId 확보
+  const session = await prisma.session.create({
+    data: {
+      projectId: dto.projectId,
+      folderId: dto.folderId,
+      title: dto.title,
+      createdBy: dto.createdBy,
+    },
+  });
+
+  const branchName = `session/${session.id}`;
+  let worktreePath: string;
+
+  try {
+    // 실제 git worktree 생성
+    worktreePath = await createWorktree(project.repoPath, session.id, branchName);
+  } catch (err) {
+    // worktree 생성 실패 시 DB 롤백 (세션 삭제)
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => null);
+    throw err;
+  }
+
+  // worktree 경로와 브랜치명을 DB에 업데이트
+  return prisma.session.update({
+    where: { id: session.id },
+    data: { worktreePath, branchName },
+    include: { creator: userSelect, locker: userSelect },
   });
 }
 
@@ -116,8 +115,20 @@ async function update(id: string, dto: { title?: string; status?: string }) {
   });
 }
 
-/** 세션 삭제 */
+/** 세션 삭제 — worktree가 있으면 먼저 제거 후 DB 삭제 */
 async function remove(id: string) {
+  const session = await prisma.session.findUnique({
+    where: { id },
+    select: { worktreePath: true, project: { select: { repoPath: true } } },
+  });
+
+  if (session?.worktreePath && session.project.repoPath) {
+    // DB 삭제 전에 worktree 제거 (실패해도 DB 삭제는 진행)
+    await removeWorktree(session.project.repoPath, session.worktreePath).catch((err) => {
+      console.error(`[session.remove] worktree 제거 실패 (무시): ${err}`);
+    });
+  }
+
   return prisma.session.delete({ where: { id } });
 }
 
