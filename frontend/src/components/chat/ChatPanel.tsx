@@ -40,6 +40,8 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
   const lock = useRealtimeStore((s) => s.sessionLocks.get(sessionId));
   const currentUser = useAuthStore((s) => s.user);
   const isLockedByOther = !!(lock && currentUser && lock.userId !== currentUser.id);
+  // API 키 미등록 여부 — api 모드인데 키가 없으면 입력 차단
+  const noApiKey = currentUser?.authMode === 'api' && !(currentUser?.hasClaudeKey ?? false);
 
   useEffect(() => {
     if (data?.messages) {
@@ -89,12 +91,13 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         </div>
       )}
 
-      {/* 입력창 — 타인 락 시 비활성화 */}
+      {/* 입력창 — 타인 락 또는 API 키 미등록 시 비활성화 */}
       <MessageInput
         onSend={sendMessage}
         onAbort={abort}
         isStreaming={isStreaming}
         isLocked={isLockedByOther}
+        noApiKey={noApiKey}
       />
     </div>
   );

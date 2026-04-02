@@ -20,3 +20,11 @@ export async function logout(): Promise<void> {
 export async function fetchMe(): Promise<User> {
   return apiFetch<User>('/api/auth/me');
 }
+
+/** Claude API 키 저장 — 빈 문자열 전달 시 삭제 */
+export async function saveClaudeApiKey(claudeAccount: string): Promise<User> {
+  return apiFetch<User>('/api/auth/settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ claudeAccount }),
+  });
+}

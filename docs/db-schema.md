@@ -10,7 +10,7 @@ PostgreSQL + Prisma ORM 기반이며, 모든 테이블과 관계, 인덱스, 제
 ## 테이블 설명
 
 ### users
-사용자 정보. `email`을 로그인 식별자(UNIQUE NOT NULL)로 사용하며, `name`은 표시용이다. Claude Code 구독 인증을 위한 `linux_user`/`auth_mode`/`claude_account` 컬럼을 포함한다. 알림 설정 컬럼(`phone`, `notify_sms`, `notify_browser`, `notify_sound`)은 `PATCH /api/auth/settings`로 업데이트하며, 작업 완료/허가 요청 시 외부 알림 발송 여부를 제어한다.
+사용자 정보. `email`을 로그인 식별자(UNIQUE NOT NULL)로 사용하며, `name`은 표시용이다. `auth_mode`에 따라 Claude Code 실행 방식이 달라진다: `subscription` 모드는 EC2 리눅스 유저(`linux_user`)로 전환하여 실행하고, `api` 모드는 `claude_account`에 저장된 사용자 개인 Anthropic API 키를 환경변수(`ANTHROPIC_API_KEY`)로 주입하여 실행한다. `claude_account`는 평문 저장되므로 응답 시 마스킹 처리 후 반환한다. 알림 설정 컬럼(`phone`, `notify_sms`, `notify_browser`, `notify_sound`)은 `PATCH /api/auth/settings`로 업데이트하며, 작업 완료/허가 요청 시 외부 알림 발송 여부를 제어한다.
 
 ### user_sessions
 세션 기반 인증을 위한 테이블. `@fastify/session` + `connect-pg-simple`에서 사용하며, `sid`를 기본 키로 세션 데이터(`sess` JSON)와 만료 시각(`expire`)을 저장한다.
@@ -64,7 +64,7 @@ model User {
   role           String   @default("member") @db.VarChar(20) // 'admin' | 'member'
   linuxUser      String?  @unique @map("linux_user") @db.VarChar(50)
   authMode       String   @default("subscription") @map("auth_mode") @db.VarChar(20) // 'subscription' | 'api'
-  claudeAccount  String?  @map("claude_account") @db.Text
+  claudeAccount  String?  @map("claude_account") @db.Text  // 사용자의 Anthropic API 키 (api 모드에서 ANTHROPIC_API_KEY로 주입, 응답 시 마스킹 처리)
   createdAt      DateTime @default(now()) @map("created_at")
 
   // 알림 설정 — PATCH /api/auth/settings 로 업데이트
@@ -362,6 +362,17 @@ commits 테이블 주요 컬럼:
 
 > **SMS 발송 조건:** `notify_sms=true` AND `phone IS NOT NULL` AND 알리고 환경변수 설정됨.
 > `PATCH /api/auth/settings`로 업데이트하며, `session:task-complete` / `session:permission-required` 이벤트 발생 시 참조된다.
+
+---
+
+## users Claude API 키 컬럼
+
+| 컬럼 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `claude_account` | `TEXT?` | null | 사용자의 Anthropic API 키 (`api` 모드에서 `ANTHROPIC_API_KEY`로 주입) |
+
+> **응답 마스킹:** `GET /api/auth/me` 및 `PATCH /api/auth/settings` 응답에는 원본 키 대신 마스킹된 값(`claudeAccountMasked`, 예: "sk-ant-...XYZ")과 등록 여부(`hasClaudeKey: boolean`)만 반환한다.
+> **등록/삭제:** `PATCH /api/auth/settings { claudeAccount: "sk-ant-..." }` 로 저장, 빈 문자열 전달 시 null로 초기화한다.
 
 ---
 

@@ -118,7 +118,9 @@
   "email": "hong@example.com",
   "role": "member",
   "linuxUser": "hong",
-  "authMode": "subscription",
+  "authMode": "api",
+  "hasClaudeKey": true,
+  "claudeAccountMasked": "sk-ant-...XYZ",
   "phone": "01012345678",
   "notifySms": false,
   "notifyBrowser": true,
@@ -126,8 +128,13 @@
 }
 ```
 
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `hasClaudeKey` | `boolean` | Claude API 키 등록 여부 (api 모드에서 사용) |
+| `claudeAccountMasked` | `string \| undefined` | 마스킹된 API 키 (예: "sk-ant-...XYZ") — 등록된 경우에만 반환 |
+
 ### 1.4 PATCH /api/auth/settings
-현재 로그인한 사용자의 알림 설정을 부분 업데이트한다.
+현재 로그인한 사용자의 알림 설정 및 Claude API 키를 부분 업데이트한다.
 변경할 필드만 body에 포함하면 되며, 포함되지 않은 필드는 그대로 유지된다.
 
 - **인증 필요:** 예
@@ -138,7 +145,8 @@
   "phone": "01012345678",
   "notifySms": true,
   "notifyBrowser": true,
-  "notifySound": false
+  "notifySound": false,
+  "claudeAccount": "sk-ant-api-key..."
 }
 ```
 
@@ -148,6 +156,7 @@
 | `notifySms` | `boolean` | 아니오 | SMS 알림 활성화 여부 |
 | `notifyBrowser` | `boolean` | 아니오 | 브라우저 푸시 알림 활성화 여부 |
 | `notifySound` | `boolean` | 아니오 | 알림음 활성화 여부 |
+| `claudeAccount` | `string` | 아니오 | Anthropic API 키 (`sk-ant-...` 형식, 빈 문자열 전달 시 삭제) |
 
 > **제약:** 변경할 필드가 하나도 없으면 `400 BAD_REQUEST` 반환.
 
@@ -158,7 +167,9 @@
   "phone": "01012345678",
   "notifySms": true,
   "notifyBrowser": true,
-  "notifySound": false
+  "notifySound": false,
+  "hasClaudeKey": true,
+  "claudeAccountMasked": "sk-ant-...XYZ"
 }
 ```
 

@@ -214,8 +214,8 @@ frontend/src/components/chat/
 ### 완료 기준
 - [x] 팀원 A가 시작한 세션에서 팀원 B가 이어서 작업 가능
 - [x] `--resume`으로 Claude Code 컨텍스트 유지
-- [x] 구독 모드에서 리눅스 사용자 전환 동작
-- [x] API 모드에서 ANTHROPIC_API_KEY로 동작
+- [ ] 구독 모드에서 리눅스 사용자 전환 동작 (향후 구현 — EC2 리눅스 유저 설정 선행 필요)
+- [x] API 모드에서 ANTHROPIC_API_KEY로 동작 (사용자별 claude_account 필드 주입)
 
 ---
 

@@ -8,6 +8,10 @@ import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationItem } from './NotificationItem';
 import { NotificationSettings } from './NotificationSettings';
+import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
+
+/** 설정 패널 탭 타입 */
+type SettingsTab = 'notification' | 'apikey';
 
 /** 표시할 최대 알림 수 */
 const MAX_DISPLAY = 10;
@@ -19,6 +23,8 @@ interface NotificationDropdownProps {
 /** 알림 드롭다운 패널 */
 export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   const [showSettings, setShowSettings] = useState(false);
+  // 설정 패널 내 탭 상태 — 알림 설정 | API 키 설정
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('notification');
   const { notifications: storeNotifs } = useRealtimeStore();
   const { notifications: serverNotifs, markAsRead, markAllAsRead } = useNotifications();
 
@@ -83,10 +89,34 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         </div>
       )}
 
-      {/* 알림 설정 패널 — 토글 시 표시 */}
+      {/* 설정 패널 — 알림 설정 / API 키 탭 */}
       {showSettings && (
         <div className="border-t border-[#E8E5DE]">
-          <NotificationSettings />
+          {/* 탭 헤더 */}
+          <div className="flex border-b border-[#E8E5DE]">
+            <button
+              onClick={() => setSettingsTab('notification')}
+              className="flex-1 py-2 text-xs font-medium transition-colors"
+              style={{
+                color: settingsTab === 'notification' ? '#2D7D7B' : '#6B6B7B',
+                borderBottom: settingsTab === 'notification' ? '2px solid #2D7D7B' : '2px solid transparent',
+              }}
+            >
+              알림
+            </button>
+            <button
+              onClick={() => setSettingsTab('apikey')}
+              className="flex-1 py-2 text-xs font-medium transition-colors"
+              style={{
+                color: settingsTab === 'apikey' ? '#2D7D7B' : '#6B6B7B',
+                borderBottom: settingsTab === 'apikey' ? '2px solid #2D7D7B' : '2px solid transparent',
+              }}
+            >
+              API 키
+            </button>
+          </div>
+          {/* 탭 컨텐츠 */}
+          {settingsTab === 'notification' ? <NotificationSettings /> : <ApiKeySettings />}
         </div>
       )}
     </div>
