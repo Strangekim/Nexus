@@ -17,6 +17,18 @@ function validateWorktreePath(worktreePath: string): void {
   }
 }
 
+/**
+ * repoPath에 경로 트래버설 시도(`..`)가 포함되어 있는지 검증
+ * 정규화 전 원본 경로 세그먼트 기준으로 검사
+ */
+function validateRepoPath(repoPath: string): void {
+  // 경로 세그먼트 단위로 '..' 포함 여부 확인
+  const segments = repoPath.split(path.sep).concat(repoPath.split('/'));
+  if (segments.some((seg) => seg === '..')) {
+    throw createHttpError(400, 'repoPath에 허용되지 않은 경로 세그먼트가 포함되어 있습니다');
+  }
+}
+
 /** 사용자 관계 select 옵션 */
 const userSelect = { select: { id: true, name: true } } as const;
 
@@ -80,6 +92,8 @@ async function create(dto: {
       });
     }
 
+    // repoPath에 '..' 포함 여부를 먼저 검증 (경로 트래버설 방지)
+    validateRepoPath(project.repoPath);
     const rawWorktreePath = project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
     validateWorktreePath(rawWorktreePath);
     const worktreePath = path.resolve(rawWorktreePath);

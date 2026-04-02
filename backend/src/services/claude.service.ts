@@ -21,20 +21,27 @@ class ClaudeService {
   ): EventEmitter {
     const emitter = new EventEmitter();
 
-    // -- 구분자로 message를 위치 인자로 고정하여 CLI 인자 인젝션 방지
-    // claudeSessionId에서 -- 시작 문자열 제거
+    // claudeSessionId에서 -- 시작 문자열 제거 (인자 인젝션 방지)
     const safeClaudeSessionId = claudeSessionId?.replace(/^--/, '') ?? null;
 
-    const args = ['--output-format', 'stream-json', '-p', '--', message];
+    // message는 stdin으로 전달 — args에 직접 포함하면 셸 인젝션 위험이 있음
+    // '--' 구분자 이후 위치 인자로 넘기는 방식 대신 stdin 파이프 사용
+    const args = ['--output-format', 'stream-json', '-p'];
     if (safeClaudeSessionId) {
-      // --resume은 -- 구분자 앞에 위치해야 하므로 앞에 삽입
-      args.splice(0, 0, '--resume', safeClaudeSessionId);
+      // --resume은 다른 플래그 앞에 위치
+      args.unshift('--resume', safeClaudeSessionId);
     }
 
     const proc = spawn('claude', args, {
       cwd: worktreePath,
       env: { ...process.env },
+      // stdin을 pipe로 열어 message를 안전하게 전달
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
+
+    // message를 stdin으로 쓰고 닫아 EOF 신호 전송
+    proc.stdin.write(message, 'utf8');
+    proc.stdin.end();
 
     this.processes.set(sessionId, proc);
 
