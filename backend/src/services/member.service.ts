@@ -54,9 +54,13 @@ async function remove(projectId: string, userId: string) {
 
 /**
  * 프로젝트 멤버십 검증 — 멤버가 아니면 403 에러를 throw
- * 모든 프로젝트 하위 라우트에서 접근 제어 용도로 사용
+ * 시스템 admin(role='admin')은 모든 프로젝트에 접근 가능 (bypass)
  */
 async function assertProjectMember(projectId: string, userId: string): Promise<void> {
+  // 시스템 관리자는 모든 프로젝트에 접근 가능
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (user?.role === 'admin') return;
+
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
   });

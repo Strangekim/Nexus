@@ -48,6 +48,10 @@ async function assertProjectMember(projectId: string, requesterId: string): Prom
  * admin이 아니면 403 에러를 throw
  */
 async function assertProjectAdmin(projectId: string, requesterId: string): Promise<void> {
+  // 시스템 관리자는 모든 프로젝트 관리 가능
+  const user = await prisma.user.findUnique({ where: { id: requesterId }, select: { role: true } });
+  if (user?.role === 'admin') return;
+
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId: requesterId } },
   });
