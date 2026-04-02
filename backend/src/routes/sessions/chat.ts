@@ -36,6 +36,14 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     const { id: sessionId } = request.params;
     const { message } = request.body;
 
+    // 사용자 인증 모드 확인 — api 모드는 현재 미지원
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { authMode: true } });
+    if (user?.authMode === 'api') {
+      return reply.code(403).send({
+        error: { code: 'FORBIDDEN', message: 'API 모드는 현재 지원하지 않습니다. 관리자에게 subscription 모드로 변경을 요청하세요.' },
+      });
+    }
+
     // 세션 존재 확인
     const session = await sessionService.findById(sessionId);
     if (!session) {
