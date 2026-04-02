@@ -68,7 +68,7 @@ export function useChat(sessionId: string): UseChatReturn {
       lastMessageRef.current = text;
 
       setMessages((prev) => [...prev, {
-        id: crypto.randomUUID(), sessionId,
+        id: Math.random().toString(36).slice(2) + Date.now().toString(36), sessionId,
         role: 'user', type: 'text',
         content: text, createdAt: new Date().toISOString(),
       }]);
