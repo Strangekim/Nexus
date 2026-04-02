@@ -83,7 +83,7 @@ export default function DashboardClient() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GitCommitsCard projectId={effectiveProjectId} />
-        <BranchStatusCard />
+        <BranchStatusCard projectId={effectiveProjectId} />
       </div>
     </>
   );

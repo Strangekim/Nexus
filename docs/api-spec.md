@@ -1371,9 +1371,35 @@ data: {"messageId": "pm-msg-001", "sessionId": null, "totalTokens": 800}
 
 ---
 
-## 12. Skills (CLAUDE.md / skills.md 관리)
+## 12. Branches (브랜치 목록)
 
-### 12.1 GET /api/projects/:id/skills/claude-md
+### 12.1 GET /api/projects/:id/branches
+프로젝트 레포의 로컬 브랜치 목록과 main 대비 ahead/behind 정보를 반환한다.
+
+- **인증 필요:** 예
+- **권한:** 프로젝트 멤버
+
+**응답 예시 (200)**
+```json
+{
+  "branches": [
+    { "name": "main", "current": true, "hash": "abc123", "status": "latest", "aheadCount": 0, "behindCount": 0, "author": "관리자" },
+    { "name": "feature/auth", "current": false, "hash": "def456", "status": "ahead", "aheadCount": 3, "behindCount": 0, "author": "김민수" }
+  ]
+}
+```
+
+**status 값:**
+- `latest` — main과 동일
+- `ahead` — main보다 앞선 커밋 있음
+- `behind` — main보다 뒤처진 커밋 있음
+- `diverged` — 앞서거나 뒤처진 커밋 모두 존재
+
+---
+
+## 13. Skills (CLAUDE.md / skills.md 관리)
+
+### 13.1 GET /api/projects/:id/skills/claude-md
 프로젝트의 CLAUDE.md 파일 내용을 읽는다.
 
 - **인증 필요:** 예
@@ -1387,7 +1413,7 @@ data: {"messageId": "pm-msg-001", "sessionId": null, "totalTokens": 800}
 }
 ```
 
-### 12.2 PUT /api/projects/:id/skills/claude-md
+### 13.2 PUT /api/projects/:id/skills/claude-md
 프로젝트의 CLAUDE.md 파일을 저장한다.
 
 - **인증 필요:** 예
@@ -1408,7 +1434,7 @@ data: {"messageId": "pm-msg-001", "sessionId": null, "totalTokens": 800}
 }
 ```
 
-### 12.3 GET /api/projects/:id/skills/skills-md
+### 13.3 GET /api/projects/:id/skills/skills-md
 프로젝트의 `.claude/skills.md` 파일 내용을 읽는다.
 
 - **인증 필요:** 예
@@ -1422,7 +1448,7 @@ data: {"messageId": "pm-msg-001", "sessionId": null, "totalTokens": 800}
 }
 ```
 
-### 12.4 PUT /api/projects/:id/skills/skills-md
+### 13.4 PUT /api/projects/:id/skills/skills-md
 프로젝트의 `.claude/skills.md` 파일을 저장한다.
 
 - **인증 필요:** 예
