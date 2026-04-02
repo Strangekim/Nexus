@@ -2,12 +2,14 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth/index.js';
 import projectRoutes from './routes/projects/index.js';
 import sessionRoutes from './routes/sessions/index.js';
 import treeRoutes from './routes/tree/index.js';
+import { registerTerminalNamespace } from './plugins/terminal.js';
 
 const app = Fastify({ logger: true });
 
@@ -39,8 +41,24 @@ await app.register(treeRoutes, { prefix: '/api/tree' });
 // 서버 시작
 const start = async () => {
   try {
+    // Fastify가 내부 http.Server를 생성하기 전에 ready() 호출
+    await app.ready();
+
+    // Fastify 내부 http.Server를 Socket.IO에 직접 연결
+    const io = new SocketIOServer(app.server, {
+      cors: {
+        origin: env.FRONTEND_URL,
+        credentials: true,
+      },
+      path: '/socket.io',
+    });
+
+    // 웹 터미널 네임스페이스 등록
+    registerTerminalNamespace(io);
+
+    // Fastify listen (Socket.IO가 동일 http.Server를 공유)
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
-    app.log.info(`서버가 포트 ${env.PORT}에서 실행 중입니다`);
+    app.log.info(`서버가 포트 ${env.PORT}에서 실행 중입니다 (HTTP + Socket.IO)`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

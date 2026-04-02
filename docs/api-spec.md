@@ -1446,6 +1446,68 @@ data: {"messageId": "pm-msg-001", "sessionId": null, "totalTokens": 800}
 
 > **특이사항:** 좌측 사이드바 렌더링용. 페이지네이션 없이 전체를 반환한다.
 
+### 13.2 GET /api/tree/file
+프로젝트 repoPath 기준 상대 경로로 파일 내용을 읽어 반환한다. 코드 뷰어에서 사용한다.
+
+- **인증 필요:** 예
+
+**쿼리 파라미터:**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `path` | string | 예 | repoPath 기준 상대 파일 경로 |
+| `projectId` | string (UUID) | 예 | 프로젝트 ID |
+
+**응답 (200):**
+```json
+{
+  "content": "import React from 'react';\n...",
+  "path": "src/components/App.tsx",
+  "language": "typescriptreact"
+}
+```
+
+**에러 응답:**
+| HTTP 상태 | code | 설명 |
+|-----------|------|------|
+| 403 | `FORBIDDEN_PATH` | repoPath 외부 경로 접근 시도 (경로 트래버설 차단) |
+| 404 | `PROJECT_NOT_FOUND` | 프로젝트 없음 |
+| 404 | `FILE_NOT_FOUND` | 파일 없음 |
+| 400 | `IS_DIRECTORY` | 디렉토리 경로 지정 시 |
+| 413 | `FILE_TOO_LARGE` | 파일 크기 5MB 초과 |
+
+> **특이사항:** `language` 필드는 확장자 기반으로 추론한다 (ts→typescript, tsx→typescriptreact, py→python 등).
+
+---
+
+## 14. 웹 터미널 (Socket.IO)
+
+Socket.IO 네임스페이스 `/terminal`을 통해 웹 터미널 세션을 관리한다.
+node-pty 기반 bash 프로세스를 spawn하며, node-pty 미설치 시 child_process.spawn으로 fallback한다.
+
+### 연결
+```
+ws://{host}/socket.io/?EIO=4&transport=websocket&ns=/terminal
+```
+
+### 클라이언트 → 서버 이벤트
+
+| 이벤트 | payload | 설명 |
+|--------|---------|------|
+| `terminal:start` | `{ projectId?: string, cols?: number, rows?: number }` | 터미널 세션 시작. cwd는 프로젝트 repoPath로 설정 |
+| `terminal:input` | `string` | 키 입력 데이터를 pty stdin에 전달 |
+| `terminal:resize` | `{ cols: number, rows: number }` | 터미널 크기 변경 |
+
+### 서버 → 클라이언트 이벤트
+
+| 이벤트 | payload | 설명 |
+|--------|---------|------|
+| `terminal:ready` | `{ cwd: string }` | 터미널 준비 완료 |
+| `terminal:output` | `string` | pty stdout/stderr 출력 데이터 |
+| `terminal:error` | `{ error: { code: string, message: string } }` | 터미널 오류 |
+
+> **특이사항:** 클라이언트 disconnect 시 해당 socketId의 pty 프로세스가 자동으로 kill된다.
+
 ---
 
 ## SSE 이벤트 스키마
