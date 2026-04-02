@@ -69,8 +69,28 @@ function registerRoomHandlers(socket: AuthenticatedSocket): void {
     if (projectId) socket.leave(`project:${projectId}`);
   });
 
-  socket.on('join:session', (sessionId: string) => {
-    if (sessionId) socket.join(`session:${sessionId}`);
+  socket.on('join:session', async (sessionId: string) => {
+    if (!sessionId) return;
+
+    // 세션의 projectId 조회 후 멤버십 확인 — 비멤버는 join 거부
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { projectId: true },
+    });
+    if (!session) {
+      socket.emit('error:join-session', { message: '세션을 찾을 수 없습니다' });
+      return;
+    }
+
+    const member = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId: session.projectId, userId: socket.data.userId } },
+    });
+    if (!member) {
+      socket.emit('error:join-session', { message: '해당 프로젝트의 멤버가 아닙니다' });
+      return;
+    }
+
+    socket.join(`session:${sessionId}`);
   });
 
   socket.on('leave:session', (sessionId: string) => {

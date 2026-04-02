@@ -2,6 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth, requireAdmin } from '../../plugins/auth.js';
 import { projectService } from '../../services/project.service.js';
+import { memberService } from '../../services/member.service.js';
 import { createHttpError } from '../../lib/errors.js';
 import memberRoutes from './members.js';
 import folderRoutes from '../folders/index.js';
@@ -80,7 +81,10 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
     schema: { params: idParamsSchema },
   }, async (request) => {
-    const project = await projectService.findById(request.params.id);
+    const { id } = request.params;
+    // 프로젝트 멤버십 검증 — 비멤버는 프로젝트 상세 조회 불가
+    await memberService.assertProjectMember(id, request.userId);
+    const project = await projectService.findById(id);
     // 프로젝트 미존재 시 전역 핸들러에서 처리
     if (!project) throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
     return project;
@@ -100,6 +104,8 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request) => {
+    // 프로젝트 멤버십 검증 — 비멤버는 프로젝트 수정 불가
+    await memberService.assertProjectMember(request.params.id, request.userId);
     // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
     return projectService.update(request.params.id, request.body);
   });

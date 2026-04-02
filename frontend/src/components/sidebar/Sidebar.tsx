@@ -5,8 +5,8 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { PanelLeftClose, PanelLeft, Plus, Users } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { PanelLeftClose, PanelLeft, Plus, Users, LogOut } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -15,6 +15,8 @@ import { CreateProjectDialog } from './CreateProjectDialog';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
+import { logout } from '@/services/api/auth';
+import { disconnectSocket } from '@/lib/socket';
 
 /** PC 고정 사이드바 — lg 이상에서만 렌더 */
 export function Sidebar() {
@@ -48,7 +50,7 @@ export function Sidebar() {
         </div>
       </ScrollArea>
 
-      {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 */}
+      {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 + 로그아웃 */}
       <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
         <AdminMenu />
         <Button
@@ -59,6 +61,7 @@ export function Sidebar() {
           <Plus className="size-4" />
           새 프로젝트
         </Button>
+        <LogoutButton />
       </div>
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -91,7 +94,7 @@ export function MobileSidebar() {
           </div>
         </ScrollArea>
 
-        {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 */}
+        {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 + 로그아웃 */}
         <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
           <div onClick={() => setMobileSidebarOpen(false)}>
             <AdminMenu />
@@ -104,6 +107,7 @@ export function MobileSidebar() {
             <Plus className="size-4" />
             새 프로젝트
           </Button>
+          <LogoutButton />
         </div>
 
         <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -135,6 +139,34 @@ function AdminMenu() {
         사용자 관리
       </Button>
     </Link>
+  );
+}
+
+/** 로그아웃 버튼 — 클릭 시 세션 종료 후 로그인 페이지로 이동 */
+function LogoutButton() {
+  const { setUser } = useAuthStore();
+  const router = useRouter();
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // 로그아웃 API 실패해도 클라이언트 상태는 초기화
+    }
+    setUser(null);
+    disconnectSocket();
+    router.push('/login');
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      className="w-full justify-start gap-2 text-[#6B6B7B] hover:text-[#E0845E] hover:bg-[#E0845E]/10"
+      onClick={handleLogout}
+    >
+      <LogOut className="size-4" />
+      로그아웃
+    </Button>
   );
 }
 
