@@ -39,9 +39,15 @@ export function handleChatStream(
         }
       }
 
-      // result 이벤트에서 세션 ID, 토큰 수 추출
+      // session_id 추출 — system(init), result 두 이벤트 모두에서 시도
+      // Claude CLI는 첫 system 이벤트에서 session_id를 포함하기도 함
+      const extractedId = (raw.session_id ?? raw.sessionId ?? null) as string | null;
+      if (extractedId && !claudeSessionId) {
+        claudeSessionId = extractedId;
+      }
+
+      // result 이벤트에서 토큰 수 추출
       if (raw.type === 'result') {
-        claudeSessionId = (raw.session_id ?? raw.sessionId ?? null) as string | null;
         totalTokens = (raw.total_tokens ?? raw.totalTokens ?? 0) as number;
       }
     });

@@ -93,3 +93,8 @@ export async function updateSession(
 export async function deleteSession(id: string): Promise<void> {
   return apiFetch<void>(`/api/sessions/${id}`, { method: 'DELETE' });
 }
+
+/** 세션 단건 조회 (생성자, 락 정보 포함) */
+export async function fetchSession(id: string): Promise<Session> {
+  return apiFetch<Session>(`/api/sessions/${id}`);
+}

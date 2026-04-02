@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { SessionCreatorBanner } from './SessionCreatorBanner';
 import { useChat } from '@/hooks/useChat';
 import { useMessages } from '@/hooks/useMessages';
 import { LockStatusBadge } from '@/components/session/LockStatusBadge';
@@ -13,11 +14,13 @@ import { useAuthStore } from '@/stores/authStore';
 
 interface ChatPanelProps {
   sessionId: string;
+  /** 세션 생성자 정보 (이어받기 배너 표시용) */
+  creator?: { id: string; name: string } | null;
   /** 파일 경로 클릭 시 코드 뷰어 열기 콜백 */
   onFileClick?: (path: string) => void;
 }
 
-export function ChatPanel({ sessionId, onFileClick }: ChatPanelProps) {
+export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
   const {
     messages,
     streamingText,
@@ -45,6 +48,9 @@ export function ChatPanel({ sessionId, onFileClick }: ChatPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* 타인 세션 이어받기 안내 배너 */}
+      <SessionCreatorBanner creator={creator} currentUserId={currentUser?.id} />
+
       {/* 락 상태 헤더 바 */}
       <div
         className="flex items-center justify-between px-4 py-2 border-b"
