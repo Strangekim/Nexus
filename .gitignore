@@ -1,6 +1,6 @@
 # 루트 수준 gitignore — 프로젝트 전체 공통 규칙
 
-# 환경변수 파일 — 절대 커밋 금지
+# 환경변수 파일 — 절대 커밋 금지 (.example 파일은 허용)
 .env
 .env.local
 .env.production
@@ -8,13 +8,8 @@
 .env.staging
 .env.test
 .env.test.local
-backend/.env
-backend/.env.local
-backend/.env.production
-backend/.env.staging
-frontend/.env
-frontend/.env.local
-frontend/.env.production
+!*.env.example
+!**/.env.example
 
 # 의존성
 node_modules/
@@ -49,3 +44,4 @@ Thumbs.db
 
 # Prisma 생성 파일
 backend/src/generated/
+.claude/

@@ -118,9 +118,55 @@
   "email": "hong@example.com",
   "role": "member",
   "linuxUser": "hong",
-  "authMode": "subscription"
+  "authMode": "subscription",
+  "phone": "01012345678",
+  "notifySms": false,
+  "notifyBrowser": true,
+  "notifySound": true
 }
 ```
+
+### 1.4 PATCH /api/auth/settings
+현재 로그인한 사용자의 알림 설정을 부분 업데이트한다.
+변경할 필드만 body에 포함하면 되며, 포함되지 않은 필드는 그대로 유지된다.
+
+- **인증 필요:** 예
+
+**요청:**
+```json
+{
+  "phone": "01012345678",
+  "notifySms": true,
+  "notifyBrowser": true,
+  "notifySound": false
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `phone` | `string \| null` | 아니오 | 수신 전화번호 (null 전달 시 삭제, 최대 20자) |
+| `notifySms` | `boolean` | 아니오 | SMS 알림 활성화 여부 |
+| `notifyBrowser` | `boolean` | 아니오 | 브라우저 푸시 알림 활성화 여부 |
+| `notifySound` | `boolean` | 아니오 | 알림음 활성화 여부 |
+
+> **제약:** 변경할 필드가 하나도 없으면 `400 BAD_REQUEST` 반환.
+
+**응답 (200):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "phone": "01012345678",
+  "notifySms": true,
+  "notifyBrowser": true,
+  "notifySound": false
+}
+```
+
+**에러 응답:**
+| HTTP 상태 | code | 설명 |
+|-----------|------|------|
+| 400 | `BAD_REQUEST` | 변경할 필드가 없거나 유효하지 않은 값 |
+| 401 | `UNAUTHORIZED` | 인증되지 않은 요청 |
 
 ---
 
@@ -1772,6 +1818,45 @@ const socket = io("https://nexus.example.com", {
   "timestamp": "2026-04-01T10:00:00.000Z"
 }
 ```
+
+#### 외부 알림 (브라우저/알림음 트리거)
+
+**`session:task-complete`** -- 서버 -> 클라이언트 (특정 사용자에게)
+Claude Code 세션의 작업이 완료되었음을 알린다.
+클라이언트는 `notifyBrowser`, `notifySound` 플래그를 확인하여 각 동작을 독립적으로 실행한다.
+```json
+{
+  "data": {
+    "sessionId": "ggg-hhh-iii",
+    "sessionTitle": "로그인 API 구현",
+    "projectName": "쇼핑몰 백엔드",
+    "notifyBrowser": true,
+    "notifySound": true
+  },
+  "timestamp": "2026-04-01T11:00:00.000Z"
+}
+```
+
+> **동작:** `notifyBrowser=true`이면 탭이 백그라운드일 때 OS 데스크톱 알림 표시.
+> `notifySound=true`이면 Web Audio API로 알림음 재생.
+> SMS 발송은 서버 측에서 처리되며 클라이언트에는 별도 이벤트 없음.
+
+**`session:permission-required`** -- 서버 -> 클라이언트 (특정 사용자에게)
+Claude Code가 실행 중 사용자 확인이 필요한 경우 알린다 (예: 위험한 명령 실행 전 허가 요청).
+```json
+{
+  "data": {
+    "sessionId": "ggg-hhh-iii",
+    "sessionTitle": "로그인 API 구현",
+    "notifyBrowser": true,
+    "notifySound": true
+  },
+  "timestamp": "2026-04-01T10:45:00.000Z"
+}
+```
+
+> **동작:** `notifyBrowser`, `notifySound` 처리 방식은 `session:task-complete`와 동일.
+> 클라이언트는 해당 세션으로 이동하여 Claude Code의 허가 요청 UI를 표시해야 한다.
 
 #### 알림 관련
 

@@ -10,7 +10,7 @@ PostgreSQL + Prisma ORM 기반이며, 모든 테이블과 관계, 인덱스, 제
 ## 테이블 설명
 
 ### users
-사용자 정보. `email`을 로그인 식별자(UNIQUE NOT NULL)로 사용하며, `name`은 표시용이다. Claude Code 구독 인증을 위한 `linux_user`/`auth_mode`/`claude_account` 컬럼을 포함한다.
+사용자 정보. `email`을 로그인 식별자(UNIQUE NOT NULL)로 사용하며, `name`은 표시용이다. Claude Code 구독 인증을 위한 `linux_user`/`auth_mode`/`claude_account` 컬럼을 포함한다. 알림 설정 컬럼(`phone`, `notify_sms`, `notify_browser`, `notify_sound`)은 `PATCH /api/auth/settings`로 업데이트하며, 작업 완료/허가 요청 시 외부 알림 발송 여부를 제어한다.
 
 ### user_sessions
 세션 기반 인증을 위한 테이블. `@fastify/session` + `connect-pg-simple`에서 사용하며, `sid`를 기본 키로 세션 데이터(`sess` JSON)와 만료 시각(`expire`)을 저장한다.
@@ -66,6 +66,12 @@ model User {
   authMode       String   @default("subscription") @map("auth_mode") @db.VarChar(20) // 'subscription' | 'api'
   claudeAccount  String?  @map("claude_account") @db.Text
   createdAt      DateTime @default(now()) @map("created_at")
+
+  // 알림 설정 — PATCH /api/auth/settings 로 업데이트
+  phone          String?  @db.VarChar(20)          // SMS 수신 전화번호 (예: '01012345678', null이면 SMS 미발송)
+  notifySms      Boolean  @default(false) @map("notify_sms")      // SMS 알림 활성화 여부
+  notifyBrowser  Boolean  @default(true)  @map("notify_browser")  // 브라우저 푸시 알림 활성화 여부
+  notifySound    Boolean  @default(true)  @map("notify_sound")    // 알림음 활성화 여부
 
   // Relations
   sessions         Session[]       @relation("CreatedSessions")
@@ -342,6 +348,20 @@ commits 테이블 주요 컬럼:
 | `users` 1:N `commits` (triggered_by) | 사용자가 커밋을 유발 | **SetNull** (nullable) |
 | `users` 1:N `usage_logs` | 사용자별 사용량 기록 | **Cascade** (사용자 삭제 시 로그도 삭제) |
 | `users` 1:N `notifications` | 사용자별 알림 | Cascade |
+
+---
+
+## users 알림 설정 컬럼
+
+| 컬럼 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `phone` | `VARCHAR(20)?` | null | SMS 수신 전화번호 (null이면 SMS 미발송) |
+| `notify_sms` | `BOOLEAN` | false | SMS 알림 활성화 여부 (phone이 있어야 실제 발송됨) |
+| `notify_browser` | `BOOLEAN` | true | 브라우저 푸시 알림 활성화 여부 |
+| `notify_sound` | `BOOLEAN` | true | 알림음 활성화 여부 |
+
+> **SMS 발송 조건:** `notify_sms=true` AND `phone IS NOT NULL` AND 알리고 환경변수 설정됨.
+> `PATCH /api/auth/settings`로 업데이트하며, `session:task-complete` / `session:permission-required` 이벤트 발생 시 참조된다.
 
 ---
 
