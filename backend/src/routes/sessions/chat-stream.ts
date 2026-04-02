@@ -47,37 +47,46 @@ export function handleChatStream(
     });
 
     emitter.on('error', (errMsg: string) => {
+      // emitter 에러 발생 시 클라이언트에 에러 이벤트 전송
       sendSseEvent(reply, 'system', { subtype: 'error', message: errMsg });
+      reply.raw.end();
+      resolve();
     });
 
     emitter.on('close', async () => {
-      // AI 응답 메시지 저장
-      if (fullText) {
-        const metadata = toolsUsed.length > 0 ? { toolsUsed } : undefined;
-        const saved = await messageService.saveAssistantMessage(
-          sessionId, fullText, metadata, totalTokens || undefined,
-        );
+      try {
+        // AI 응답 메시지 저장
+        if (fullText) {
+          const metadata = toolsUsed.length > 0 ? { toolsUsed } : undefined;
+          const saved = await messageService.saveAssistantMessage(
+            sessionId, fullText, metadata, totalTokens || undefined,
+          );
 
-        // done 이벤트 전송
-        sendSseEvent(reply, 'done', {
-          messageId: saved.id,
-          sessionId,
-          totalTokens,
+          // done 이벤트 전송
+          sendSseEvent(reply, 'done', {
+            messageId: saved.id,
+            sessionId,
+            totalTokens,
+          });
+        }
+
+        // 세션 정보 업데이트 (claudeSessionId, lastActivityAt)
+        const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
+        if (claudeSessionId) {
+          updateData.claudeSessionId = claudeSessionId;
+        }
+        await prisma.session.update({
+          where: { id: sessionId },
+          data: updateData,
         });
+      } catch (err) {
+        // DB 저장 실패해도 SSE는 정상 종료 — unhandled rejection 방지
+        console.error('메시지 저장 실패:', err);
+      } finally {
+        // 항상 SSE 스트림 종료 및 Promise 해결
+        reply.raw.end();
+        resolve();
       }
-
-      // 세션 정보 업데이트 (claudeSessionId, lastActivityAt)
-      const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
-      if (claudeSessionId) {
-        updateData.claudeSessionId = claudeSessionId;
-      }
-      await prisma.session.update({
-        where: { id: sessionId },
-        data: updateData,
-      });
-
-      reply.raw.end();
-      resolve();
     });
 
     // 클라이언트 연결 끊김 처리
