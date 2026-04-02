@@ -2,6 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth, requireAdmin } from '../../plugins/auth.js';
 import { projectService } from '../../services/project.service.js';
+import { createHttpError } from '../../lib/errors.js';
 import memberRoutes from './members.js';
 import folderRoutes from '../folders/index.js';
 
@@ -66,13 +67,10 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: IdParams }>('/:id', {
     preHandler: [requireAuth],
     schema: { params: idParamsSchema },
-  }, async (request, reply) => {
+  }, async (request) => {
     const project = await projectService.findById(request.params.id);
-    if (!project) {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '프로젝트를 찾을 수 없습니다' },
-      });
-    }
+    // 프로젝트 미존재 시 전역 핸들러에서 처리
+    if (!project) throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
     return project;
   });
 
@@ -89,14 +87,9 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-  }, async (request, reply) => {
-    try {
-      return await projectService.update(request.params.id, request.body);
-    } catch {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '프로젝트를 찾을 수 없습니다' },
-      });
-    }
+  }, async (request) => {
+    // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
+    return projectService.update(request.params.id, request.body);
   });
 
   // DELETE /:id — 프로젝트 삭제 (관리자 전용)
@@ -104,14 +97,9 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAdmin],
     schema: { params: idParamsSchema },
   }, async (request, reply) => {
-    try {
-      await projectService.remove(request.params.id);
-      return reply.code(204).send();
-    } catch {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '프로젝트를 찾을 수 없습니다' },
-      });
-    }
+    // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
+    await projectService.remove(request.params.id);
+    return reply.code(204).send();
   });
 };
 

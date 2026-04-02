@@ -2,6 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { folderService } from '../../services/folder.service.js';
+import { createHttpError } from '../../lib/errors.js';
 
 // 요청 타입 정의
 interface ProjectParams { projectId: string }
@@ -52,31 +53,19 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request, reply) => {
-    try {
-      const folder = await folderService.create(request.params.projectId, request.body);
-      return reply.code(201).send(folder);
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      if (error.statusCode === 409) {
-        return reply.code(409).send({
-          error: { code: 'CONFLICT', message: error.message },
-        });
-      }
-      throw err;
-    }
+    // 409 Conflict 포함 에러는 전역 핸들러에서 처리
+    const folder = await folderService.create(request.params.projectId, request.body);
+    return reply.code(201).send(folder);
   });
 
   // GET /:id — 폴더 상세
   fastify.get<{ Params: FolderParams }>('/:id', {
     preHandler: [requireAuth],
     schema: { params: folderParamsSchema },
-  }, async (request, reply) => {
+  }, async (request) => {
     const folder = await folderService.findById(request.params.id);
-    if (!folder) {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' },
-      });
-    }
+    // 폴더 미존재 시 전역 핸들러에서 처리
+    if (!folder) throw createHttpError(404, '폴더를 찾을 수 없습니다');
     return folder;
   });
 
@@ -93,14 +82,9 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-  }, async (request, reply) => {
-    try {
-      return await folderService.update(request.params.id, request.body);
-    } catch {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' },
-      });
-    }
+  }, async (request) => {
+    // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
+    return folderService.update(request.params.id, request.body);
   });
 
   // DELETE /:id — 폴더 삭제
@@ -108,14 +92,9 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
     schema: { params: folderParamsSchema },
   }, async (request, reply) => {
-    try {
-      await folderService.remove(request.params.id);
-      return reply.code(204).send();
-    } catch {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' },
-      });
-    }
+    // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
+    await folderService.remove(request.params.id);
+    return reply.code(204).send();
   });
 };
 
