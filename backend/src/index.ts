@@ -10,6 +10,8 @@ import projectRoutes from './routes/projects/index.js';
 import sessionRoutes from './routes/sessions/index.js';
 import treeRoutes from './routes/tree/index.js';
 import { registerTerminalNamespace } from './plugins/terminal.js';
+import { registerSocketPlugin } from './plugins/socket.js';
+import { socketService } from './services/socket.service.js';
 
 const app = Fastify({ logger: true });
 
@@ -68,8 +70,14 @@ const start = async () => {
       path: '/socket.io',
     });
 
+    // 기본 네임스페이스 인증 미들웨어 및 룸 핸들러 등록
+    registerSocketPlugin(io);
+
     // 웹 터미널 네임스페이스 등록
     registerTerminalNamespace(io);
+
+    // SocketService 싱글턴 초기화 — 브로드캐스트 유틸 사용 가능
+    socketService.init(io);
 
     // Fastify listen (Socket.IO가 동일 http.Server를 공유)
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
