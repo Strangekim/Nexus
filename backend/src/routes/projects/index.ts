@@ -6,6 +6,8 @@ import { createHttpError } from '../../lib/errors.js';
 import memberRoutes from './members.js';
 import folderRoutes from '../folders/index.js';
 import commitsRouter from './commits/router.js';
+import dashboardRoutes from './dashboard.js';
+import queryRoute from './query.js';
 
 // 요청 타입 정의
 interface ListQuery { page?: number; limit?: number }
@@ -29,6 +31,10 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(memberRoutes, { prefix: '/:projectId/members' });
   // 커밋 라우트를 하위에 등록
   await fastify.register(commitsRouter, { prefix: '/:id/commits' });
+  // 대시보드 라우트를 하위에 등록
+  await fastify.register(dashboardRoutes, { prefix: '/:id/dashboard' });
+  // PM 질의 라우트 등록 (prefix 없음 — 라우트 내부에서 /:id/query 처리)
+  await fastify.register(queryRoute);
 
   // GET / — 프로젝트 목록 (페이지네이션)
   fastify.get<{ Querystring: ListQuery }>('/', {

@@ -1,111 +1,73 @@
-// 활동 피드 카드 컴포넌트 — 최근 팀 활동 목록 표시
+// 활동 피드 카드 — activity API 연동 (온라인 사용자 + 정적 피드)
+'use client';
 
-import { Activity, GitCommit, MessageSquare, Plus } from "lucide-react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Activity, Users, RefreshCw } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useDashboardActivity } from '@/hooks/useDashboard';
 
-// 활동 유형별 아이콘 및 색상 매핑
-const ACTIVITY_TYPE_MAP = {
-  commit: { icon: GitCommit, color: "#2D7D7B", bg: "#2D7D7B1A" },
-  message: { icon: MessageSquare, color: "#E0845E", bg: "#E0845E1A" },
-  create: { icon: Plus, color: "#2D7D7B", bg: "#2D7D7B1A" },
-} as const;
+interface Props {
+  projectId: string;
+}
 
-type ActivityType = keyof typeof ACTIVITY_TYPE_MAP;
-
-// 활동 피드 목데이터
-const ACTIVITY_FEED: {
-  id: string;
-  user: string;
-  action: string;
-  project: string;
-  type: ActivityType;
-  time: string;
-}[] = [
-  {
-    id: "a1",
-    user: "김민준",
-    action: "결제 플로우 개선 세션에 커밋",
-    project: "쇼핑몰 리뉴얼",
-    type: "commit",
-    time: "12분 전",
-  },
-  {
-    id: "a2",
-    user: "이서연",
-    action: "로그인 버그 수정 세션에서 메시지 전송",
-    project: "사내 인트라넷",
-    type: "message",
-    time: "47분 전",
-  },
-  {
-    id: "a3",
-    user: "박지호",
-    action: "새 세션 생성: 대시보드 차트 연동",
-    project: "사내 인트라넷",
-    type: "create",
-    time: "2시간 전",
-  },
-  {
-    id: "a4",
-    user: "김민준",
-    action: "상품 리스트 UI 개선 세션에 커밋",
-    project: "쇼핑몰 리뉴얼",
-    type: "commit",
-    time: "3시간 전",
-  },
-];
-
-// 사용자 이름 이니셜 추출
-function getInitials(name: string): string {
+/** 이름 이니셜 추출 */
+function getInitial(name: string): string {
   return name.slice(0, 1);
 }
 
-export default function ActivityFeedCard() {
+/** 아바타 배경색 — 이름 해시 기반 */
+const AVATAR_COLORS = ['#2D7D7B', '#E0845E', '#5B7D9A', '#7D6B2D', '#7D2D5B'];
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+export default function ActivityFeedCard({ projectId }: Props) {
+  const { data, isLoading, isError } = useDashboardActivity(projectId);
+  const onlineUsers = (data?.onlineUsers ?? []).filter(Boolean) as { id: string; name: string }[];
+
   return (
     <Card className="bg-white border border-[#E8E5DE] shadow-none rounded-xl">
       <CardHeader className="border-b border-[#E8E5DE] pb-3">
         <CardTitle className="flex items-center gap-2 text-[#1A1A1A] text-sm font-semibold">
           <Activity size={15} className="text-[#2D7D7B]" />
-          최근 활동
+          온라인 팀원
+          {isLoading && <RefreshCw size={12} className="text-[#6B6B7B] animate-spin ml-auto" />}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-2 pb-1">
-        <ul className="divide-y divide-[#E8E5DE]">
-          {ACTIVITY_FEED.map((item) => {
-            const { icon: Icon, color, bg } = ACTIVITY_TYPE_MAP[item.type];
-            return (
-              <li key={item.id} className="flex items-start gap-3 py-3">
-                {/* 사용자 아바타 */}
-                <div className="shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[#2D7D7B] to-[#E0845E] flex items-center justify-center text-white text-xs font-semibold">
-                  {getInitials(item.user)}
+      <CardContent className="pt-4 pb-3">
+        {isError && (
+          <p className="text-xs text-[#6B6B7B] text-center py-4">데이터를 불러올 수 없습니다.</p>
+        )}
+        {!isLoading && !isError && onlineUsers.length === 0 && (
+          <div className="flex flex-col items-center gap-2 py-6 text-[#6B6B7B]">
+            <Users size={24} className="opacity-40" />
+            <p className="text-xs">최근 1시간 내 활동한 팀원이 없습니다.</p>
+          </div>
+        )}
+        {onlineUsers.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {onlineUsers.map((user) => (
+              <div key={user.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F5F5EF]">
+                {/* 아바타 */}
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0"
+                  style={{ backgroundColor: avatarColor(user.name) }}
+                >
+                  {getInitial(user.name)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[#1A1A1A] leading-snug">
-                    <span className="font-semibold">{item.user}</span>
-                    {"이(가) "}
-                    <span className="text-[#6B6B7B]">{item.action}</span>
-                  </p>
-                  {/* 프로젝트명 + 활동 유형 배지 */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <div
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
-                      style={{ color, backgroundColor: bg }}
-                    >
-                      <Icon size={10} />
-                      {item.project}
-                    </div>
-                    <span className="text-xs text-[#6B6B7B]">{item.time}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[#1A1A1A] truncate">{user.name}</p>
+                  {/* 온라인 표시 */}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                    <span className="text-[10px] text-[#6B6B7B]">온라인</span>
                   </div>
                 </div>
-              </li>
-            );
-          })}
-        </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

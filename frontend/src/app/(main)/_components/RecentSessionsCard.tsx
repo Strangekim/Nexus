@@ -1,78 +1,76 @@
-// 최근 세션 카드 컴포넌트 — 최근 작업한 세션 목록 표시
+// 최근 세션 카드 — activity API 데이터 연동 (현재 락 보유 세션)
+'use client';
 
-import { Clock, FolderOpen } from "lucide-react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Clock, FolderOpen, Lock, RefreshCw } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useDashboardActivity } from '@/hooks/useDashboard';
 
-// 최근 세션 목데이터
-const RECENT_SESSIONS = [
-  {
-    id: "s1",
-    projectName: "쇼핑몰 리뉴얼",
-    sessionName: "결제 플로우 개선",
-    lastActivity: "12분 전",
-  },
-  {
-    id: "s2",
-    projectName: "사내 인트라넷",
-    sessionName: "로그인 페이지 버그 수정",
-    lastActivity: "1시간 전",
-  },
-  {
-    id: "s3",
-    projectName: "쇼핑몰 리뉴얼",
-    sessionName: "상품 리스트 UI 개선",
-    lastActivity: "3시간 전",
-  },
-  {
-    id: "s4",
-    projectName: "사내 인트라넷",
-    sessionName: "대시보드 차트 연동",
-    lastActivity: "어제",
-  },
-];
+interface Props {
+  projectId: string;
+}
 
-export default function RecentSessionsCard() {
+/** 경과 시간 포맷 */
+function formatElapsed(isoStr: string | null): string {
+  if (!isoStr) return '—';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}분 전`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}시간 전`;
+  return `${Math.floor(hrs / 24)}일 전`;
+}
+
+export default function RecentSessionsCard({ projectId }: Props) {
+  const { data, isLoading, isError } = useDashboardActivity(projectId);
+  const sessions = data?.lockedSessions ?? [];
+
   return (
     <Card className="bg-white border border-[#E8E5DE] shadow-none rounded-xl">
       <CardHeader className="border-b border-[#E8E5DE] pb-3">
         <CardTitle className="flex items-center gap-2 text-[#1A1A1A] text-sm font-semibold">
           <Clock size={15} className="text-[#2D7D7B]" />
-          최근 세션
+          현재 작업 중인 세션
+          {isLoading && <RefreshCw size={12} className="text-[#6B6B7B] animate-spin ml-auto" />}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-2 pb-1">
-        <ul className="divide-y divide-[#E8E5DE]">
-          {RECENT_SESSIONS.map((session) => (
-            <li
-              key={session.id}
-              className="flex items-center justify-between py-3 hover:bg-[#F5F5EF] -mx-4 px-4 rounded-lg cursor-pointer transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                {/* 프로젝트 폴더 아이콘 */}
-                <div className="shrink-0 w-7 h-7 rounded-md bg-[#2D7D7B]/10 flex items-center justify-center">
-                  <FolderOpen size={13} className="text-[#2D7D7B]" />
+        {isError && (
+          <p className="text-xs text-[#6B6B7B] text-center py-4">데이터를 불러올 수 없습니다.</p>
+        )}
+        {!isLoading && !isError && sessions.length === 0 && (
+          <p className="text-xs text-[#6B6B7B] text-center py-6">현재 작업 중인 세션이 없습니다.</p>
+        )}
+        {sessions.length > 0 && (
+          <ul className="divide-y divide-[#E8E5DE]">
+            {sessions.map((session) => (
+              <li
+                key={session.id}
+                className="flex items-center justify-between py-3 hover:bg-[#F5F5EF] -mx-4 px-4 rounded-lg cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="shrink-0 w-7 h-7 rounded-md bg-[#2D7D7B]/10 flex items-center justify-center">
+                    <FolderOpen size={13} className="text-[#2D7D7B]" />
+                  </div>
+                  <div className="min-w-0">
+                    {session.folder && (
+                      <p className="text-xs text-[#6B6B7B] truncate">{session.folder.name}</p>
+                    )}
+                    <p className="text-sm font-medium text-[#1A1A1A] truncate">{session.title}</p>
+                    {session.locker && (
+                      <p className="text-xs text-[#E0845E] flex items-center gap-1 mt-0.5">
+                        <Lock size={9} />
+                        {session.locker.name}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-[#6B6B7B] truncate">
-                    {session.projectName}
-                  </p>
-                  <p className="text-sm font-medium text-[#1A1A1A] truncate">
-                    {session.sessionName}
-                  </p>
-                </div>
-              </div>
-              {/* 마지막 활동 시간 */}
-              <span className="shrink-0 text-xs text-[#6B6B7B] ml-4">
-                {session.lastActivity}
-              </span>
-            </li>
-          ))}
-        </ul>
+                <span className="shrink-0 text-xs text-[#6B6B7B] ml-4">
+                  {formatElapsed(session.lockedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
