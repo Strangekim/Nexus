@@ -34,8 +34,10 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   const unreadCount = allNotifs.filter((n) => !n.isRead).length;
 
   return (
+    // 모바일에서 화면 오른쪽 끝을 넘지 않도록 right-0 기준 정렬, style로 max-width 제한
     <div
-      className="absolute left-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-lg border border-[#E8E5DE] bg-white shadow-lg"
+      className="absolute right-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-lg border border-[#E8E5DE] bg-white shadow-lg"
+      style={{ maxWidth: 'calc(100vw - 1rem)' }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* 헤더: 제목 + 설정 버튼 + 모두 읽음 버튼 */}

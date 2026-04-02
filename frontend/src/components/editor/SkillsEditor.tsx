@@ -109,10 +109,11 @@ export function SkillsEditor({ projectId }: { projectId: string }) {
   const isDirty = activeTab === 'claude-md' ? claudeDirty : skillsDirty;
   const isLoading = activeTab === 'claude-md' ? claudeLoading : skillsLoading;
 
+  // h-full: 부모(main 영역)를 꽉 채움, min-h-screen 제거 — 부모가 이미 overflow 제어함
   return (
-    <div className="flex flex-col h-full min-h-screen" style={{ background: '#F5F5EF' }}>
-      {/* 헤더 */}
-      <div className="flex items-center justify-between px-6 py-4 border-b"
+    <div className="flex flex-col h-full" style={{ background: '#F5F5EF' }}>
+      {/* 헤더 — 모바일에서 패딩 축소 */}
+      <div className="flex items-center justify-between px-4 lg:px-6 py-4 border-b"
         style={{ background: 'white', borderColor: '#E8E5DE' }}>
         <div>
           <h1 className="text-lg font-semibold" style={{ color: '#1A1A2E' }}>
@@ -137,8 +138,8 @@ export function SkillsEditor({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* 탭 */}
-      <div className="flex border-b px-6" style={{ background: 'white', borderColor: '#E8E5DE' }}>
+      {/* 탭 바 — 모바일에서 패딩 축소 */}
+      <div className="flex border-b px-4 lg:px-6" style={{ background: 'white', borderColor: '#E8E5DE' }}>
         <EditorTab
           label="CLAUDE.md"
           active={activeTab === 'claude-md'}
@@ -151,8 +152,8 @@ export function SkillsEditor({ projectId }: { projectId: string }) {
         />
       </div>
 
-      {/* 편집 영역 */}
-      <div className="flex-1 p-6">
+      {/* 편집 영역 — 모바일에서 패딩 축소 */}
+      <div className="flex-1 p-4 lg:p-6">
         <div className="h-full rounded-lg border overflow-hidden"
           style={{ background: 'white', borderColor: '#E8E5DE' }}>
           {activeTab === 'claude-md' ? (
@@ -173,8 +174,8 @@ export function SkillsEditor({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* 하단 힌트 */}
-      <div className="px-6 pb-4 text-xs" style={{ color: '#6B6B7B' }}>
+      {/* 하단 힌트 — 모바일에서 패딩 축소 */}
+      <div className="px-4 lg:px-6 pb-4 text-xs" style={{ color: '#6B6B7B' }}>
         {isLoading ? '파일 불러오는 중...' : 'Ctrl+S 로 저장 · 저장 후 다음 Claude Code 세션에 반영됩니다'}
       </div>
     </div>

@@ -30,7 +30,8 @@ export default function CommitsPage() {
   return (
     <div className="min-h-full bg-[#F5F5EF]">
       {/* 헤더 */}
-      <div className="sticky top-0 z-10 bg-white border-b border-[#E8E5DE] px-6 py-4">
+      {/* 모바일에서 패딩 축소 */}
+      <div className="sticky top-0 z-10 bg-white border-b border-[#E8E5DE] px-4 lg:px-6 py-4">
         <div className="flex items-center gap-3">
           <Link
             href="/"
@@ -60,7 +61,8 @@ export default function CommitsPage() {
       </div>
 
       {/* 본문 */}
-      <div className="max-w-2xl mx-auto px-6 py-6">
+      {/* 모바일에서 좌우 패딩 축소 */}
+      <div className="max-w-2xl mx-auto px-4 lg:px-6 py-6">
         {isLoading && (
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (

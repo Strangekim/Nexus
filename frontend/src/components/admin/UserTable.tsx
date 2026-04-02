@@ -44,8 +44,9 @@ export function UserTable({ users, currentUserId }: Props) {
 
   return (
     <>
-      <div className="rounded-xl border border-[#E8E5DE] bg-white overflow-hidden">
-        <table className="w-full text-sm">
+      {/* overflow-x-auto: 모바일에서 테이블 가로 스크롤 허용 */}
+      <div className="rounded-xl border border-[#E8E5DE] bg-white overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-[#E8E5DE] bg-[#F5F5EF]">
               <th className="px-4 py-3 text-left font-medium text-[#6B6B7B]">이름</th>

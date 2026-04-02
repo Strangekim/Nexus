@@ -59,7 +59,8 @@ export function MessageInput({
   );
 
   return (
-    <div className="sticky bottom-0 w-full bg-[#F9F9F4] border-t border-[#E8E5DE] lg:static lg:border-none lg:bg-transparent">
+    /* sticky bottom-0: 모바일에서 입력창 하단 고정, z-10으로 메시지 목록 위에 표시 */
+    <div className="sticky bottom-0 z-10 w-full bg-[#F9F9F4] border-t border-[#E8E5DE] lg:static lg:z-auto lg:border-none lg:bg-transparent">
     <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-2">
       <div
         className="flex items-end gap-2 rounded-xl border px-4 py-3"

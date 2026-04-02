@@ -12,7 +12,8 @@ export default function MainLayout({
 }) {
   return (
     <RealtimeProvider>
-      <div className="flex h-screen bg-[#F5F5EF]">
+      {/* 높이: dvh 지원 브라우저는 100dvh, 미지원 시 100vh fallback (iOS Safari 주소창 문제 방지) */}
+      <div className="flex bg-[#F5F5EF]" style={{ height: '100dvh' }}>
         {/* PC 고정 사이드바 (lg 이상) */}
         <Sidebar />
 

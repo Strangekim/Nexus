@@ -48,8 +48,8 @@ export default function AdminUsersPage() {
         </Button>
       </div>
 
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* 통계 카드 — 모바일에서 1열, sm 이상에서 3열 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="전체 사용자" value={users.length} color="teal" />
         <StatCard label="관리자" value={users.filter((u) => u.role === 'admin').length} color="teal" />
         <StatCard label="API 키 모드" value={users.filter((u) => u.authMode === 'api').length} color="coral" />

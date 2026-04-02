@@ -44,7 +44,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-sm rounded-2xl border border-[#E8E5DE] bg-white p-8 shadow-lg">
+    // 모바일에서 카드가 화면 좌우 여백 없이 붙지 않도록 w-full + 패딩 보장 (부모 layout에서 px-4 적용됨)
+    <div className="w-full max-w-sm rounded-2xl border border-[#E8E5DE] bg-white p-6 sm:p-8 shadow-lg">
       {/* 브랜드 그라데이션 상단 액센트 */}
       <div
         className="mx-auto mb-6 h-1 w-16 rounded-full"
