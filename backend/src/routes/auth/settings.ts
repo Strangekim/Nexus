@@ -23,6 +23,13 @@ interface SettingsBody {
   notifyBrowser?: boolean;
   /** 알림음 활성화 여부 */
   notifySound?: boolean;
+  /**
+   * 사용자 개인 Claude API 키 (sk-ant-... 형식).
+   * 빈 문자열 전달 시 null로 저장 (키 삭제).
+   * 최대 200자.
+   * TODO: 향후 AES-256 등으로 암호화 저장 필요
+   */
+  claudeAccount?: string;
 }
 
 const settingsRoute: FastifyPluginAsync = async (fastify) => {
@@ -38,17 +45,19 @@ const settingsRoute: FastifyPluginAsync = async (fastify) => {
           additionalProperties: false,
           properties: {
             // phone: null을 허용하여 번호 삭제 지원
-            phone:         { type: ['string', 'null'], maxLength: 20 },
-            notifySms:     { type: 'boolean' },
-            notifyBrowser: { type: 'boolean' },
-            notifySound:   { type: 'boolean' },
+            phone:          { type: ['string', 'null'], maxLength: 20 },
+            notifySms:      { type: 'boolean' },
+            notifyBrowser:  { type: 'boolean' },
+            notifySound:    { type: 'boolean' },
+            // 빈 문자열도 허용 — 핸들러에서 null로 변환
+            claudeAccount:  { type: 'string', maxLength: 200 },
           },
         },
       },
     },
     async (request) => {
       const userId = request.userId;
-      const { phone, notifySms, notifyBrowser, notifySound } = request.body;
+      const { phone, notifySms, notifyBrowser, notifySound, claudeAccount } = request.body;
 
       // undefined가 아닌 필드만 업데이트 데이터에 포함
       // (undefined = 변경 의사 없음, null = 값 삭제 의사 있음)
@@ -57,6 +66,9 @@ const settingsRoute: FastifyPluginAsync = async (fastify) => {
       if (notifySms !== undefined)     data.notifySms     = notifySms;
       if (notifyBrowser !== undefined) data.notifyBrowser = notifyBrowser;
       if (notifySound !== undefined)   data.notifySound   = notifySound;
+      // 빈 문자열이면 null로 저장 (키 삭제), 값이 있으면 평문 저장
+      // TODO: 향후 저장 전 AES-256 암호화 적용 필요
+      if (claudeAccount !== undefined) data.claudeAccount = claudeAccount.trim() || null;
 
       // 변경할 필드가 하나도 없으면 400 오류 반환
       if (Object.keys(data).length === 0) {
@@ -73,6 +85,7 @@ const settingsRoute: FastifyPluginAsync = async (fastify) => {
           notifySms: true,
           notifyBrowser: true,
           notifySound: true,
+          // claudeAccount는 응답에 포함하지 않음 — me 라우트에서 마스킹하여 제공
         },
       });
 

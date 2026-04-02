@@ -13,12 +13,17 @@ class ClaudeService {
   /** 실행 중인 프로세스 관리 (세션ID → 프로세스) */
   private processes = new Map<string, ChildProcess>();
 
-  /** CLI 실행 + stdout stream-json 파싱 */
+  /**
+   * CLI 실행 + stdout stream-json 파싱.
+   * @param apiKey 사용자 개인 Claude API 키 — 있으면 ANTHROPIC_API_KEY 환경변수로 주입,
+   *               없으면 서버 EC2 환경의 Claude 인증(로그인 세션)을 그대로 사용
+   */
   executeChat(
     sessionId: string,
     message: string,
     worktreePath: string,
     claudeSessionId?: string | null,
+    apiKey?: string | null,
   ): EventEmitter {
     const emitter = new EventEmitter();
 
@@ -33,9 +38,14 @@ class ClaudeService {
       args.unshift('--resume', safeClaudeSessionId);
     }
 
+    // apiKey가 있으면 ANTHROPIC_API_KEY로 주입, 없으면 서버 환경 그대로 사용
+    const env = apiKey
+      ? { ...process.env, ANTHROPIC_API_KEY: apiKey }
+      : { ...process.env };
+
     const proc = spawn('claude', args, {
       cwd: worktreePath,
-      env: { ...process.env },
+      env,
       // stdin을 pipe로 열어 message를 안전하게 전달
       stdio: ['pipe', 'pipe', 'pipe'],
     });

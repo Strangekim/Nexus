@@ -55,8 +55,11 @@ class TeamQueryService {
     ].join('\n');
   }
 
-  /** 팀 질의 실행 — EventEmitter 반환 (채팅과 동일 패턴) */
-  async query(projectId: string, message: string, folderId?: string): Promise<EventEmitter> {
+  /**
+   * 팀 질의 실행 — EventEmitter 반환 (채팅과 동일 패턴).
+   * @param apiKey 요청 사용자의 개인 Claude API 키 — 있으면 ANTHROPIC_API_KEY로 주입
+   */
+  async query(projectId: string, message: string, folderId?: string, apiKey?: string | null): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
     // 동시 질의 수 확인
@@ -95,6 +98,11 @@ class TeamQueryService {
     // 카운터 증가
     activeQueries.set(projectId, current + 1);
 
+    // apiKey가 있으면 ANTHROPIC_API_KEY로 주입, 없으면 서버 환경 그대로 사용
+    const env = apiKey
+      ? { ...process.env, ANTHROPIC_API_KEY: apiKey }
+      : { ...process.env };
+
     // Claude Code 실행 — 읽기+Bash+Write 허용, Edit(기존 파일 수정) 금지
     const proc = spawn('claude', [
       '--output-format', 'stream-json',
@@ -102,7 +110,7 @@ class TeamQueryService {
       '-p',
     ], {
       cwd: project.repoPath,
-      env: { ...process.env },
+      env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

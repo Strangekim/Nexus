@@ -6,6 +6,7 @@ import { transformStreamEvent } from '../../services/sse-transformer.js';
 import { createHttpError } from '../../lib/errors.js';
 import { StreamEvent } from '../../services/claude.service.js';
 import { memberService } from '../../services/member.service.js';
+import prisma from '../../lib/prisma.js';
 
 interface Params { id: string }
 interface Body { message: string; folderId?: string }
@@ -40,6 +41,19 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
     // SSE 헤더 전송 전 멤버십 검증 (헤더 write 이후엔 에러 응답 불가)
     await memberService.assertProjectMember(projectId, request.userId);
 
+    // 사용자 개인 Claude API 키 조회
+    const user = await prisma.user.findUnique({
+      where: { id: request.userId },
+      select: { claudeAccount: true },
+    });
+
+    // API 키 미설정 시 질의 불가
+    if (!user?.claudeAccount) {
+      return reply.code(403).send({
+        error: { code: 'NO_CLAUDE_KEY', message: 'Claude API 키를 먼저 설정해주세요 (설정 > Claude API 키).' },
+      });
+    }
+
     // SSE 헤더 설정
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -50,7 +64,8 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
 
     let emitter;
     try {
-      emitter = await pmQueryService.query(projectId, message, folderId);
+      // 사용자 API 키를 팀 질의 서비스에 전달
+      emitter = await pmQueryService.query(projectId, message, folderId, user.claudeAccount);
     } catch {
       throw createHttpError(500, '팀 질의 서비스 오류');
     }

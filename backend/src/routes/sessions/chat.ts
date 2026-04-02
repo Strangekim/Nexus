@@ -36,11 +36,23 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     const { id: sessionId } = request.params;
     const { message } = request.body;
 
-    // 사용자 인증 모드 확인 — api 모드는 현재 미지원
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { authMode: true } });
+    // 사용자 인증 모드 + 개인 API 키 조회
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { authMode: true, claudeAccount: true },
+    });
+
     if (user?.authMode === 'api') {
+      // api 모드는 현재 미지원
       return reply.code(403).send({
         error: { code: 'FORBIDDEN', message: 'API 모드는 현재 지원하지 않습니다. 관리자에게 subscription 모드로 변경을 요청하세요.' },
+      });
+    }
+
+    // subscription 모드: 개인 API 키 필수 확인
+    if (user?.authMode === 'subscription' && !user.claudeAccount) {
+      return reply.code(403).send({
+        error: { code: 'NO_CLAUDE_KEY', message: 'Claude API 키를 먼저 설정해주세요 (설정 > Claude API 키).' },
       });
     }
 
@@ -84,11 +96,13 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     });
 
     // Claude CLI 실행 및 스트림 처리
+    // 사용자 개인 API 키가 있으면 주입, 없으면 서버 EC2 인증 사용
     const emitter = claudeService.executeChat(
       sessionId,
       message,
       session.worktreePath,
       session.claudeSessionId,
+      user?.claudeAccount,
     );
 
     // 외부 알림용 프로젝트 이름 조회
