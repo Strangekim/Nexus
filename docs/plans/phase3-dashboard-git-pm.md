@@ -93,11 +93,11 @@ frontend/src/
 - Phase 2 (WebSocket - `git:commit-new` 이벤트)
 
 ### 완료 기준
-- [ ] 채팅 완료 후 새 커밋이 자동으로 DB에 동기화
-- [ ] 커밋 타임라인에서 세션별 색 구분 표시
-- [ ] 커밋 클릭 → Diff 뷰어에서 변경사항 확인
-- [ ] 롤백 → revert 커밋 생성 + 타임라인 실시간 갱신
-- [ ] `git:commit-new` WebSocket 이벤트로 실시간 업데이트
+- [x] 채팅 완료 후 새 커밋이 자동으로 DB에 동기화
+- [x] 커밋 타임라인에서 세션별 색 구분 표시
+- [x] 커밋 클릭 → Diff 뷰어에서 변경사항 확인
+- [x] 롤백 → revert 커밋 생성 + 타임라인 실시간 갱신
+- [x] `git:commit-new` WebSocket 이벤트로 실시간 업데이트
 
 ---
 
@@ -195,11 +195,11 @@ backend/src/services/
 - Phase 2 (세션 락)
 
 ### 완료 기준
-- [ ] 세션 아카이브 시 worktree 브랜치가 main에 merge
-- [ ] merge 충돌 → AI 자동 해결 시도
-- [ ] 자동 해결 실패 → `mergeStatus: 'conflict'` + 수동 재시도 가능
-- [ ] 동시 merge 요청 시 큐에서 순차 처리 (index.lock 충돌 없음)
-- [ ] merge 완료 후 worktree 디렉토리 정리
+- [x] 세션 아카이브 시 worktree 브랜치가 main에 merge
+- [x] merge 충돌 → AI 자동 해결 시도
+- [x] 자동 해결 실패 → `mergeStatus: 'conflict'` + 수동 재시도 가능
+- [x] 동시 merge 요청 시 큐에서 순차 처리 (index.lock 충돌 없음)
+- [x] merge 완료 후 worktree 디렉토리 정리
 
 ---
 
@@ -262,19 +262,21 @@ frontend/src/
 - Phase 2 (WebSocket, 세션 락 - 활성 세션 표시)
 
 ### 완료 기준
-- [ ] 대시보드에서 현재 작업 중인 팀원/세션 실시간 표시
-- [ ] 기간별 통계 (커밋/세션/메시지 수) 표시
-- [ ] 사용자별/폴더별 커밋 분포 차트
-- [ ] 파일 변경 빈도 맵 표시
-- [ ] 팀원별 사용량 표시
-- [ ] 실시간 이벤트로 대시보드 자동 갱신
+- [x] 대시보드에서 현재 작업 중인 팀원/세션 실시간 표시
+- [x] 기간별 통계 (커밋/세션/메시지 수) 표시
+- [x] 사용자별/폴더별 커밋 분포 차트
+- [x] 파일 변경 빈도 맵 표시
+- [x] 팀원별 사용량 표시
+- [x] 실시간 이벤트로 대시보드 자동 갱신
 
 ---
 
-## 3.4 PM 질의 (프로젝트 현황 자연어 질의)
+## 3.4 팀 질의 (프로젝트 현황 자연어 질의)
+
+> 이전 명칭 "PM 질의"에서 "팀 질의"로 변경. 팀원 누구나 질의 가능하다.
 
 ### 목표
-PM이 프로젝트/폴더 단위로 자연어 질의 → AI가 세션 히스토리 + Git 로그 기반으로 답변
+팀원이 프로젝트/폴더 단위로 자연어 질의 → AI가 세션 히스토리 + Git 로그 기반으로 답변
 
 ### 구현 파일
 ```
@@ -287,7 +289,7 @@ backend/src/
 │   └── pm-query.service.ts      -- 컨텍스트 수집 + Claude Code 읽기 전용 실행
 
 frontend/src/components/dashboard/
-└── PMQueryInput.tsx             -- PM 질의 입력 + SSE 응답 표시
+└── TeamQueryInput.tsx           -- 팀 질의 입력 + SSE 응답 표시 (구 PMQueryInput)
 ```
 
 ### 구현 단계
@@ -333,8 +335,8 @@ frontend/src/components/dashboard/
    - 세션 락 불필요 (읽기 전용)
    - 히스토리 저장하지 않음 (일회성)
 
-3. **프론트엔드: PM 질의 UI**
-   - 대시보드 페이지 상단에 `PMQueryInput` 배치
+3. **프론트엔드: 팀 질의 UI**
+   - 대시보드 페이지 상단에 `TeamQueryInput` 배치
    - 입력 → SSE 스트리밍 → 응답 표시 (채팅과 동일한 마크다운 렌더링)
    - 응답 완료 후 입력 영역 리셋
    - 별도 세션 생성 없음, 일회성 질의/응답
@@ -344,11 +346,11 @@ frontend/src/components/dashboard/
 - Phase 1 (Claude Code CLI 래핑, SSE 파서)
 
 ### 완료 기준
-- [ ] 대시보드에서 "이번 주 뭘 했어?" 질의 → AI 답변 (SSE 스트리밍)
-- [ ] 폴더 단위 질의 가능 ("인증 모듈 어디까지 진행됐어?")
-- [ ] 읽기 전용 모드로 파일 수정 불가
-- [ ] 히스토리 저장되지 않음
-- [ ] 동시 질의 2개 제한 동작
+- [x] 대시보드에서 "이번 주 뭘 했어?" 질의 → AI 답변 (SSE 스트리밍)
+- [x] 폴더 단위 질의 가능 ("인증 모듈 어디까지 진행됐어?")
+- [x] 읽기 전용 모드로 파일 수정 불가
+- [x] 히스토리 저장되지 않음
+- [x] 동시 질의 2개 제한 동작
 
 ---
 
@@ -361,7 +363,7 @@ Phase 1~2 완료
  └──→ 3.1 Git 커밋 동기화 + 타임라인
        ├──→ 3.2 세션 아카이브 + Merge
        ├──→ 3.3 팀 대시보드
-       └──→ 3.4 PM 질의
+       └──→ 3.4 팀 질의
 ```
 
 ### 작업별 병렬 처리 가능 여부
@@ -373,9 +375,9 @@ Phase 1~2 완료
 | 3.2 Merge 서비스 | 3.1 백엔드 | **불가** | session.service.ts 아카이브 로직에 merge 통합 | `session.service.ts` 수정 |
 | 3.3 대시보드 — 백엔드 | 3.1 백엔드 | **가능** ✅ | 독립 라우트 (dashboard/) | `backend/src/routes/projects/dashboard/` |
 | 3.3 대시보드 — 프론트 | 3.1 프론트 | **가능** ✅ | 독립 컴포넌트 (dashboard/) | `frontend/src/components/dashboard/` |
-| 3.4 PM 질의 — 백엔드 | 3.1 백엔드 | **가능** ✅ | 독립 서비스 + 라우트 | `backend/src/services/pm-query.service.ts` |
-| 3.4 PM 질의 — 프론트 | 3.1 프론트 | **가능** ✅ | PMQueryInput 컴포넌트 | `frontend/src/components/dashboard/PMQueryInput.tsx` |
-| **3.2 vs 3.3 vs 3.4** | 모두 3.1만 의존 | **3.3, 3.4 병렬** ✅ | 3.2는 기존 서비스 수정이라 주의 | 3.3/3.4는 충돌 없음, 3.2는 독립 실행 권장 |
+| 3.4 팀 질의 — 백엔드 | 3.1 백엔드 | **가능** ✅ | 독립 서비스 + 라우트 | `backend/src/services/pm-query.service.ts` |
+| 3.4 팀 질의 — 프론트 | 3.1 프론트 | **가능** ✅ | TeamQueryInput 컴포넌트 | `frontend/src/components/dashboard/TeamQueryInput.tsx` |
+| **3.2 vs 3.3 vs 3.4** | 모두 3.1만 의존 | **3.3, 3.4 병렬** ✅ | 3.2는 기존 서비스 수정이라 주의 | 3.3/3.4 충돌 없음, 3.2 독립 실행 권장 |
 
 ### 최적 실행 계획 (단일 에이전트)
 
@@ -385,10 +387,10 @@ Step 2: 3.2 Merge + 3.3 대시보드 + 3.4 PM 질의 [병렬]
         - 3.2 백엔드 (merge 서비스, merge-queue, 아카이브 로직)
         - 3.3 백엔드 (대시보드 API 4개)
         - 3.3 프론트 (대시보드 위젯)
-        - 3.4 백엔드 (PM 질의 서비스 + 라우트)
+        - 3.4 백엔드 (팀 질의 서비스 + 라우트)
         ⚠️ 3.2는 session.service.ts 수정 → 다른 에이전트와 파일 충돌 주의
         → 안전하게: 3.2 순차 + 3.3/3.4 병렬
-Step 3: 3.4 프론트 (PMQueryInput) — Step 2 대시보드 프론트에 포함 가능
+Step 3: 3.4 프론트 (TeamQueryInput) — Step 2 대시보드 프론트에 포함 가능
 ```
 
 **예상 Step 수: 2~3**

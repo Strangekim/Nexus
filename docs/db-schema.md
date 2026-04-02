@@ -31,7 +31,7 @@ Claude Code 세션과 매핑되는 작업 단위. 세션 락(`locked_by`, `locke
 세션 내 대화 기록. `role`(user/assistant), `type`(text/tool_use/tool_result/error)으로 메시지를 구분하고, `metadata` JSONB로 tool_use 상세 정보 등을 저장한다.
 
 ### commits
-Git 커밋 로그. 세션과 프로젝트에 연결되며, `triggered_by`로 커밋을 유발한 Nexus 사용자를 추적한다. `(project_id, hash)` 복합 유니크로 중복을 방지한다.
+Git 커밋 로그. 세션과 프로젝트에 연결되며, `triggered_by`로 커밋을 유발한 Nexus 사용자를 추적한다. `(project_id, hash)` 복합 유니크로 중복을 방지한다. `additions`/`deletions`로 변경 줄 수 통계를 저장한다.
 
 ### usage_logs
 사용량 로그. 세션별 실행 시간, 비용, 토큰 사용량(`input_tokens`, `output_tokens`)을 기록한다.
@@ -103,6 +103,7 @@ model Project {
 
   // Relations
   folders        Folder[]
+  sessions       Session[]       // 프로젝트 직속 세션 (폴더 미소속)
   commits        Commit[]
   projectMembers ProjectMember[]
 
@@ -167,13 +168,15 @@ model Session {
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  folder    Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  folder    Folder?    @relation(fields: [folderId], references: [id], onDelete: Cascade)
   creator   User?      @relation("CreatedSessions", fields: [createdBy], references: [id], onDelete: SetNull)
   locker    User?      @relation("LockedSessions", fields: [lockedBy], references: [id], onDelete: SetNull)
   messages  Message[]
   commits   Commit[]
   usageLogs UsageLog[]
 
+  @@index([projectId])
   @@index([folderId])
   @@index([folderId, status])
   @@index([lockedBy])
@@ -215,6 +218,8 @@ model Commit {
   author       String?  @db.VarChar(100)
   triggeredBy  String?  @map("triggered_by") @db.Uuid
   filesChanged Json?    @map("files_changed") @db.JsonB // ["src/auth.ts", ...]
+  additions    Int?     @map("additions")               // 추가 줄 수
+  deletions    Int?     @map("deletions")               // 삭제 줄 수
   createdAt    DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -280,16 +285,21 @@ users
   |                                        |
   |                                        |── 1:N ── folders
   |                                        |             |
-  |                                        |             |── 1:N ── sessions
-  |                                        |                          |
-  |── 1:N (created_by) ── sessions         |                          |── 1:N ── messages
-  |    [onDelete: SetNull]                 |                          |── 1:N ── commits
-  |── 1:N (locked_by)  ── sessions         |                          |── 1:N ── usage_logs
-  |    [onDelete: SetNull]                 |
-  |── 1:N ── messages                      |── 1:N ── commits
-  |    [onDelete: SetNull]                 |
-  |── 1:N ── usage_logs                    |
-  |    [onDelete: Cascade]                 |
+  |                                        |             |── 1:N ── sessions (folderId)
+  |                                        |
+  |                                        |── 1:N ── sessions (projectId, 폴더 미소속)
+  |                                        |             |
+  |                                        |             |── 1:N ── messages
+  |                                        |             |── 1:N ── commits
+  |                                        |             |── 1:N ── usage_logs
+  |── 1:N (created_by) ── sessions         |
+  |    [onDelete: SetNull]                 |── 1:N ── commits
+  |── 1:N (locked_by)  ── sessions         |
+  |    [onDelete: SetNull]
+  |── 1:N ── messages
+  |    [onDelete: SetNull]
+  |── 1:N ── usage_logs
+  |    [onDelete: Cascade]
   |── 1:N (triggered_by) ── commits
   |    [onDelete: SetNull]
   |── 1:N ── notifications
@@ -302,9 +312,15 @@ user_sessions (독립 테이블 — @fastify/session + connect-pg-simple 전용)
   sid (PK), sess (JSON), expire (Timestamp)
 
 sessions 테이블 주요 컬럼:
+  project_id      UUID          -- 소속 프로젝트 (필수)
+  folder_id       UUID?         -- 소속 폴더 (null이면 프로젝트 직속)
   worktree_path   VARCHAR(500)  -- Git worktree 디렉토리 경로
   branch_name     VARCHAR(200)  -- Git 브랜치명 (예: session/abc)
   merge_status    VARCHAR(20)   -- 'working' | 'merged' | 'conflict'
+
+commits 테이블 주요 컬럼:
+  additions       INT?          -- 추가 줄 수
+  deletions       INT?          -- 삭제 줄 수
 ```
 
 ### 관계 상세
@@ -314,6 +330,7 @@ sessions 테이블 주요 컬럼:
 | `users` 1:N `project_members` | 사용자는 여러 프로젝트에 참여 가능 | Cascade |
 | `projects` 1:N `project_members` | 프로젝트는 여러 멤버를 가짐 | Cascade |
 | `projects` 1:N `folders` | 프로젝트는 여러 폴더를 포함 | Cascade |
+| `projects` 1:N `sessions` | 프로젝트 직속 세션 (folderId=null) | Cascade |
 | `projects` 1:N `commits` | 프로젝트는 여러 커밋을 가짐 | Cascade |
 | `folders` 1:N `sessions` | 폴더는 여러 세션을 포함 | Cascade |
 | `sessions` 1:N `messages` | 세션은 여러 메시지를 포함 | Cascade |
@@ -345,6 +362,7 @@ sessions 테이블 주요 컬럼:
 
 | 테이블 | 인덱스 컬럼 | 용도 |
 |--------|-------------|------|
+| `sessions` | `project_id` | 프로젝트별 세션 조회 |
 | `sessions` | `folder_id` | 폴더별 세션 조회 |
 | `sessions` | `(folder_id, status)` | 폴더별 활성 세션 필터링 |
 | `sessions` | `locked_by` | 사용자별 락 세션 조회 |
@@ -366,8 +384,8 @@ sessions 테이블 주요 컬럼:
 
 | 부모 삭제 시 | 자동 삭제 대상 | 설명 |
 |-------------|---------------|------|
-| `projects` 삭제 | `folders`, `commits`, `project_members` | 프로젝트 삭제 시 하위 데이터 모두 정리 |
-| `folders` 삭제 | `sessions` | 폴더 삭제 시 소속 세션 정리 |
+| `projects` 삭제 | `folders`, `sessions`, `commits`, `project_members` | 프로젝트 삭제 시 하위 데이터 모두 정리 |
+| `folders` 삭제 | `sessions` (folderId=해당 폴더인 것) | 폴더 삭제 시 소속 세션 정리 |
 | `sessions` 삭제 | `messages`, `commits`, `usage_logs` | 세션 삭제 시 대화/커밋/사용량 정리 |
 | `users` 삭제 | `project_members`, `notifications`, `usage_logs` | 사용자 삭제 시 멤버십/알림/사용량 로그 정리 |
 
@@ -380,7 +398,7 @@ sessions 테이블 주요 컬럼:
 | `users` 삭제 | `messages.user_id` | 작성자 정보만 NULL 처리, 메시지는 유지 |
 | `users` 삭제 | `commits.triggered_by` | 유발자 정보만 NULL 처리, 커밋 기록은 유지 |
 
-> 참고: `projects` -> `folders` -> `sessions` -> `messages`/`commits` 순으로 CASCADE가 전파되므로, 프로젝트 삭제 시 폴더, 세션, 메시지, 커밋이 모두 삭제된다. 사용자 삭제 시에는 세션/메시지/커밋 자체는 보존되고 FK 참조만 NULL로 설정된다.
+> 참고: `projects` -> `folders` -> `sessions(folderId)` + `projects` -> `sessions(projectId)` 모두 CASCADE로 전파되므로, 프로젝트 삭제 시 폴더, 세션(폴더 소속 + 직속 모두), 메시지, 커밋이 모두 삭제된다. 사용자 삭제 시에는 세션/메시지/커밋 자체는 보존되고 FK 참조만 NULL로 설정된다.
 
 ---
 

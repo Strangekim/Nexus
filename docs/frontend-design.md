@@ -19,7 +19,7 @@ Nexus의 UI/UX는 **Claude Web(claude.ai)** 및 **Claude Desktop** 앱을 핵심
 | **코드 블록** | 다크 배경, 언어 라벨, 복사 버튼 | 동일. syntax highlighter + 복사 버튼 |
 | **도구 사용 표시** | 접기 가능한 카드, 실행 상태 아이콘 | 동일. ToolUseCard로 구현 |
 | **스트리밍** | 커서 블링크, 점진적 텍스트 표시 | 동일. 커서 애니메이션 + 마크다운 점진적 렌더링 |
-| **다크 모드** | 기본 다크, 부드러운 대비 | 다크 모드 기본. Nexus 브랜드 색상으로 커스터마이징 |
+| **라이트 모드** | Claude Web의 라이트 톤 | 라이트 모드 기본. 배경 `#F5F5EF`, 카드 white 기반으로 커스터마이징 |
 
 #### 차별화 요소 (Claude에 없는 Nexus 고유 기능)
 - 좌측 사이드바: 단순 대화 목록 → 프로젝트/폴더/세션 3계층 트리
@@ -50,15 +50,15 @@ Nexus의 UI/UX는 **Claude Web(claude.ai)** 및 **Claude Desktop** 앱을 핵심
 | **Coral** | `#E0845E` | `18 68% 63%` | 강조, CTA 보조, 알림 뱃지 |
 | **Coral Light** | `#E8A88A` | `18 63% 72%` | 호버 상태, 하이라이트 |
 
-#### 시맨틱 컬러 (다크 모드 기본)
+#### 시맨틱 컬러 (라이트 모드 기본)
 
-| 시맨틱 | CSS 변수 | 값 (다크) | 설명 |
-|--------|----------|----------|------|
-| `--background` | 배경 | `#1A1A2E` | 메인 배경 (Claude 다크 톤 참고) |
-| `--background-secondary` | 보조 배경 | `#16213E` | 카드, 입력 영역 배경 |
-| `--background-sidebar` | 사이드바 | `#0F3433` | Teal Dark 기반 사이드바 |
-| `--foreground` | 기본 텍스트 | `#E8E8ED` | 밝은 회색 텍스트 |
-| `--foreground-muted` | 보조 텍스트 | `#8B8B9E` | 비활성, 타임스탬프 |
+| 시맨틱 | CSS 변수 | 값 (라이트) | 설명 |
+|--------|----------|------------|------|
+| `--background` | 배경 | `#F5F5EF` | 메인 배경 (Claude Web 라이트 톤 참고) |
+| `--background-secondary` | 보조 배경 | `#FFFFFF` | 카드, 입력 영역 배경 |
+| `--background-sidebar` | 사이드바 | `#0F3433` | Teal Dark 기반 사이드바 (라이트에서도 유지) |
+| `--foreground` | 기본 텍스트 | `#1A1A1A` | 진한 텍스트 |
+| `--foreground-muted` | 보조 텍스트 | `#6B7280` | 비활성, 타임스탬프 |
 | `--primary` | 주요 색상 | `#2D7D7B` | Teal Mid — 버튼, 링크 |
 | `--primary-foreground` | 주요 위 텍스트 | `#FFFFFF` | Primary 위 흰 텍스트 |
 | `--accent` | 강조 색상 | `#E0845E` | Coral — CTA 보조, 뱃지 |
@@ -66,9 +66,9 @@ Nexus의 UI/UX는 **Claude Web(claude.ai)** 및 **Claude Desktop** 앱을 핵심
 | `--destructive` | 위험 | `#E05252` | 삭제, 에러 |
 | `--success` | 성공 | `#4CAF50` | 성공 토스트, 완료 상태 |
 | `--warning` | 경고 | `#DFA770` | Sand — 경고, 보류 |
-| `--border` | 테두리 | `#2A2A3E` | 구분선, 카드 테두리 |
+| `--border` | 테두리 | `#E5E5E0` | 구분선, 카드 테두리 |
 | `--ring` | 포커스 링 | `#2D7D7B` | Teal Mid — 포커스 표시 |
-| `--input` | 입력 배경 | `#1E1E32` | 입력 필드 배경 |
+| `--input` | 입력 배경 | `#FFFFFF` | 입력 필드 배경 |
 
 #### 그라데이션
 
@@ -152,22 +152,12 @@ Claude Web의 여유로운 여백감을 유지한다.
 
 @layer base {
   :root {
-    /* Nexus 브랜드 — 라이트 모드 (추후 지원) */
-    --background: 240 20% 96%;
-    --foreground: 240 10% 10%;
-    --primary: 175 46% 33%;
-    --primary-foreground: 0 0% 100%;
-    --accent: 18 68% 63%;
-    --accent-foreground: 0 0% 100%;
-  }
-
-  .dark {
-    /* 다크 모드 (기본) */
-    --background: 240 33% 14%;        /* #1A1A2E */
-    --background-secondary: 224 45% 16%; /* #16213E */
-    --background-sidebar: 175 55% 13%;  /* #0F3433 */
-    --foreground: 240 10% 92%;         /* #E8E8ED */
-    --foreground-muted: 240 8% 58%;    /* #8B8B9E */
+    /* Nexus 브랜드 — 라이트 모드 (기본) */
+    --background: 60 11% 95%;          /* #F5F5EF */
+    --background-secondary: 0 0% 100%; /* #FFFFFF — 카드, 입력 영역 */
+    --background-sidebar: 175 55% 13%; /* #0F3433 — Teal Dark 사이드바 */
+    --foreground: 0 0% 10%;            /* #1A1A1A */
+    --foreground-muted: 220 9% 46%;    /* #6B7280 */
 
     --primary: 179 46% 33%;            /* #2D7D7B — Teal Mid */
     --primary-foreground: 0 0% 100%;
@@ -179,16 +169,16 @@ Claude Web의 여유로운 여백감을 유지한다.
     --destructive: 0 65% 60%;          /* #E05252 */
     --success: 122 39% 49%;            /* #4CAF50 */
 
-    --border: 240 20% 20%;             /* #2A2A3E */
-    --input: 240 28% 16%;              /* #1E1E32 */
+    --border: 60 10% 88%;              /* #E5E5E0 */
+    --input: 0 0% 100%;                /* #FFFFFF */
     --ring: 179 46% 33%;               /* Teal Mid */
 
-    --card: 224 45% 16%;
-    --card-foreground: 240 10% 92%;
-    --popover: 224 45% 16%;
-    --popover-foreground: 240 10% 92%;
-    --muted: 240 15% 20%;
-    --muted-foreground: 240 8% 58%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --muted: 60 5% 93%;
+    --muted-foreground: 220 9% 46%;
 
     /* 브랜드 그라데이션 */
     --gradient-brand: linear-gradient(135deg, #1B605B 0%, #8A9A5E 40%, #DFA770 70%, #E0845E 100%);
@@ -634,7 +624,7 @@ interface StreamingMessageProps {
 
 export function StreamingMessage({ content, isStreaming }: StreamingMessageProps) {
   return (
-    <div className="prose prose-invert max-w-none">
+    <div className="prose max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -726,7 +716,7 @@ export const MessageItem = memo(function MessageItem({
 
   // 완료된 메시지: sanitize 불필요, memo로 리렌더 방지
   return (
-    <div className="prose prose-invert max-w-none">
+    <div className="prose max-w-none">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
         {content}
       </ReactMarkdown>
@@ -865,7 +855,7 @@ export default function TerminalInnerClient({ sessionId }: { sessionId: string }
     if (!containerRef.current) return;
 
     const terminal = new Terminal({
-      theme: { background: '#1a1a2e' },
+      theme: { background: '#0F3433', foreground: '#E8E8ED' }, // 사이드바와 동일한 Teal Dark 배경
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       cursorBlink: false,
@@ -947,7 +937,7 @@ shadcn/ui를 채택한다. 이유는 다음과 같다.
 
 ### 6.3 테마 설정
 
-`섹션 0.8 globals.css 구현` 참조. shadcn/ui의 CSS 변수 시스템을 Nexus 브랜드 컬러(Teal/Coral 그라데이션)로 커스터마이징한다. 다크 모드를 기본으로 사용하며, `tailwind.config.ts`에서 `darkMode: "class"`로 설정한다.
+`섹션 0.8 globals.css 구현` 참조. shadcn/ui의 CSS 변수 시스템을 Nexus 브랜드 컬러(Teal/Coral 그라데이션)로 커스터마이징한다. **라이트 모드를 기본**으로 사용하며, `tailwind.config.ts`에서 `darkMode: "class"`로 설정한다. 사이드바는 라이트 모드에서도 `#0F3433` 다크 Teal 배경을 유지하여 브랜드 정체성을 표현한다.
 
 ---
 
@@ -1207,8 +1197,9 @@ export function getSocket(): Socket {
 SessionPage (Server Component)
 ├── SessionHeader (Client)
 │   ├── 세션 제목
-│   ├── LockStatusBadge (락 상태: 사용자명, 시간)
-│   ├── LockRequestButton (락 요청/해제)
+│   ├── LockStatusBadge       -- 락 상태 뱃지 (본인: 초록, 타인: 주황/빨강, 미잠금: 회색)
+│   ├── LockRequestButton     -- 타인 락 상태에서 "작업 요청" 버튼
+│   ├── LockRequestDialog     -- 락 요청 메시지 입력 다이얼로그
 │   └── UserAvatar (현재 작업자)
 ├── SessionLayout (Client)
 │   ├── ChatPanel
@@ -1232,7 +1223,7 @@ SessionPage (Server Component)
 │       └── TerminalInnerClient (xterm.js)
 ```
 
-PM 질의는 세션을 생성하지 않고, 대시보드의 `PMQueryInput` 컴포넌트에서 직접 `POST /api/projects/:id/query`를 호출한다. 일회성 SSE 스트리밍으로 응답을 받아 표시하며, 히스토리를 DB에 저장하지 않는다. 코딩 세션과 PM 질의는 완전히 별개의 흐름이다.
+팀 질의는 세션을 생성하지 않고, 대시보드의 `TeamQueryInput` 컴포넌트에서 직접 `POST /api/projects/:id/query`를 호출한다. 일회성 SSE 스트리밍으로 응답을 받아 표시하며, 히스토리를 DB에 저장하지 않는다. 코딩 세션과 팀 질의는 완전히 별개의 흐름이다.
 
 ### 9.2 대시보드 (`dashboard/page.tsx`)
 
@@ -1243,8 +1234,8 @@ DashboardPage (Server Component)
 ├── DashboardHeader
 │   ├── ProjectSelectDropdown (프로젝트 선택, URL query parameter 연동)
 │   └── 기간 필터
-├── PMQueryInput (Client)
-│   └── "프로젝트에 질문하기" 입력창 (PM 질의 세션 생성)
+├── TeamQueryInput (Client)             -- 팀 질의 패널 (구 PMQueryInput)
+│   └── "프로젝트에 질문하기" 입력창 (팀 질의 — 일회성 SSE)
 ├── ActivitySection (Client)
 │   ├── ActivityCards (현재 작업 중인 세션 카드들)
 │   │   └── ActivityCard
@@ -1256,12 +1247,12 @@ DashboardPage (Server Component)
 ├── CommitTimelineSection (Client)
 │   ├── CommitGraph (react-flow, 세션별 색 구분)
 │   └── CommitList
-│       └── CommitItem (해시, 메시지, 작성자, 시간)
+│       └── CommitItem (해시, 메시지, 작성자, 시간, additions/deletions)
 ├── FileChangeMapSection (Client)
-│   ├── FileTreeHeatmap (변경 빈도에 따른 색상)
+│   ├── FileChangeMap (파일별 변경 빈도 히트맵)
 │   └── 변경 파일 목록 테이블
 └── UsageChartSection (Client)
-    └── UsageChart (팀원별 사용 현황 차트)
+    └── UsageTable (팀원별 사용 현황 테이블 — 시간, 비용, 메시지 수)
 ```
 
 ### 9.3 Diff 뷰어 (`commits/[hash]/page.tsx`)
@@ -1270,12 +1261,13 @@ DashboardPage (Server Component)
 DiffPage (Server Component)
 ├── DiffHeader
 │   ├── 커밋 해시, 메시지, 작성자
+│   ├── 총 additions/deletions 통계 (+N / -N)
 │   ├── 부모 커밋 링크
-│   └── RevertButton (원클릭 롤백)
+│   └── RevertButton (원클릭 롤백 — AlertDialog 확인)
 ├── ChangedFileList
-│   └── FileItem (파일 경로, 추가/삭제 줄 수)
+│   └── FileItem (파일 경로, 추가/삭제 줄 수, 상태: added/modified/deleted)
 └── DiffViewerPanel (Client)
-    └── MonacoDiffEditor (파일별 Diff 표시)
+    └── MonacoDiffEditor (Monaco Diff Editor, dynamic import, SSR 비활성화)
 ```
 
 ### 9.4 Skills / CLAUDE.md 에디터 (`settings/page.tsx`)
@@ -1326,7 +1318,22 @@ UsersPage (Server Component, 관리자 전용)
     └── 역할 선택 Dropdown
 ```
 
-### 9.7 알림 목록 (`notifications/page.tsx`)
+### 9.7 알림 컴포넌트
+
+#### 헤더 내 알림 UI
+
+```
+(main)/layout.tsx 헤더 영역
+└── NotificationBell (Client)           -- 벨 아이콘 + 미읽음 카운트 뱃지
+    └── NotificationDropdown            -- 클릭 시 드롭다운 (최근 알림 목록)
+        └── NotificationItem            -- 개별 알림 항목
+            ├── 알림 아이콘 (type별 구분)
+            ├── 알림 내용 (payload 기반 렌더링)
+            ├── 시간 (createdAt)
+            └── ReadStatusIndicator (isRead)
+```
+
+#### 알림 목록 페이지 (`notifications/page.tsx`)
 
 ```
 NotificationsPage (Client Component)
@@ -1334,7 +1341,7 @@ NotificationsPage (Client Component)
 │   └── MarkAllReadButton
 ├── NotificationList
 │   └── NotificationItem
-│       ├── 알림 아이콘 (type별 구분)
+│       ├── 알림 아이콘 (type별: lock_request, lock_released, task_complete, mention)
 │       ├── 알림 내용 (payload 기반 렌더링)
 │       ├── 시간 (createdAt)
 │       └── ReadStatusIndicator (isRead)

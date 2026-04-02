@@ -72,10 +72,10 @@ Nexus/
 - 없음 (최초 작업)
 
 ### 완료 기준
-- [ ] `cd frontend && npm run dev` → localhost:3000 접속 가능
-- [ ] `cd backend && npm run dev` → localhost:8080 접속 가능
-- [ ] TypeScript strict mode 에러 없음
-- [ ] Git 커밋 완료
+- [x] `cd frontend && npm run dev` → localhost:3000 접속 가능
+- [x] `cd backend && npm run dev` → localhost:8080 접속 가능
+- [x] TypeScript strict mode 에러 없음
+- [x] Git 커밋 완료
 
 ---
 
@@ -129,10 +129,10 @@ backend/
 - 1.1 프로젝트 초기 세팅
 
 ### 완료 기준
-- [ ] `npx prisma migrate dev` 성공
-- [ ] `npx prisma studio`로 테이블 확인 가능
-- [ ] 시드 실행 후 관리자 계정 조회 가능
-- [ ] `connect-pg-simple`용 `user_sessions` 테이블 존재
+- [x] `npx prisma migrate dev` 성공
+- [x] `npx prisma studio`로 테이블 확인 가능
+- [x] 시드 실행 후 관리자 계정 조회 가능
+- [x] `connect-pg-simple`용 `user_sessions` 테이블 존재
 
 ---
 
@@ -206,10 +206,10 @@ frontend/src/
 - 1.2 DB 스키마 (User, UserSession 테이블)
 
 ### 완료 기준
-- [ ] 로그인 → 쿠키 발급 → `/api/auth/me` 성공
-- [ ] 로그아웃 → 쿠키 삭제 → `/api/auth/me` 401
-- [ ] 미인증 상태에서 보호 라우트 접근 시 로그인 페이지로 리다이렉트
-- [ ] 쿠키가 httpOnly로 설정되어 JS에서 접근 불가
+- [x] 로그인 → 쿠키 발급 → `/api/auth/me` 성공
+- [x] 로그아웃 → 쿠키 삭제 → `/api/auth/me` 401
+- [x] 미인증 상태에서 보호 라우트 접근 시 로그인 페이지로 리다이렉트
+- [x] 쿠키가 httpOnly로 설정되어 JS에서 접근 불가
 
 ---
 
@@ -302,12 +302,12 @@ frontend/src/
 - EC2에 Git 레포지토리 디렉토리 존재 (`/home/ubuntu/projects/`)
 
 ### 완료 기준
-- [ ] 프로젝트 CRUD 동작 (API + UI)
-- [ ] 폴더 CRUD 동작 (프로젝트 하위)
-- [ ] 세션 생성 시 git worktree + 브랜치 자동 생성
-- [ ] 세션 삭제 시 worktree 자동 정리
-- [ ] 사이드바에서 트리 구조 탐색 가능
-- [ ] 세션 클릭 → 채팅 페이지 이동
+- [x] 프로젝트 CRUD 동작 (API + UI)
+- [x] 폴더 CRUD 동작 (프로젝트 하위)
+- [x] 세션 생성 시 git worktree + 브랜치 자동 생성
+- [x] 세션 삭제 시 worktree 자동 정리
+- [x] 사이드바에서 트리 구조 탐색 가능
+- [x] 세션 클릭 → 채팅 페이지 이동
 
 ---
 
@@ -439,12 +439,12 @@ frontend/src/
 - EC2에 Claude Code CLI 설치 (`claude` 명령어 사용 가능)
 
 ### 완료 기준
-- [ ] 채팅 입력 → Claude Code CLI 실행 → SSE 스트리밍 응답 표시
-- [ ] 마크다운 + 코드 블록 구문 하이라이팅 정상 렌더링
-- [ ] 도구 사용(파일 생성/수정) 카드 표시
-- [ ] 중지 버튼으로 AI 응답 중단 가능
-- [ ] 세션 이동 후 재진입 시 이전 대화 히스토리 로드
-- [ ] claudeSessionId가 첫 채팅 후 DB에 저장되어 이후 `--resume`으로 이어가기
+- [x] 채팅 입력 → Claude Code CLI 실행 → SSE 스트리밍 응답 표시
+- [x] 마크다운 + 코드 블록 구문 하이라이팅 정상 렌더링
+- [x] 도구 사용(파일 생성/수정) 카드 표시
+- [x] 중지 버튼으로 AI 응답 중단 가능
+- [x] 세션 이동 후 재진입 시 이전 대화 히스토리 로드
+- [x] claudeSessionId가 첫 채팅 후 DB에 저장되어 이후 `--resume`으로 이어가기
 
 ---
 

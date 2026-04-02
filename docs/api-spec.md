@@ -1,6 +1,6 @@
 # Nexus API 명세서
 
-> 최종 수정: 2026-04-01
+> 최종 수정: 2026-04-02
 
 ## 공통 규칙
 
@@ -1008,7 +1008,9 @@ data: {"messageId": "msg-001", "sessionId": "ggg-hhh-iii", "totalTokens": 1500}
 
 ---
 
-## 9. PM Query (프로젝트 현황 질의 - SSE 스트리밍)
+## 9. Team Query (팀 질의 - SSE 스트리밍)
+
+> 이전 명칭 "PM Query"에서 "팀 질의"로 변경. 팀원 누구나 프로젝트/폴더 단위로 질의 가능하다.
 
 ### 9.1 POST /api/projects/:id/query
 프로젝트 단위로 현황을 자연어로 질의한다. 세션 히스토리 + Git 로그를 종합하여 AI가 답변한다.
@@ -1096,6 +1098,8 @@ data: {"messageId": "pm-msg-001", "sessionId": null, "totalTokens": 800}
       "message": "[로그인 API 구현] JWT 인증 로직 추가 - 홍길동",
       "author": "홍길동",
       "filesChanged": ["src/auth/login.ts", "src/auth/middleware.ts"],
+      "additions": 45,
+      "deletions": 3,
       "triggeredBy": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
         "name": "홍길동"
@@ -1801,6 +1805,29 @@ const socket = io("https://nexus.example.com", {
     "name": "홍길동",
     "status": "online",
     "activeSessionId": "ggg-hhh-iii"
+  },
+  "timestamp": "2026-04-01T10:00:00.000Z"
+}
+```
+
+**`project:online-users`** -- 서버 -> 클라이언트 (프로젝트 룸 브로드캐스트)
+프로젝트 룸에 접속/이탈 시 현재 온라인 사용자 전체 목록을 전송한다.
+```json
+{
+  "data": {
+    "projectId": "aaa-bbb-ccc",
+    "onlineUsers": [
+      {
+        "userId": "550e...",
+        "name": "홍길동",
+        "activeSessionId": "ggg-hhh-iii"
+      },
+      {
+        "userId": "660e...",
+        "name": "김철수",
+        "activeSessionId": null
+      }
+    ]
   },
   "timestamp": "2026-04-01T10:00:00.000Z"
 }
