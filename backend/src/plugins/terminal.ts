@@ -59,9 +59,12 @@ export function registerTerminalNamespace(io: SocketIOServer): void {
     try {
       const cookieHeader = socket.handshake.headers.cookie ?? '';
 
-      // connect.sid 쿠키 파싱 — s%3A 접두사(서명된 세션 마커) 이후 '.' 이전까지 sid 추출
-      const match = cookieHeader.match(/connect\.sid=s%3A([^.;]+)/);
-      if (!match) return next(new Error('인증이 필요합니다'));
+      // connect.sid 쿠키 파싱 — @fastify/session은 s%3A 접두사 없이 직접 sid를 저장
+      // 형식: connect.sid=<sid> 또는 connect.sid=s%3A<sid>.<signature>
+      const match = cookieHeader.match(/connect\.sid=(?:s%3A)?([^.;\s]+)/);
+      if (!match) {
+        return next(new Error('인증이 필요합니다'));
+      }
 
       const sid = decodeURIComponent(match[1]);
 
