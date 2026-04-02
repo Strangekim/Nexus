@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import prisma from '../lib/prisma.js';
+import { createHttpError } from '../lib/errors.js';
 
 /** 확장자 → 언어 ID 매핑 */
 const EXT_LANGUAGE_MAP: Record<string, string> = {
@@ -71,7 +72,19 @@ function detectLanguage(filePath: string): string {
   return EXT_LANGUAGE_MAP[ext] ?? 'plaintext';
 }
 
-/** 파일 내용 읽기 — 경로 트래버설 방어 포함 */
+/** 민감 파일 차단 패턴 목록 */
+const BLOCKED_PATTERNS = [
+  /\.env($|\.)/,        // .env, .env.local, .env.production 등
+  /\.git\//,            // .git 디렉토리 내부
+  /\.git$/,             // .git 파일
+  /id_rsa/,             // SSH 비공개 키
+  /\.pem$/,             // 인증서/키 파일
+  /\.key$/,             // 비공개 키 파일
+  /credentials/i,       // 자격증명 파일
+  /secrets?\./i,        // 시크릿 파일
+];
+
+/** 파일 내용 읽기 — 경로 트래버설 방어 및 민감 파일 차단 포함 */
 async function readFile(projectId: string, relativePath: string) {
   // 프로젝트 조회
   const project = await prisma.project.findUnique({
@@ -80,10 +93,7 @@ async function readFile(projectId: string, relativePath: string) {
   });
 
   if (!project) {
-    throw Object.assign(new Error('프로젝트를 찾을 수 없습니다'), {
-      code: 'PROJECT_NOT_FOUND',
-      statusCode: 404,
-    });
+    throw createHttpError(404, '프로젝트를 찾을 수 없습니다', { code: 'PROJECT_NOT_FOUND' });
   }
 
   const repoPath = path.resolve(project.repoPath);
@@ -91,10 +101,14 @@ async function readFile(projectId: string, relativePath: string) {
   const absolutePath = path.resolve(repoPath, relativePath);
 
   if (!absolutePath.startsWith(repoPath + path.sep) && absolutePath !== repoPath) {
-    throw Object.assign(new Error('허용되지 않는 파일 경로입니다'), {
-      code: 'FORBIDDEN_PATH',
-      statusCode: 403,
-    });
+    throw createHttpError(403, '허용되지 않는 파일 경로입니다', { code: 'FORBIDDEN_PATH' });
+  }
+
+  // 민감 파일 차단: 상대 경로 및 파일명 기준으로 패턴 검사
+  const normalizedRelative = relativePath.replace(/\\/g, '/');
+  const isSensitive = BLOCKED_PATTERNS.some((pattern) => pattern.test(normalizedRelative));
+  if (isSensitive) {
+    throw createHttpError(403, '접근이 차단된 파일입니다', { code: 'FORBIDDEN_PATH' });
   }
 
   // 파일 존재 여부 및 타입 확인
@@ -102,26 +116,17 @@ async function readFile(projectId: string, relativePath: string) {
   try {
     stat = await fs.stat(absolutePath);
   } catch {
-    throw Object.assign(new Error('파일을 찾을 수 없습니다'), {
-      code: 'FILE_NOT_FOUND',
-      statusCode: 404,
-    });
+    throw createHttpError(404, '파일을 찾을 수 없습니다', { code: 'FILE_NOT_FOUND' });
   }
 
   if (!stat.isFile()) {
-    throw Object.assign(new Error('디렉토리는 읽을 수 없습니다'), {
-      code: 'IS_DIRECTORY',
-      statusCode: 400,
-    });
+    throw createHttpError(400, '디렉토리는 읽을 수 없습니다', { code: 'IS_DIRECTORY' });
   }
 
   // 파일 크기 제한 (5MB)
   const MAX_SIZE = 5 * 1024 * 1024;
   if (stat.size > MAX_SIZE) {
-    throw Object.assign(new Error('파일 크기가 너무 큽니다 (최대 5MB)'), {
-      code: 'FILE_TOO_LARGE',
-      statusCode: 413,
-    });
+    throw createHttpError(413, '파일 크기가 너무 큽니다 (최대 5MB)', { code: 'FILE_TOO_LARGE' });
   }
 
   const content = await fs.readFile(absolutePath, 'utf-8');

@@ -28,7 +28,7 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request, reply) => {
-    const userId = request.session.get('userId') as string;
+    const userId = request.userId;
     const { id: sessionId } = request.params;
     const { message } = request.body;
 

@@ -13,6 +13,21 @@ import { registerTerminalNamespace } from './plugins/terminal.js';
 
 const app = Fastify({ logger: true });
 
+// 전역 에러 핸들러 — statusCode가 있는 에러를 일관된 형식으로 응답
+app.setErrorHandler((err, _request, reply) => {
+  const error = err as Error & { statusCode?: number };
+  const statusCode = error.statusCode ?? 500;
+  const code =
+    statusCode === 404 ? 'NOT_FOUND' :
+    statusCode === 403 ? 'FORBIDDEN' :
+    statusCode === 409 ? 'CONFLICT' :
+    statusCode === 400 ? 'BAD_REQUEST' :
+    'INTERNAL_ERROR';
+  reply.code(statusCode).send({
+    error: { code, message: error.message },
+  });
+});
+
 // CORS 설정
 await app.register(cors, {
   origin: env.FRONTEND_URL,

@@ -1,6 +1,7 @@
 // 세션 서비스 레이어
 import prisma from '../lib/prisma.js';
 import path from 'path';
+import { createHttpError } from '../lib/errors.js';
 
 /** worktree 기본 경로 — 이 경로 밖으로 벗어나는 경로 생성은 금지 */
 const WORKTREE_BASE_PATH = '/home/ubuntu/projects-wt';
@@ -12,10 +13,7 @@ const WORKTREE_BASE_PATH = '/home/ubuntu/projects-wt';
 function validateWorktreePath(worktreePath: string): void {
   const resolved = path.resolve(worktreePath);
   if (!resolved.startsWith(WORKTREE_BASE_PATH + '/') && resolved !== WORKTREE_BASE_PATH) {
-    throw Object.assign(
-      new Error('허용되지 않은 worktree 경로입니다'),
-      { statusCode: 400 },
-    );
+    throw createHttpError(400, '허용되지 않은 worktree 경로입니다');
   }
 }
 
@@ -52,14 +50,14 @@ async function create(dto: {
     select: { repoPath: true },
   });
   if (!project) {
-    throw Object.assign(new Error('프로젝트를 찾을 수 없습니다'), { statusCode: 404 });
+    throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
   }
 
   // folderId가 있으면 해당 폴더가 이 프로젝트 소속인지 검증
   if (dto.folderId) {
     const folder = await prisma.folder.findUnique({ where: { id: dto.folderId } });
     if (!folder || folder.projectId !== dto.projectId) {
-      throw Object.assign(new Error('폴더를 찾을 수 없습니다'), { statusCode: 404 });
+      throw createHttpError(404, '폴더를 찾을 수 없습니다');
     }
   }
 

@@ -8,7 +8,7 @@ const meRoute: FastifyPluginAsync = async (fastify) => {
     '/me',
     { preHandler: [requireAuth] },
     async (request, reply) => {
-      const userId = request.session.get('userId')!;
+      const userId = request.userId;
 
       const user = await prisma.user.findUnique({
         where: { id: userId },

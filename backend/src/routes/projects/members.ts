@@ -2,6 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { memberService } from '../../services/member.service.js';
+import { createHttpError } from '../../lib/errors.js';
 import prisma from '../../lib/prisma.js';
 
 // 요청 타입 정의
@@ -38,10 +39,7 @@ async function assertProjectMember(projectId: string, requesterId: string): Prom
     where: { projectId_userId: { projectId, userId: requesterId } },
   });
   if (!member) {
-    throw Object.assign(
-      new Error('이 프로젝트에 접근할 권한이 없습니다'),
-      { statusCode: 403 },
-    );
+    throw createHttpError(403, '이 프로젝트에 접근할 권한이 없습니다');
   }
 }
 
@@ -54,10 +52,7 @@ async function assertProjectAdmin(projectId: string, requesterId: string): Promi
     where: { projectId_userId: { projectId, userId: requesterId } },
   });
   if (!member || member.role !== 'admin') {
-    throw Object.assign(
-      new Error('이 작업은 프로젝트 관리자만 수행할 수 있습니다'),
-      { statusCode: 403 },
-    );
+    throw createHttpError(403, '이 작업은 프로젝트 관리자만 수행할 수 있습니다');
   }
 }
 
@@ -66,19 +61,9 @@ const memberRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: ProjectParams }>('/', {
     preHandler: [requireAuth],
     schema: { params: projectParamsSchema },
-  }, async (request, reply) => {
-    const requesterId = request.session.get('userId') as string;
-
-    // 인가 검증: 프로젝트 멤버만 목록 조회 가능
-    try {
-      await assertProjectMember(request.params.projectId, requesterId);
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      return reply.code(error.statusCode ?? 500).send({
-        error: { code: 'FORBIDDEN', message: error.message },
-      });
-    }
-
+  }, async (request) => {
+    // 인가 검증: 에러는 전역 핸들러에서 처리
+    await assertProjectMember(request.params.projectId, request.userId);
     return memberService.findByProject(request.params.projectId);
   });
 
@@ -97,32 +82,14 @@ const memberRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request, reply) => {
-    const requesterId = request.session.get('userId') as string;
+    // 인가 검증: admin만 멤버 추가 가능 (에러는 전역 핸들러에서 처리)
+    await assertProjectAdmin(request.params.projectId, request.userId);
 
-    // 인가 검증: admin만 멤버 추가 가능
-    try {
-      await assertProjectAdmin(request.params.projectId, requesterId);
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      return reply.code(error.statusCode ?? 500).send({
-        error: { code: 'FORBIDDEN', message: error.message },
-      });
-    }
-
-    try {
-      const members = await memberService.add(
-        request.params.projectId, request.body.userId, request.body.role,
-      );
-      return reply.code(201).send(members);
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      if (error.statusCode === 409) {
-        return reply.code(409).send({
-          error: { code: 'CONFLICT', message: error.message },
-        });
-      }
-      throw err;
-    }
+    // 중복 에러(409 등)는 전역 핸들러에서 처리
+    const members = await memberService.add(
+      request.params.projectId, request.body.userId, request.body.role,
+    );
+    return reply.code(201).send(members);
   });
 
   // PATCH /:userId — 멤버 역할 변경 (admin 전용)
@@ -138,33 +105,15 @@ const memberRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-  }, async (request, reply) => {
-    const requesterId = request.session.get('userId') as string;
+  }, async (request) => {
+    // 인가 검증: admin만 역할 변경 가능 (에러는 전역 핸들러에서 처리)
+    await assertProjectAdmin(request.params.projectId, request.userId);
 
-    // 인가 검증: admin만 역할 변경 가능
-    try {
-      await assertProjectAdmin(request.params.projectId, requesterId);
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      return reply.code(error.statusCode ?? 500).send({
-        error: { code: 'FORBIDDEN', message: error.message },
-      });
-    }
-
-    try {
-      await memberService.changeRole(
-        request.params.projectId, request.params.userId, request.body.role,
-      );
-      return { success: true };
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      if (error.statusCode === 404) {
-        return reply.code(404).send({
-          error: { code: 'NOT_FOUND', message: error.message },
-        });
-      }
-      throw err;
-    }
+    // 404 에러는 전역 핸들러에서 처리
+    await memberService.changeRole(
+      request.params.projectId, request.params.userId, request.body.role,
+    );
+    return { success: true };
   });
 
   // DELETE /:userId — 멤버 제거 (admin 전용)
@@ -172,30 +121,12 @@ const memberRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
     schema: { params: memberParamsSchema },
   }, async (request, reply) => {
-    const requesterId = request.session.get('userId') as string;
+    // 인가 검증: admin만 멤버 제거 가능 (에러는 전역 핸들러에서 처리)
+    await assertProjectAdmin(request.params.projectId, request.userId);
 
-    // 인가 검증: admin만 멤버 제거 가능
-    try {
-      await assertProjectAdmin(request.params.projectId, requesterId);
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      return reply.code(error.statusCode ?? 500).send({
-        error: { code: 'FORBIDDEN', message: error.message },
-      });
-    }
-
-    try {
-      await memberService.remove(request.params.projectId, request.params.userId);
-      return reply.code(204).send();
-    } catch (err: unknown) {
-      const error = err as Error & { statusCode?: number };
-      if (error.statusCode === 404) {
-        return reply.code(404).send({
-          error: { code: 'NOT_FOUND', message: error.message },
-        });
-      }
-      throw err;
-    }
+    // 404 에러는 전역 핸들러에서 처리
+    await memberService.remove(request.params.projectId, request.params.userId);
+    return reply.code(204).send();
   });
 };
 

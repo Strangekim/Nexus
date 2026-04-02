@@ -2,7 +2,14 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../lib/prisma.js';
 
-/** 로그인 여부 확인 preHandler */
+// FastifyRequest에 userId 속성 추가 — requireAuth preHandler에서 설정됨
+declare module 'fastify' {
+  interface FastifyRequest {
+    userId: string;
+  }
+}
+
+/** 로그인 여부 확인 preHandler — request.userId를 설정한다 */
 export async function requireAuth(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -13,6 +20,8 @@ export async function requireAuth(
       error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' },
     });
   }
+  // 이후 라우트 핸들러에서 request.userId로 접근 가능
+  request.userId = userId as string;
 }
 
 /** 관리자 권한 확인 preHandler (로그인 + admin 역할) */
@@ -26,6 +35,7 @@ export async function requireAdmin(
       error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' },
     });
   }
+  request.userId = userId as string;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

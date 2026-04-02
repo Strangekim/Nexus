@@ -42,7 +42,7 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (request, reply) => {
     try {
       const { path, projectId } = request.query;
-      const userId = (request.session as { userId?: string }).userId!;
+      const userId = request.userId;
 
       // 프로젝트 멤버십 확인 — 멤버가 아니면 403 반환
       const member = await prisma.projectMember.findUnique({

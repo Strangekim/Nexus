@@ -1,5 +1,6 @@
 // 폴더 서비스 레이어
 import prisma from '../lib/prisma.js';
+import { createHttpError } from '../lib/errors.js';
 
 /** 프로젝트 내 폴더 목록 조회 */
 async function findByProject(projectId: string) {
@@ -21,7 +22,7 @@ async function create(projectId: string, dto: { name: string; description?: stri
     where: { projectId_name: { projectId, name: dto.name } },
   });
   if (exists) {
-    throw Object.assign(new Error('같은 프로젝트 내에 동일한 폴더명이 존재합니다'), { statusCode: 409 });
+    throw createHttpError(409, '같은 프로젝트 내에 동일한 폴더명이 존재합니다');
   }
   return prisma.folder.create({ data: { projectId, ...dto } });
 }

@@ -1,5 +1,6 @@
 // 프로젝트 멤버 서비스 레이어
 import prisma from '../lib/prisma.js';
+import { createHttpError } from '../lib/errors.js';
 
 /** 프로젝트 멤버 목록 조회 */
 async function findByProject(projectId: string) {
@@ -23,7 +24,7 @@ async function add(projectId: string, userId: string, role: string) {
     where: { projectId_userId: { projectId, userId } },
   });
   if (exists) {
-    throw Object.assign(new Error('이미 프로젝트에 참여 중인 사용자입니다'), { statusCode: 409 });
+    throw createHttpError(409, '이미 프로젝트에 참여 중인 사용자입니다');
   }
   await prisma.projectMember.create({ data: { projectId, userId, role } });
   return findByProject(projectId);
@@ -35,7 +36,7 @@ async function changeRole(projectId: string, userId: string, role: string) {
     where: { projectId_userId: { projectId, userId } },
   });
   if (!member) {
-    throw Object.assign(new Error('프로젝트 멤버를 찾을 수 없습니다'), { statusCode: 404 });
+    throw createHttpError(404, '프로젝트 멤버를 찾을 수 없습니다');
   }
   await prisma.projectMember.update({ where: { id: member.id }, data: { role } });
 }
@@ -46,7 +47,7 @@ async function remove(projectId: string, userId: string) {
     where: { projectId_userId: { projectId, userId } },
   });
   if (!member) {
-    throw Object.assign(new Error('프로젝트 멤버를 찾을 수 없습니다'), { statusCode: 404 });
+    throw createHttpError(404, '프로젝트 멤버를 찾을 수 없습니다');
   }
   await prisma.projectMember.delete({ where: { id: member.id } });
 }
