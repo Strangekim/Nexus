@@ -1,4 +1,4 @@
-// 알림 드롭다운 패널 — 알림 목록, 모두 읽음 버튼, 빈 상태 처리
+// 알림 드롭다운 패널 — fixed 포지셔닝, 알림 목록, 모두 읽음 버튼, 빈 상태 처리
 
 'use client';
 
@@ -18,10 +18,12 @@ const MAX_DISPLAY = 10;
 
 interface NotificationDropdownProps {
   onClose: () => void;
+  /** 뷰포트 기준 절대 좌표 (NotificationBell에서 계산 후 전달) */
+  position: { top: number; left: number };
 }
 
-/** 알림 드롭다운 패널 */
-export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
+/** 알림 드롭다운 패널 — 뷰포트 기준 fixed 배치로 사이드바 클리핑 방지 */
+export function NotificationDropdown({ onClose, position }: NotificationDropdownProps) {
   const [showSettings, setShowSettings] = useState(false);
   // 설정 패널 내 탭 상태 — 알림 설정 | Claude 연동
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('notification');
@@ -34,10 +36,15 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   const unreadCount = allNotifs.filter((n) => !n.isRead).length;
 
   return (
-    // 모바일에서 화면 오른쪽 끝을 넘지 않도록 right-0 기준 정렬, style로 max-width 제한
+    // fixed 포지셔닝으로 사이드바 경계 외부로도 자유롭게 표시
     <div
-      className="absolute right-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-lg border border-[#E8E5DE] bg-white shadow-lg"
-      style={{ maxWidth: 'calc(100vw - 1rem)' }}
+      className="fixed z-[200] w-80 overflow-hidden rounded-lg border border-[#E8E5DE] bg-white shadow-xl"
+      style={{
+        top: position.top,
+        left: position.left,
+        // 뷰포트 하단 초과 방지: 드롭다운 최대 높이를 뷰포트 기준으로 제한
+        maxHeight: `calc(100vh - ${position.top + 16}px)`,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* 헤더: 제목 + 설정 버튼 + 모두 읽음 버튼 */}
@@ -62,8 +69,8 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         </div>
       </div>
 
-      {/* 알림 목록 */}
-      <div className="max-h-80 overflow-y-auto">
+      {/* 알림 목록 — 드롭다운 높이 내에서 스크롤 */}
+      <div className="max-h-72 overflow-y-auto">
         {displayNotifs.length === 0 ? (
           // 빈 상태
           <div className="flex flex-col items-center gap-2 py-8 text-center">
