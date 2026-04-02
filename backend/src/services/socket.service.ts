@@ -21,9 +21,16 @@ class SocketService {
     this.io = io;
   }
 
-  /** 초기화 여부 확인 — 내부 유틸 */
-  private getIO(): SocketIOServer {
-    if (!this.io) throw new Error('SocketService가 초기화되지 않았습니다');
+  /**
+   * 초기화 여부 확인 — 내부 유틸
+   * init() 전에 호출된 경우 에러를 throw하는 대신 null을 반환하여
+   * emit 메서드들이 경고 로그 후 조기 반환할 수 있도록 한다
+   */
+  private getIO(): SocketIOServer | null {
+    if (!this.io) {
+      console.warn('[SocketService] 아직 초기화되지 않았습니다 — emit 스킵');
+      return null;
+    }
     return this.io;
   }
 
@@ -39,9 +46,9 @@ class SocketService {
    * @param data - 전송할 데이터
    */
   emitToProject<T>(projectId: string, event: string, data: T): void {
-    this.getIO()
-      .to(`project:${projectId}`)
-      .emit(event, this.buildPayload(data));
+    const io = this.getIO();
+    if (!io) return;
+    io.to(`project:${projectId}`).emit(event, this.buildPayload(data));
   }
 
   /**
@@ -51,9 +58,9 @@ class SocketService {
    * @param data - 전송할 데이터
    */
   emitToSession<T>(sessionId: string, event: string, data: T): void {
-    this.getIO()
-      .to(`session:${sessionId}`)
-      .emit(event, this.buildPayload(data));
+    const io = this.getIO();
+    if (!io) return;
+    io.to(`session:${sessionId}`).emit(event, this.buildPayload(data));
   }
 
   /**
@@ -63,9 +70,9 @@ class SocketService {
    * @param data - 전송할 데이터
    */
   emitToUser<T>(userId: string, event: string, data: T): void {
-    this.getIO()
-      .to(`user:${userId}`)
-      .emit(event, this.buildPayload(data));
+    const io = this.getIO();
+    if (!io) return;
+    io.to(`user:${userId}`).emit(event, this.buildPayload(data));
   }
 
   /**
@@ -75,6 +82,8 @@ class SocketService {
    */
   async getOnlineUsers(projectId: string): Promise<OnlineUser[]> {
     const io = this.getIO();
+    // 초기화 전이면 빈 배열 반환
+    if (!io) return [];
     const sockets = await io.in(`project:${projectId}`).fetchSockets();
 
     return sockets.map((s) => ({

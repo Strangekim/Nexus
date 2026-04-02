@@ -106,9 +106,13 @@ class TeamQueryService {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    // stdin으로 프롬프트 전달 후 닫기
-    proc.stdin.write(prompt, 'utf8');
-    proc.stdin.end();
+    // stdin으로 프롬프트 전달 후 닫기 — stdin이 null이면 스킵
+    if (proc.stdin) {
+      proc.stdin.write(prompt, 'utf8');
+      proc.stdin.end();
+    } else {
+      console.warn('[TeamQueryService] proc.stdin이 null — 프롬프트 전달 불가');
+    }
 
     // 공통 stream-json 파서 사용
     const { onData, flush } = createStreamHandler(emitter);

@@ -10,7 +10,8 @@ const logoutRoute: FastifyPluginAsync = async (fastify) => {
     // 세션 파기
     await request.session.destroy();
 
-    return reply.send({ message: '로그아웃 되었습니다.' });
+    // 204 No Content — 성공 응답 형식 통일
+    return reply.code(204).send();
   });
 };
 

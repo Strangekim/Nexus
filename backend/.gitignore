@@ -1,6 +1,14 @@
 node_modules
 dist
-# Keep environment variables out of version control
-.env
 
+# 환경변수 파일 — 절대 커밋 금지
+.env
+.env.local
+.env.production
+.env.production.local
+.env.staging
+.env.test
+.env.test.local
+
+# Prisma 생성 파일
 /src/generated/prisma

@@ -40,9 +40,13 @@ class ClaudeService {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    // message를 stdin으로 쓰고 닫아 EOF 신호 전송
-    proc.stdin.write(message, 'utf8');
-    proc.stdin.end();
+    // message를 stdin으로 쓰고 닫아 EOF 신호 전송 — stdin이 null이면 스킵
+    if (proc.stdin) {
+      proc.stdin.write(message, 'utf8');
+      proc.stdin.end();
+    } else {
+      console.warn('[ClaudeService] proc.stdin이 null — 메시지 전달 불가');
+    }
 
     this.processes.set(sessionId, proc);
 

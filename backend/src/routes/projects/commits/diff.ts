@@ -2,7 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../../plugins/auth.js';
 import prisma from '../../../lib/prisma.js';
-import { commitSyncService } from '../../../services/commit-sync.service.js';
+import { getCommitDiff } from '../../../services/commit-diff.service.js';
 import { createHttpError } from '../../../lib/errors.js';
 import { memberService } from '../../../services/member.service.js';
 
@@ -40,7 +40,7 @@ const commitDiffRoute: FastifyPluginAsync = async (fastify) => {
     if (!commit) throw createHttpError(404, '커밋을 찾을 수 없습니다');
 
     // diff 파싱 결과 반환
-    const files = await commitSyncService.getCommitDiff(project.repoPath, commit.hash);
+    const files = await getCommitDiff(project.repoPath, commit.hash);
 
     return {
       hash: commit.hash,

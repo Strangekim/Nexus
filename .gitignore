@@ -1,0 +1,51 @@
+# 루트 수준 gitignore — 프로젝트 전체 공통 규칙
+
+# 환경변수 파일 — 절대 커밋 금지
+.env
+.env.local
+.env.production
+.env.production.local
+.env.staging
+.env.test
+.env.test.local
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.staging
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# 의존성
+node_modules/
+**/node_modules/
+
+# 빌드 산출물
+dist/
+build/
+.next/
+out/
+
+# 로그
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS 메타데이터
+.DS_Store
+Thumbs.db
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+
+# TypeScript 캐시
+*.tsbuildinfo
+
+# 패키지 락 파일 (선택적 추적 — 팀 정책에 따라)
+# package-lock.json
+
+# Prisma 생성 파일
+backend/src/generated/

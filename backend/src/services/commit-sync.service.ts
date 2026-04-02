@@ -1,8 +1,8 @@
 // Git 커밋 동기화 서비스 — worktree에서 새 커밋을 읽어 DB에 동기화
+// diff/revert 기능은 commit-diff.service.ts로 분리됨
 import { simpleGit } from 'simple-git';
 import prisma from '../lib/prisma.js';
 import { socketService } from './socket.service.js';
-import { createHttpError } from '../lib/errors.js';
 
 /** 커밋 단건 파싱 결과 */
 interface CommitStatResult {
@@ -115,56 +115,6 @@ class CommitSyncService {
     }
   }
 
-  /**
-   * 특정 커밋의 diff를 파일별로 파싱하여 반환
-   * @param repoPath 저장소 경로
-   * @param hash 커밋 해시
-   */
-  async getCommitDiff(
-    repoPath: string,
-    hash: string,
-  ): Promise<{ filename: string; diff: string }[]> {
-    const git = simpleGit(repoPath);
-    const raw = await git.diff([`${hash}^`, hash]);
-    return parseDiffByFile(raw);
-  }
-
-  /**
-   * 커밋을 revert하고 새 커밋을 동기화
-   * @param projectId 프로젝트 ID
-   * @param repoPath 저장소 경로
-   * @param hash revert 대상 커밋 해시
-   */
-  async revertCommit(
-    projectId: string,
-    repoPath: string,
-    hash: string,
-  ): Promise<void> {
-    const git = simpleGit(repoPath);
-    try {
-      // --no-edit: 에디터 없이 기본 revert 커밋 메시지 사용
-      await git.raw(['revert', '--no-edit', hash]);
-    } catch (err) {
-      // 충돌 발생 시 abort 후 409 에러
-      await git.raw(['revert', '--abort']).catch(() => null);
-      throw createHttpError(409, '충돌로 인해 revert를 수행할 수 없습니다');
-    }
-
-    // revert 커밋 동기화
-    await this.syncNewCommits(projectId, null, repoPath);
-  }
-}
-
-/** unified diff 문자열을 파일별로 분리 */
-function parseDiffByFile(raw: string): { filename: string; diff: string }[] {
-  const results: { filename: string; diff: string }[] = [];
-  const fileSections = raw.split(/^diff --git /m).filter(Boolean);
-  for (const section of fileSections) {
-    const match = section.match(/^a\/(.+?) b\//);
-    const filename = match ? match[1] : 'unknown';
-    results.push({ filename, diff: `diff --git ${section}` });
-  }
-  return results;
 }
 
 export const commitSyncService = new CommitSyncService();

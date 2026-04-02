@@ -63,6 +63,14 @@ function resolveCommand(runAsUser?: string): { cmd: string; args: string[] } {
   return { cmd: 'bash', args: [] };
 }
 
+/**
+ * cwd 경로에서 명령 인젝션에 악용될 수 있는 특수문자를 이스케이프
+ * 큰따옴표, 백슬래시, $, 백틱을 백슬래시로 이스케이프
+ */
+function escapeCwd(cwd: string): string {
+  return cwd.replace(/["\\`$]/g, (c) => `\\${c}`);
+}
+
 /** node-pty로 bash 스폰 */
 async function spawnWithNodePty(
   cwd: string,
@@ -79,13 +87,14 @@ async function spawnWithNodePty(
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: runAsUser ? undefined : cwd, // sudo -i는 자체적으로 홈 디렉토리 설정
+    // sudo -i 없이 직접 실행 시 cwd 옵션으로 안전하게 전달 (셸 인젝션 없음)
+    cwd: runAsUser ? undefined : cwd,
     env: { ...process.env } as Record<string, string>,
   });
 
-  // runAsUser 시 시작 디렉토리를 수동 이동 — 따옴표로 감싸 공백/특수문자 인젝션 방지
+  // runAsUser 시 시작 디렉토리를 수동 이동 — 특수문자 이스케이프 후 큰따옴표로 감싸기
   if (runAsUser) {
-    ptyProc.write(`cd "${cwd}" 2>/dev/null\n`);
+    ptyProc.write(`cd "${escapeCwd(cwd)}" 2>/dev/null\n`);
   }
 
   return {
@@ -120,9 +129,9 @@ function spawnWithChildProcess(
     callbacks.forEach((cb) => cb(data.toString()));
   });
 
-  // runAsUser 시 시작 디렉토리를 수동 이동 — 따옴표로 감싸 공백/특수문자 인젝션 방지
+  // runAsUser 시 시작 디렉토리를 수동 이동 — 특수문자 이스케이프 후 큰따옴표로 감싸기
   if (runAsUser) {
-    child.stdin.write(`cd "${cwd}" 2>/dev/null\n`);
+    child.stdin.write(`cd "${escapeCwd(cwd)}" 2>/dev/null\n`);
   }
 
   return {

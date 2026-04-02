@@ -39,7 +39,8 @@ const notificationRoutes: FastifyPluginAsync = async (fastify) => {
       where: { userId: request.userId, isRead: false },
       data: { isRead: true },
     });
-    return reply.code(200).send({ message: '전체 읽음 처리 완료' });
+    // 성공 응답 형식 통일 — { success: true }
+    return reply.code(200).send({ success: true });
   });
 
   // GET / — 내 알림 목록 (isRead 필터, 페이지네이션, 최신순)
