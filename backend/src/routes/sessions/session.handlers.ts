@@ -1,6 +1,7 @@
 // 세션 라우트 핸들러 — sessions/index.ts에서 분리
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { sessionService } from '../../services/session.service.js';
+import { memberService } from '../../services/member.service.js';
 import { createHttpError } from '../../lib/errors.js';
 import prisma from '../../lib/prisma.js';
 
@@ -71,15 +72,8 @@ export async function handleCreate(
 ) {
   const userId = request.userId;
 
-  // 프로젝트 멤버인지 확인
-  const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId: request.body.projectId, userId } },
-  });
-  if (!member) {
-    return reply.code(403).send({
-      error: { code: 'FORBIDDEN', message: '이 프로젝트에 세션을 생성할 권한이 없습니다' },
-    });
-  }
+  // 프로젝트 멤버십 검증 (시스템 admin은 bypass)
+  await memberService.assertProjectMember(request.body.projectId, userId);
 
   const session = await sessionService.create({
     projectId: request.body.projectId,
