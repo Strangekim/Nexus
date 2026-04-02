@@ -42,6 +42,8 @@ export interface TreeProject {
   name: string;
   type: 'project';
   folders: TreeFolder[];
+  /** 폴더에 속하지 않는 프로젝트 직속 세션 */
+  sessions: TreeSession[];
 }
 
 /** 사이드바 트리 — 폴더 노드 */

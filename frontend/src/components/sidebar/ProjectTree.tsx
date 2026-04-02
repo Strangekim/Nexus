@@ -18,7 +18,7 @@ export function ProjectTree() {
 
   if (isLoading) {
     return (
-      <div className="px-2 py-4 text-xs" style={{ color: '#8B8B9E' }}>
+      <div className="px-2 py-4 text-xs" style={{ color: '#6B6B7B' }}>
         불러오는 중...
       </div>
     );
@@ -26,7 +26,7 @@ export function ProjectTree() {
 
   if (!tree || tree.length === 0) {
     return (
-      <div className="px-2 py-4 text-xs" style={{ color: '#8B8B9E' }}>
+      <div className="px-2 py-4 text-xs" style={{ color: '#6B6B7B' }}>
         프로젝트가 없습니다
       </div>
     );
@@ -57,18 +57,27 @@ function ProjectNode({ project }: { project: TreeProject }) {
             variant="ghost"
             size="icon-xs"
             onClick={(e) => { e.stopPropagation(); setFolderDialogOpen(true); }}
-            style={{ color: '#8B8B9E' }}
+            style={{ color: '#6B6B7B' }}
           >
             <Plus className="size-3" />
           </Button>
         }
       />
       <CollapsibleContent>
-        <div className="ml-3 border-l" style={{ borderColor: '#2A2A3E' }}>
+        <div className="ml-3 border-l" style={{ borderColor: '#E8E5DE' }}>
+          {/* 폴더 목록 */}
           {project.folders.map((folder) => (
             <FolderNode
               key={folder.id}
               folder={folder}
+              projectId={project.id}
+            />
+          ))}
+          {/* 프로젝트 직속 세션 목록 */}
+          {project.sessions?.map((session) => (
+            <SessionItem
+              key={session.id}
+              session={session}
               projectId={project.id}
             />
           ))}
@@ -100,7 +109,7 @@ function FolderNode({ folder, projectId }: { folder: TreeFolder; projectId: stri
             variant="ghost"
             size="icon-xs"
             onClick={(e) => { e.stopPropagation(); setSessionDialogOpen(true); }}
-            style={{ color: '#8B8B9E' }}
+            style={{ color: '#6B6B7B' }}
           >
             <Plus className="size-3" />
           </Button>
