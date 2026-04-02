@@ -5,7 +5,8 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { PanelLeftClose, PanelLeft, Plus } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { PanelLeftClose, PanelLeft, Plus, Users } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -13,6 +14,7 @@ import { ProjectTree } from './ProjectTree';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { useUiStore } from '@/stores/uiStore';
+import { useAuthStore } from '@/stores/authStore';
 
 /** PC 고정 사이드바 — lg 이상에서만 렌더 */
 export function Sidebar() {
@@ -46,8 +48,9 @@ export function Sidebar() {
         </div>
       </ScrollArea>
 
-      {/* 하단: 프로젝트 생성 버튼 */}
-      <div className="border-t border-[#E8E5DE] p-2">
+      {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 */}
+      <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
+        <AdminMenu />
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
@@ -88,8 +91,11 @@ export function MobileSidebar() {
           </div>
         </ScrollArea>
 
-        {/* 하단: 프로젝트 생성 버튼 */}
-        <div className="border-t border-[#E8E5DE] p-2">
+        {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 */}
+        <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
+          <div onClick={() => setMobileSidebarOpen(false)}>
+            <AdminMenu />
+          </div>
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
@@ -103,6 +109,32 @@ export function MobileSidebar() {
         <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** 관리자 전용 메뉴 링크 — admin 역할인 경우에만 렌더 */
+function AdminMenu() {
+  const { user } = useAuthStore();
+  const pathname = usePathname();
+
+  if (user?.role !== 'admin') return null;
+
+  const isActive = pathname.startsWith('/admin');
+
+  return (
+    <Link href="/admin/users" className="block">
+      <Button
+        variant="ghost"
+        className={`w-full justify-start gap-2 ${
+          isActive
+            ? 'bg-[#2D7D7B]/10 text-[#2D7D7B] hover:bg-[#2D7D7B]/15'
+            : 'text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]'
+        }`}
+      >
+        <Users className="size-4" />
+        사용자 관리
+      </Button>
+    </Link>
   );
 }
 

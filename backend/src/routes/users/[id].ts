@@ -1,0 +1,109 @@
+// 사용자 단건 라우트 — GET/PATCH/DELETE /api/users/:id (관리자 전용)
+import { FastifyPluginAsync } from 'fastify';
+import bcrypt from 'bcrypt';
+import { requireAdmin } from '../../plugins/auth.js';
+import { createHttpError } from '../../lib/errors.js';
+import prisma from '../../lib/prisma.js';
+
+/** 사용자 수정 요청 바디 */
+interface UpdateUserBody {
+  name?: string;
+  role?: string;
+  authMode?: string;
+  linuxUser?: string;
+  newPassword?: string;
+}
+
+/** id params 스키마 */
+const idParamsSchema = {
+  type: 'object',
+  required: ['id'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+  },
+};
+
+/** 공통 사용자 select 필드 */
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  authMode: true,
+  linuxUser: true,
+  createdAt: true,
+};
+
+const userIdRoute: FastifyPluginAsync = async (fastify) => {
+  // GET /:id — 사용자 상세 조회 (관리자 전용)
+  fastify.get<{ Params: { id: string } }>('/:id', {
+    preHandler: [requireAdmin],
+    schema: { params: idParamsSchema },
+  }, async (request) => {
+    const user = await prisma.user.findUnique({
+      where: { id: request.params.id },
+      select: userSelect,
+    });
+    if (!user) throw createHttpError(404, '사용자를 찾을 수 없습니다');
+    return user;
+  });
+
+  // PATCH /:id — 사용자 수정 (관리자 전용)
+  fastify.patch<{ Params: { id: string }; Body: UpdateUserBody }>('/:id', {
+    preHandler: [requireAdmin],
+    schema: {
+      params: idParamsSchema,
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100 },
+          role: { type: 'string', enum: ['admin', 'member'] },
+          authMode: { type: 'string', enum: ['subscription', 'api'] },
+          linuxUser: { type: 'string', maxLength: 50 },
+          newPassword: { type: 'string', minLength: 6 },
+        },
+      },
+    },
+  }, async (request) => {
+    const { id } = request.params;
+    const { name, role, authMode, linuxUser, newPassword } = request.body;
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) throw createHttpError(404, '사용자를 찾을 수 없습니다');
+
+    // 비밀번호 변경 시 bcrypt 해싱
+    const passwordHash = newPassword ? await bcrypt.hash(newPassword, 10) : undefined;
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(role !== undefined && { role }),
+        ...(authMode !== undefined && { authMode }),
+        ...(linuxUser !== undefined && { linuxUser }),
+        ...(passwordHash !== undefined && { passwordHash }),
+      },
+      select: userSelect,
+    });
+    return updated;
+  });
+
+  // DELETE /:id — 사용자 삭제 (관리자 전용)
+  fastify.delete<{ Params: { id: string } }>('/:id', {
+    preHandler: [requireAdmin],
+    schema: { params: idParamsSchema },
+  }, async (request, reply) => {
+    const { id } = request.params;
+
+    // 자기 자신 삭제 불가
+    if (id === request.userId) throw createHttpError(400, '자기 자신은 삭제할 수 없습니다');
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) throw createHttpError(404, '사용자를 찾을 수 없습니다');
+
+    await prisma.user.delete({ where: { id } });
+    return reply.code(204).send();
+  });
+};
+
+export default userIdRoute;
