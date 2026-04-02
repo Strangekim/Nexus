@@ -21,10 +21,35 @@ export async function fetchMe(): Promise<User> {
   return apiFetch<User>('/api/auth/me');
 }
 
-/** Claude API 키 저장 — 빈 문자열 전달 시 삭제 */
-export async function saveClaudeApiKey(claudeAccount: string): Promise<User> {
-  return apiFetch<User>('/api/auth/settings', {
-    method: 'PATCH',
-    body: JSON.stringify({ claudeAccount }),
-  });
+/** Claude OAuth 인증 시작 — authUrl을 반환, 팝업으로 열어 인증 진행 */
+export async function startClaudeAuth(): Promise<{ authUrl: string }> {
+  return apiFetch<{ authUrl: string }>('/api/auth/claude/start', { method: 'POST' });
+}
+
+/** Claude OAuth 콜백 — 인증 코드(또는 전체 URL)로 토큰 교환 */
+export async function completeClaudeAuth(
+  code: string,
+): Promise<{ success: boolean; subscriptionType?: string }> {
+  return apiFetch<{ success: boolean; subscriptionType?: string }>(
+    '/api/auth/claude/callback',
+    {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    },
+  );
+}
+
+/** Claude OAuth 연동 해제 */
+export async function disconnectClaude(): Promise<void> {
+  await apiFetch<void>('/api/auth/claude/disconnect', { method: 'POST' });
+}
+
+/** Claude OAuth 연동 상태 조회 */
+export async function getClaudeStatus(): Promise<{
+  connected: boolean;
+  subscriptionType?: string;
+}> {
+  return apiFetch<{ connected: boolean; subscriptionType?: string }>(
+    '/api/auth/claude/status',
+  );
 }

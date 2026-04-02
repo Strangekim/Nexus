@@ -2,7 +2,7 @@
 // 메시지 입력창 — Textarea + 전송/중지 버튼
 
 import { useState, useRef, useCallback, type KeyboardEvent } from 'react';
-import { Send, Square, KeyRound } from 'lucide-react';
+import { Send, Square, Link } from 'lucide-react';
 
 interface MessageInputProps {
   onSend: (text: string) => void;
@@ -10,16 +10,22 @@ interface MessageInputProps {
   isStreaming: boolean;
   /** 타인 락 보유 시 true — 입력창 전체 비활성화 */
   isLocked?: boolean;
-  /** Claude API 키 미등록 시 true — 입력창 비활성화 + 안내 표시 */
-  noApiKey?: boolean;
+  /** Claude 계정 미연동 시 true — 입력창 비활성화 + 안내 표시 */
+  noClaudeAuth?: boolean;
 }
 
-export function MessageInput({ onSend, onAbort, isStreaming, isLocked = false, noApiKey = false }: MessageInputProps) {
+export function MessageInput({
+  onSend,
+  onAbort,
+  isStreaming,
+  isLocked = false,
+  noClaudeAuth = false,
+}: MessageInputProps) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 입력창 전체 비활성화 조건 — 타인 락 또는 API 키 미등록
-  const isDisabled = isLocked || noApiKey;
+  // 입력창 전체 비활성화 조건 — 타인 락 또는 Claude 미연동
+  const isDisabled = isLocked || noClaudeAuth;
 
   /** 전송 처리 */
   const handleSend = useCallback(() => {
@@ -70,8 +76,8 @@ export function MessageInput({ onSend, onAbort, isStreaming, isLocked = false, n
           onKeyDown={handleKeyDown}
           disabled={isDisabled}
           placeholder={
-            noApiKey
-              ? 'Claude API 키를 먼저 설정해주세요'
+            noClaudeAuth
+              ? 'Claude 계정을 먼저 연동해주세요'
               : isLocked
                 ? '다른 팀원이 작업 중입니다'
                 : '메시지를 입력하세요...'
@@ -103,26 +109,26 @@ export function MessageInput({ onSend, onAbort, isStreaming, isLocked = false, n
         )}
       </div>
 
-      {/* API 키 미등록 안내 */}
-      {noApiKey && (
+      {/* Claude 미연동 안내 */}
+      {noClaudeAuth && (
         <p className="text-center text-xs mt-1.5 flex items-center justify-center gap-1" style={{ color: '#E0845E' }}>
-          <KeyRound className="size-3" />
-          Claude API 키를 먼저 설정해주세요.{' '}
+          <Link className="size-3" />
+          Claude 계정을 먼저 연동해주세요.{' '}
           <button
             type="button"
             className="underline underline-offset-2 hover:opacity-80"
             onClick={() => {
-              // 알림 벨 드롭다운의 API 키 탭으로 안내 — 커스텀 이벤트 발행
-              window.dispatchEvent(new CustomEvent('nexus:open-apikey-settings'));
+              // 알림 벨 드롭다운의 Claude 연동 탭으로 안내 — 커스텀 이벤트 발행
+              window.dispatchEvent(new CustomEvent('nexus:open-claude-auth-settings'));
             }}
           >
-            설정하기
+            연동하기
           </button>
         </p>
       )}
 
       {/* 락 안내 메시지 */}
-      {isLocked && !noApiKey && (
+      {isLocked && !noClaudeAuth && (
         <p className="text-center text-xs mt-1.5" style={{ color: '#dc2626' }}>
           다른 팀원이 작업 중입니다. 작업 권한을 요청하세요.
         </p>
