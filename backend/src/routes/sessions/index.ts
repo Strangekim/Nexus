@@ -7,6 +7,7 @@ import prisma from '../../lib/prisma.js';
 import chatRoute from './chat.js';
 import abortRoute from './abort.js';
 import messagesRoute from './messages.js';
+import lockRoutes from './lock.js';
 
 // 요청 타입 정의
 interface ListQuery { folderId?: string; projectId?: string; status?: string }
@@ -39,10 +40,11 @@ async function assertSessionAccess(sessionId: string, userId: string): Promise<v
 }
 
 const sessionRoutes: FastifyPluginAsync = async (fastify) => {
-  // 채팅, 중단, 메시지 라우트 등록
+  // 채팅, 중단, 메시지, 락 라우트 등록
   await fastify.register(chatRoute);
   await fastify.register(abortRoute);
   await fastify.register(messagesRoute);
+  await fastify.register(lockRoutes);
 
   // GET / — 세션 목록 (folderId 또는 projectId로 필터)
   fastify.get<{ Querystring: ListQuery }>('/', {
@@ -57,12 +59,12 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-  }, async (request, reply) => {
+  }, async (request) => {
     const { folderId, projectId, status } = request.query;
     const userId = request.userId;
 
     if (!folderId && !projectId) {
-      return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'folderId 또는 projectId가 필요합니다' } });
+      throw createHttpError(400, 'folderId 또는 projectId가 필요합니다');
     }
 
     // folderId로 조회 시: 해당 폴더의 프로젝트 멤버인지 확인
@@ -71,15 +73,13 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id: folderId },
         select: { projectId: true },
       });
-      if (!folder) {
-        return reply.code(404).send({ error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' } });
-      }
+      if (!folder) throw createHttpError(404, '폴더를 찾을 수 없습니다');
+
       const member = await prisma.projectMember.findUnique({
         where: { projectId_userId: { projectId: folder.projectId, userId } },
       });
-      if (!member) {
-        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '이 폴더에 접근할 권한이 없습니다' } });
-      }
+      if (!member) throw createHttpError(403, '이 폴더에 접근할 권한이 없습니다');
+
       return sessionService.findByFolder(folderId, status);
     }
 
@@ -87,9 +87,8 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
     const member = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId: projectId!, userId } },
     });
-    if (!member) {
-      return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '이 프로젝트에 접근할 권한이 없습니다' } });
-    }
+    if (!member) throw createHttpError(403, '이 프로젝트에 접근할 권한이 없습니다');
+
     return sessionService.findByProject(projectId!, status);
   });
 
@@ -132,16 +131,13 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: IdParams }>('/:id', {
     preHandler: [requireAuth],
     schema: { params: idParamsSchema },
-  }, async (request, reply) => {
+  }, async (request) => {
     // 인가 검증: 에러는 전역 핸들러에서 처리
     await assertSessionAccess(request.params.id, request.userId);
 
     const session = await sessionService.findById(request.params.id);
-    if (!session) {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '세션을 찾을 수 없습니다' },
-      });
-    }
+    if (!session) throw createHttpError(404, '세션을 찾을 수 없습니다');
+
     return session;
   });
 
@@ -158,17 +154,11 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-  }, async (request, reply) => {
+  }, async (request) => {
     // 인가 검증: 에러는 전역 핸들러에서 처리
     await assertSessionAccess(request.params.id, request.userId);
-
-    try {
-      return await sessionService.update(request.params.id, request.body);
-    } catch {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '세션을 찾을 수 없습니다' },
-      });
-    }
+    // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
+    return sessionService.update(request.params.id, request.body);
   });
 
   // DELETE /:id — 세션 삭제
@@ -178,15 +168,9 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (request, reply) => {
     // 인가 검증: 에러는 전역 핸들러에서 처리
     await assertSessionAccess(request.params.id, request.userId);
-
-    try {
-      await sessionService.remove(request.params.id);
-      return reply.code(204).send();
-    } catch {
-      return reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: '세션을 찾을 수 없습니다' },
-      });
-    }
+    // 서비스 레이어 에러(404 등)는 전역 핸들러에서 처리
+    await sessionService.remove(request.params.id);
+    return reply.code(204).send();
   });
 };
 

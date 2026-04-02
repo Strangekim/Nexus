@@ -6,7 +6,7 @@ import { messageService } from '../../services/message.service.js';
 import { claudeService, StreamEvent } from '../../services/claude.service.js';
 import { transformStreamEvent } from '../../services/sse-transformer.js';
 import { handleChatStream } from './chat-stream.js';
-import prisma from '../../lib/prisma.js';
+import { lockService } from '../../services/lock.service.js';
 
 /** 요청 타입 정의 */
 interface ChatParams { id: string }
@@ -47,26 +47,16 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // 원자적 락 획득: lockedBy가 null이거나 자기 자신인 경우에만 업데이트
-    // 동시 요청 시 두 요청 모두 락을 획득하는 레이스 컨디션 방지
-    const lockResult = await prisma.session.updateMany({
-      where: {
-        id: sessionId,
-        OR: [
-          { lockedBy: null },
-          { lockedBy: userId },
-        ],
-      },
-      data: {
-        lockedBy: userId,
-        lockedAt: new Date(),
-        lastActivityAt: new Date(),
-      },
-    });
-
-    if (lockResult.count === 0) {
-      return reply.code(409).send({
-        error: { code: 'SESSION_LOCKED', message: '다른 사용자가 작업 중입니다' },
+    // 채팅 시 자동 락 획득 — 다른 사용자 락 보유 시 409 반환
+    try {
+      await lockService.acquireLock(sessionId, userId);
+    } catch (lockErr) {
+      const err = lockErr as Error & { statusCode?: number };
+      return reply.code(err.statusCode ?? 500).send({
+        error: {
+          code: err.statusCode === 409 ? 'SESSION_LOCKED' : 'INTERNAL_ERROR',
+          message: err.message,
+        },
       });
     }
 

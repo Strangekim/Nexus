@@ -9,9 +9,11 @@ import authRoutes from './routes/auth/index.js';
 import projectRoutes from './routes/projects/index.js';
 import sessionRoutes from './routes/sessions/index.js';
 import treeRoutes from './routes/tree/index.js';
+import notificationRoutes from './routes/notifications/index.js';
 import { registerTerminalNamespace } from './plugins/terminal.js';
 import { registerSocketPlugin } from './plugins/socket.js';
 import { socketService } from './services/socket.service.js';
+import { lockService } from './services/lock.service.js';
 
 const app = Fastify({ logger: true });
 
@@ -54,6 +56,7 @@ await app.register(authRoutes, { prefix: '/api/auth' });
 await app.register(projectRoutes, { prefix: '/api/projects' });
 await app.register(sessionRoutes, { prefix: '/api/sessions' });
 await app.register(treeRoutes, { prefix: '/api/tree' });
+await app.register(notificationRoutes, { prefix: '/api/notifications' });
 
 // 서버 시작
 const start = async () => {
@@ -82,6 +85,17 @@ const start = async () => {
     // Fastify listen (Socket.IO가 동일 http.Server를 공유)
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
     app.log.info(`서버가 포트 ${env.PORT}에서 실행 중입니다 (HTTP + Socket.IO)`);
+
+    // 고스트 락 방지 — 서버 재시작 시 모든 락 초기화
+    await lockService.clearAllLocks();
+    app.log.info('기존 세션 락 초기화 완료');
+
+    // 만료 락 자동 해제 타이머 — 60초마다 15분 초과 락 점검
+    setInterval(() => {
+      lockService.checkExpiredLocks().catch((err) => {
+        app.log.error({ err }, '만료 락 해제 중 오류 발생');
+      });
+    }, 60_000);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
