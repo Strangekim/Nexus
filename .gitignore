@@ -45,3 +45,4 @@ Thumbs.db
 # Prisma 생성 파일
 backend/src/generated/
 .claude/
+.playwright-mcp/
