@@ -1,4 +1,4 @@
-// 프로젝트 생성 다이얼로그
+// 프로젝트 생성 다이얼로그 — 이름 + 설명만 입력, git 저장소는 서버에서 자동 생성
 
 'use client';
 
@@ -23,23 +23,19 @@ interface Props {
 
 export function CreateProjectDialog({ open, onOpenChange }: Props) {
   const [name, setName] = useState('');
-  const [repoPath, setRepoPath] = useState('');
   const [description, setDescription] = useState('');
   const mutation = useCreateProject();
 
-  /** 폼 초기화 */
   const resetForm = () => {
     setName('');
-    setRepoPath('');
     setDescription('');
   };
 
-  /** 제출 핸들러 */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !repoPath.trim()) return;
+    if (!name.trim()) return;
     mutation.mutate(
-      { name: name.trim(), repoPath: repoPath.trim(), description: description.trim() || undefined },
+      { name: name.trim(), description: description.trim() || undefined },
       {
         onSuccess: () => {
           resetForm();
@@ -54,7 +50,9 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
       <DialogContent style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E5DE' }}>
         <DialogHeader>
           <DialogTitle style={{ color: '#3D3D3D' }}>새 프로젝트</DialogTitle>
-          <DialogDescription>프로젝트 정보를 입력하세요.</DialogDescription>
+          <DialogDescription>
+            프로젝트 이름을 입력하면 Git 저장소가 자동으로 생성됩니다.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <FormField label="이름" required>
@@ -62,14 +60,6 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="프로젝트 이름"
-              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
-            />
-          </FormField>
-          <FormField label="저장소 경로" required>
-            <Input
-              value={repoPath}
-              onChange={(e) => setRepoPath(e.target.value)}
-              placeholder="/home/ubuntu/projects/my-repo"
               style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </FormField>
@@ -82,7 +72,7 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
             />
           </FormField>
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending || !name.trim() || !repoPath.trim()}>
+            <Button type="submit" disabled={mutation.isPending || !name.trim()}>
               {mutation.isPending ? '생성 중...' : '생성'}
             </Button>
           </DialogFooter>

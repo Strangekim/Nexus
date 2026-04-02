@@ -12,7 +12,6 @@ export async function fetchTree(): Promise<TreeProject[]> {
 /** 프로젝트 생성 */
 export async function createProject(data: {
   name: string;
-  repoPath: string;
   description?: string;
 }): Promise<Project> {
   return apiFetch<Project>('/api/projects', {

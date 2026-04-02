@@ -15,7 +15,7 @@ import branchesRoute from './branches.js';
 // 요청 타입 정의
 interface ListQuery { page?: number; limit?: number }
 interface IdParams { id: string }
-interface CreateBody { name: string; repoPath: string; description?: string }
+interface CreateBody { name: string; description?: string }
 interface UpdateBody { name?: string; description?: string }
 
 /** id params UUID 검증 스키마 */
@@ -66,10 +66,10 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
     schema: {
       body: {
         type: 'object',
-        required: ['name', 'repoPath'],
+        required: ['name'],
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 200 },
-          repoPath: { type: 'string', minLength: 1, maxLength: 500 },
+          // repoPath는 서버에서 자동 생성 (프론트에서 전달하지 않음)
           description: { type: 'string' },
         },
       },
