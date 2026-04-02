@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { FolderKanban, Folder, Plus, FolderPlus, MessageSquarePlus, GitCommit } from 'lucide-react';
+import { FolderKanban, Folder, Plus, FolderPlus, MessageSquarePlus, GitCommit, Settings } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { useTree } from '@/hooks/useTree';
@@ -64,6 +64,15 @@ function ProjectNode({ project }: { project: TreeProject }) {
               className="flex items-center justify-center size-5 rounded text-[#6B6B7B] hover:text-[#2D7D7B] hover:bg-[#F5F5EF]"
             >
               <GitCommit className="size-3" />
+            </Link>
+            {/* 프로젝트 설정(Skills/CLAUDE.md) 링크 */}
+            <Link
+              href={`/projects/${project.id}/settings`}
+              onClick={(e) => e.stopPropagation()}
+              title="프로젝트 설정"
+              className="flex items-center justify-center size-5 rounded text-[#6B6B7B] hover:text-[#2D7D7B] hover:bg-[#F5F5EF]"
+            >
+              <Settings className="size-3" />
             </Link>
             <Button
               variant="ghost"

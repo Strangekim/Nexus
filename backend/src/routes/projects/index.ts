@@ -8,6 +8,7 @@ import folderRoutes from '../folders/index.js';
 import commitsRouter from './commits/router.js';
 import dashboardRoutes from './dashboard.js';
 import queryRoute from './query.js';
+import skillsRoutes from './skills.js';
 
 // 요청 타입 정의
 interface ListQuery { page?: number; limit?: number }
@@ -35,6 +36,8 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(dashboardRoutes, { prefix: '/:id/dashboard' });
   // PM 질의 라우트 등록 (prefix 없음 — 라우트 내부에서 /:id/query 처리)
   await fastify.register(queryRoute);
+  // Skills 편집기 라우트 등록 (prefix 없음 — 라우트 내부에서 /:id/skills/* 처리)
+  await fastify.register(skillsRoutes);
 
   // GET / — 프로젝트 목록 (페이지네이션)
   fastify.get<{ Querystring: ListQuery }>('/', {
