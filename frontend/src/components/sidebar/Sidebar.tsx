@@ -16,15 +16,12 @@ export function Sidebar() {
 
   if (collapsed) {
     return (
-      <aside
-        className="flex flex-col items-center py-3 border-r"
-        style={{ backgroundColor: '#0F3433', borderColor: '#2A2A3E', width: 48 }}
-      >
+      <aside className="flex w-12 flex-col items-center border-r border-[#E8E5DE] bg-white py-3">
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={() => setCollapsed(false)}
-          style={{ color: '#8B8B9E' }}
+          className="text-[#6B6B7B] hover:text-[#1A1A1A]"
         >
           <PanelLeft className="size-4" />
         </Button>
@@ -33,10 +30,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside
-      className="flex flex-col w-64 border-r shrink-0"
-      style={{ backgroundColor: '#0F3433', borderColor: '#2A2A3E' }}
-    >
+    <aside className="flex w-64 shrink-0 flex-col border-r border-[#E8E5DE] bg-white">
       {/* 헤더: 로고 + 접기 버튼 */}
       <SidebarHeader onCollapse={() => setCollapsed(true)} />
 
@@ -48,11 +42,10 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* 하단: 프로젝트 생성 버튼 */}
-      <div className="p-2 border-t" style={{ borderColor: '#2A2A3E' }}>
+      <div className="border-t border-[#E8E5DE] p-2">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2"
-          style={{ color: '#8B8B9E' }}
+          className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="size-4" />
@@ -65,27 +58,23 @@ export function Sidebar() {
   );
 }
 
-/** 사이드바 헤더 — 로고 + 접기 토글 */
+/** 사이드바 헤더 — 가로형 로고 + 접기 토글 */
 function SidebarHeader({ onCollapse }: { onCollapse: () => void }) {
   return (
-    <div
-      className="flex items-center justify-between px-3 py-3 border-b"
-      style={{ borderColor: '#2A2A3E' }}
-    >
-      <div className="flex items-center gap-2">
-        <Image src="/logo.png" alt="Nexus" width={28} height={28} />
-        <span
-          className="text-sm font-semibold tracking-wide"
-          style={{ color: '#E8E8ED' }}
-        >
-          Nexus
-        </span>
-      </div>
+    <div className="flex items-center justify-between border-b border-[#E8E5DE] px-3 py-3">
+      {/* 가로형 워드마크 로고 (2120×556 비율 → width 120px 고정) */}
+      <Image
+        src="/logo.png"
+        alt="Nexus"
+        width={120}
+        height={32}
+        style={{ height: 'auto' }}
+      />
       <Button
         variant="ghost"
         size="icon-sm"
         onClick={onCollapse}
-        style={{ color: '#8B8B9E' }}
+        className="text-[#6B6B7B] hover:text-[#1A1A1A]"
       >
         <PanelLeftClose className="size-4" />
       </Button>
