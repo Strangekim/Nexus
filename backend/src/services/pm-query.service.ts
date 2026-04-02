@@ -1,8 +1,9 @@
-// PM 자연어 질의 서비스 — 컨텍스트 수집 + Claude Code 읽기 전용 실행
+// 팀 질의 서비스 — 컨텍스트 수집 + Claude Code 코드 분석/결과물 생성 실행
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import prisma from '../lib/prisma.js';
 import { StreamEvent } from './claude.service.js';
+import { createStreamHandler } from '../lib/stream-parser.js';
 
 /** 프로젝트당 동시 질의 카운터 */
 const activeQueries = new Map<string, number>();
@@ -10,7 +11,10 @@ const activeQueries = new Map<string, number>();
 /** 동시 질의 최대 허용 수 */
 const MAX_CONCURRENT = 2;
 
-class PMQueryService {
+/** 분석 결과물 저장 경로 (기존 파일 수정 방지용 격리 디렉토리) */
+const REPORT_OUTPUT_DIR = '/tmp/nexus-reports';
+
+class TeamQueryService {
   /** 컨텍스트 프롬프트 구성 */
   private buildPrompt(
     sessions: Array<{ title: string; status: string; createdAt: Date; messages: Array<{ role: string; content: string }> }>,
@@ -39,13 +43,19 @@ class PMQueryService {
       '',
       '---',
       '',
-      '위 컨텍스트를 바탕으로 다음 질문에 답변해줘. 파일 읽기가 필요하면 Read/Glob/Grep 도구를 사용해도 돼.',
+      '## 중요 지시사항',
+      '- 코드베이스의 기존 파일을 절대 수정(Edit)하지 마세요.',
+      '- 파일 읽기/분석은 Read, Glob, Grep 도구를 사용하세요.',
+      '- 통계/분석이 필요하면 Bash 도구로 git log, wc, find 등의 명령어를 실행해도 됩니다.',
+      `- 분석 결과나 보고서 파일이 필요하면 반드시 ${REPORT_OUTPUT_DIR}/ 경로에 생성하세요.`,
+      '',
+      '위 컨텍스트를 바탕으로 다음 질문에 답변해줘.',
       '',
       `## 질문: ${userMessage}`,
     ].join('\n');
   }
 
-  /** PM 질의 실행 — EventEmitter 반환 (채팅과 동일 패턴) */
+  /** 팀 질의 실행 — EventEmitter 반환 (채팅과 동일 패턴) */
   async query(projectId: string, message: string, folderId?: string): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
@@ -64,7 +74,7 @@ class PMQueryService {
       return emitter;
     }
 
-    // 세션 컨텍스트 수집
+    // 세션 컨텍스트 수집 (folderId 전달 시 해당 폴더 세션만 조회)
     const sessions = await prisma.session.findMany({
       where: { projectId, ...(folderId ? { folderId } : {}) },
       take: 10,
@@ -85,10 +95,10 @@ class PMQueryService {
     // 카운터 증가
     activeQueries.set(projectId, current + 1);
 
-    // Claude Code 읽기 전용 실행 — stdin으로 프롬프트 전달
+    // Claude Code 실행 — 읽기+Bash+Write 허용, Edit(기존 파일 수정) 금지
     const proc = spawn('claude', [
       '--output-format', 'stream-json',
-      '--allowedTools', 'Read,Glob,Grep',
+      '--allowedTools', 'Read,Glob,Grep,Bash,Write',
       '-p',
     ], {
       cwd: project.repoPath,
@@ -100,23 +110,10 @@ class PMQueryService {
     proc.stdin.write(prompt, 'utf8');
     proc.stdin.end();
 
-    let buffer = '';
+    // 공통 stream-json 파서 사용
+    const { onData, flush } = createStreamHandler(emitter);
 
-    proc.stdout.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const event = JSON.parse(line) as StreamEvent;
-          emitter.emit('event', event);
-        } catch {
-          // JSON 파싱 실패 무시
-        }
-      }
-    });
+    proc.stdout.on('data', onData);
 
     proc.stderr.on('data', (chunk: Buffer) => {
       emitter.emit('error', chunk.toString());
@@ -129,12 +126,7 @@ class PMQueryService {
       else activeQueries.set(projectId, cnt - 1);
 
       // 남은 버퍼 처리
-      if (buffer.trim()) {
-        try {
-          const event = JSON.parse(buffer) as StreamEvent;
-          emitter.emit('event', event);
-        } catch { /* 무시 */ }
-      }
+      flush();
       emitter.emit('close', code);
     });
 
@@ -142,4 +134,4 @@ class PMQueryService {
   }
 }
 
-export const pmQueryService = new PMQueryService();
+export const pmQueryService = new TeamQueryService();

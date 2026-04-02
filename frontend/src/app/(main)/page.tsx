@@ -11,7 +11,7 @@ import BranchStatusCard from './_components/BranchStatusCard';
 import FileChangeMap from './_components/FileChangeMap';
 import UsageTableCard from './_components/UsageTableCard';
 import DashboardHeader from './_components/DashboardHeader';
-import PMQueryPanel from '@/components/dashboard/PMQueryPanel';
+import TeamQueryPanel from '@/components/dashboard/TeamQueryPanel';
 import type { DashboardPeriod } from '@/services/api/dashboard';
 
 /** 대시보드 본문 — searchParams 사용 */
@@ -56,8 +56,8 @@ function DashboardContent() {
 
       {projectId && (
         <>
-          {/* PM 자연어 질의 패널 */}
-          <PMQueryPanel projectId={projectId} />
+          {/* 팀 자연어 질의 패널 */}
+          <TeamQueryPanel projectId={projectId} />
 
           {/* 상단 그리드: 세션+피드(왼쪽), 통계 요약(오른쪽) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -82,7 +82,7 @@ function DashboardContent() {
             <p className="mt-0.5 text-sm text-[#6B6B7B]">최근 커밋 내역과 브랜치 상태를 확인하세요.</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GitCommitsCard />
+            <GitCommitsCard projectId={projectId} />
             <BranchStatusCard />
           </div>
         </>

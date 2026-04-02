@@ -1,10 +1,11 @@
-// PM 자연어 질의 라우트 — POST /api/projects/:id/query
+// 팀 자연어 질의 라우트 — POST /api/projects/:id/query
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { pmQueryService } from '../../services/pm-query.service.js';
 import { transformStreamEvent } from '../../services/sse-transformer.js';
 import { createHttpError } from '../../lib/errors.js';
 import { StreamEvent } from '../../services/claude.service.js';
+import { memberService } from '../../services/member.service.js';
 
 interface Params { id: string }
 interface Body { message: string; folderId?: string }
@@ -36,6 +37,9 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
     const { id: projectId } = request.params;
     const { message, folderId } = request.body;
 
+    // SSE 헤더 전송 전 멤버십 검증 (헤더 write 이후엔 에러 응답 불가)
+    await memberService.assertProjectMember(projectId, request.userId);
+
     // SSE 헤더 설정
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -48,7 +52,7 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
     try {
       emitter = await pmQueryService.query(projectId, message, folderId);
     } catch {
-      throw createHttpError(500, 'PM 질의 서비스 오류');
+      throw createHttpError(500, '팀 질의 서비스 오류');
     }
 
     await new Promise<void>((resolve) => {

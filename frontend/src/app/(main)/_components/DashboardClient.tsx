@@ -1,9 +1,9 @@
 'use client';
-// 대시보드 클라이언트 영역 — 프로젝트 선택 상태 + PM 질의 패널 통합
+// 대시보드 클라이언트 영역 — 프로젝트 선택 상태 + 팀 질의 패널 통합
 
 import { useState } from 'react';
 import { useTree } from '@/hooks/useTree';
-import PMQueryPanel from '@/components/dashboard/PMQueryPanel';
+import TeamQueryPanel from '@/components/dashboard/TeamQueryPanel';
 import RecentSessionsCard from './RecentSessionsCard';
 import ProjectSummaryCard from './ProjectSummaryCard';
 import ActivityFeedCard from './ActivityFeedCard';
@@ -28,8 +28,8 @@ export default function DashboardClient() {
 
   return (
     <>
-      {/* PM 질의 패널 — 대시보드 상단 */}
-      <PMQueryPanel projectId={effectiveProjectId} />
+      {/* 팀 질의 패널 — 대시보드 상단 */}
+      <TeamQueryPanel projectId={effectiveProjectId} />
 
       {/* 프로젝트 + 기간 필터 바 */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -82,7 +82,7 @@ export default function DashboardClient() {
         <p className="mt-0.5 text-sm text-[#6B6B7B]">최근 커밋 내역과 브랜치 상태를 확인하세요.</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <GitCommitsCard />
+        <GitCommitsCard projectId={effectiveProjectId} />
         <BranchStatusCard />
       </div>
     </>

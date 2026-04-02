@@ -1,17 +1,17 @@
 'use client';
-// PM 자연어 질의 훅 — SSE 스트리밍 + 응답 상태 관리
+// 팀 자연어 질의 훅 — SSE 스트리밍 + 응답 상태 관리
 
 import { useState, useRef, useCallback } from 'react';
 import { connectSse } from '@/lib/sse';
 
-interface UsePMQueryReturn {
+interface UseTeamQueryReturn {
   /** 누적 응답 텍스트 */
   responseText: string;
   /** 스트리밍 진행 중 여부 */
   isStreaming: boolean;
   /** 에러 메시지 */
   error: string | null;
-  /** PM 질의 전송 */
+  /** 팀 질의 전송 */
   sendQuery: (projectId: string, message: string, folderId?: string) => void;
   /** 스트리밍 중단 */
   abort: () => void;
@@ -19,7 +19,7 @@ interface UsePMQueryReturn {
   reset: () => void;
 }
 
-export function usePMQuery(): UsePMQueryReturn {
+export function useTeamQuery(): UseTeamQueryReturn {
   const [responseText, setResponseText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function usePMQuery(): UsePMQueryReturn {
     }
   }, [flushText]);
 
-  /** PM 질의 전송 */
+  /** 팀 질의 전송 */
   const sendQuery = useCallback((projectId: string, message: string, folderId?: string) => {
     if (!message.trim() || isStreaming) return;
 

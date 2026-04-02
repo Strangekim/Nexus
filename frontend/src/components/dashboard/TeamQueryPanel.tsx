@@ -1,22 +1,22 @@
 'use client';
-// PM 자연어 질의 패널 — 프로젝트 컨텍스트 기반 AI 질의/응답 (SSE 스트리밍)
+// 팀 자연어 질의 패널 — 코드 분석 및 결과물 생성 (SSE 스트리밍)
 
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, Square, ChevronDown, ChevronUp, BotMessageSquare } from 'lucide-react';
-import { usePMQuery } from '@/hooks/usePMQuery';
+import { useTeamQuery } from '@/hooks/useTeamQuery';
 
 interface Props {
   /** 현재 선택된 프로젝트 ID */
   projectId: string;
 }
 
-export default function PMQueryPanel({ projectId }: Props) {
+export default function TeamQueryPanel({ projectId }: Props) {
   const [inputText, setInputText] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const { responseText, isStreaming, error, sendQuery, abort, reset } = usePMQuery();
+  const { responseText, isStreaming, error, sendQuery, abort, reset } = useTeamQuery();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
 
@@ -56,9 +56,9 @@ export default function PMQueryPanel({ projectId }: Props) {
       {/* 패널 헤더 */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-[#E8E5DE]">
         <BotMessageSquare size={16} className="text-[#2D7D7B]" />
-        <span className="text-sm font-semibold text-[#1A1A1A]">PM 질의</span>
+        <span className="text-sm font-semibold text-[#1A1A1A]">팀 질의</span>
         <span className="text-xs text-[#6B6B7B] hidden sm:inline">
-          — 프로젝트 현황을 AI에게 물어보세요
+          — 코드를 분석하고 보고서를 생성할 수 있습니다. 기존 코드는 수정되지 않습니다.
         </span>
         {/* 응답 영역 접기/펼치기 */}
         {hasResponse && (
@@ -103,7 +103,7 @@ export default function PMQueryPanel({ projectId }: Props) {
           onKeyDown={handleKeyDown}
           placeholder={
             projectId
-              ? '프로젝트에 대해 물어보세요... (예: 이번 주 뭘 했어? / 인증 모듈 어디까지 됐어?)'
+              ? '프로젝트에 대해 질문하세요 (코드 분석, 진행상황 보고서 생성 등)'
               : '프로젝트를 먼저 선택하세요'
           }
           rows={2}
