@@ -16,8 +16,8 @@ import path from 'path';
 /** Claude 공식 OAuth client_id (Claude Code) */
 const CLAUDE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 
-/** OAuth 토큰 교환 엔드포인트 */
-const CLAUDE_TOKEN_URL = 'https://claude.ai/oauth/token';
+/** OAuth 토큰 교환 엔드포인트 (platform.claude.com) */
+const CLAUDE_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 
 /** MANUAL 모드 redirect_uri (사용자가 code를 직접 붙여넣음) */
 const REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
@@ -163,14 +163,21 @@ class ClaudeAuthService {
    */
   async saveCredentials(userId: string, tokens: OAuthTokens): Promise<void> {
     const dir = this.getConfigDir(userId);
-    // 디렉토리 없으면 생성 (권한 700)
     await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-    // 권한이 이미 설정된 디렉토리여도 강제 적용
     await fs.chmod(dir, 0o700);
 
+    // Claude CLI가 기대하는 credentials.json 형식으로 저장
+    const cliFormat = {
+      claudeAiOauth: {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresAt: tokens.expires_at * 1000, // CLI는 밀리초 단위
+        scopes: (tokens.scope ?? OAUTH_SCOPE).split(' '),
+      },
+    };
+
     const credPath = path.join(dir, '.credentials.json');
-    await fs.writeFile(credPath, JSON.stringify(tokens), { encoding: 'utf8', mode: 0o600 });
-    // 파일 권한 재확인 (umask 무시 보장)
+    await fs.writeFile(credPath, JSON.stringify(cliFormat, null, 2), { encoding: 'utf8', mode: 0o600 });
     await fs.chmod(credPath, 0o600);
   }
 
@@ -182,9 +189,18 @@ class ClaudeAuthService {
     const credPath = path.join(this.getConfigDir(userId), '.credentials.json');
     try {
       const raw = await fs.readFile(credPath, 'utf8');
-      return JSON.parse(raw) as OAuthTokens;
+      const data = JSON.parse(raw);
+      // CLI 형식 ({ claudeAiOauth: { ... } })에서 변환
+      const oauth = data.claudeAiOauth;
+      if (!oauth?.accessToken) return null;
+      return {
+        access_token: oauth.accessToken,
+        refresh_token: oauth.refreshToken,
+        token_type: 'Bearer',
+        expires_at: Math.floor((oauth.expiresAt ?? 0) / 1000), // 밀리초 → 초
+        scope: Array.isArray(oauth.scopes) ? oauth.scopes.join(' ') : undefined,
+      };
     } catch {
-      // 파일 없음 또는 파싱 오류 → 미연동 상태
       return null;
     }
   }
