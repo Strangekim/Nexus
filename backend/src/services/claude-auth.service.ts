@@ -93,7 +93,9 @@ class ClaudeAuthService {
     });
 
     if (!res.ok) {
-      // 에러 본문을 로그에 남기지 않음 (토큰 정보 노출 방지)
+      // 디버그: 에러 원인 파악을 위해 응답 본문 로깅 (토큰 정보는 포함되지 않음 — 실패 응답)
+      const errBody = await res.text().catch(() => '(읽기 실패)');
+      console.error(`[ClaudeAuth] 토큰 교환 실패: HTTP ${res.status}, body: ${errBody}`);
       throw new Error(`토큰 교환 실패: HTTP ${res.status}`);
     }
 
