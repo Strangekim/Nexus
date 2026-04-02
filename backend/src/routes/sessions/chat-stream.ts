@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 import { StreamEvent } from '../../services/claude.service.js';
 import { transformStreamEvent, SseEvent } from '../../services/sse-transformer.js';
 import { messageService } from '../../services/message.service.js';
+import { commitSyncService } from '../../services/commit-sync.service.js';
 import prisma from '../../lib/prisma.js';
 
 /** SSE 이벤트를 클라이언트로 전송 */
@@ -11,11 +12,18 @@ function sendSseEvent(reply: FastifyReply, event: string, data: object) {
   reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+/** 커밋 동기화에 필요한 세션 컨텍스트 */
+interface SessionContext {
+  projectId: string;
+  worktreePath: string | null;
+}
+
 /** 스트림 이벤트 수집 및 SSE 전달 처리 */
 export function handleChatStream(
   emitter: EventEmitter,
   reply: FastifyReply,
   sessionId: string,
+  sessionCtx?: SessionContext,
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     let fullText = '';
@@ -73,6 +81,17 @@ export function handleChatStream(
             messageId: saved.id,
             sessionId,
             totalTokens,
+          });
+        }
+
+        // done 이후 새 커밋 자동 동기화
+        if (sessionCtx?.worktreePath) {
+          commitSyncService.syncNewCommits(
+            sessionCtx.projectId,
+            sessionId,
+            sessionCtx.worktreePath,
+          ).catch((err) => {
+            console.error('커밋 동기화 실패:', err);
           });
         }
 

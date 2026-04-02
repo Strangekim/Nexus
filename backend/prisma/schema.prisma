@@ -141,6 +141,8 @@ model Commit {
   author       String?  @db.VarChar(100)
   triggeredBy  String?  @map("triggered_by") @db.Uuid
   filesChanged Json?    @map("files_changed") @db.JsonB
+  additions    Int?     @map("additions")
+  deletions    Int?     @map("deletions")
   createdAt    DateTime @default(now()) @map("created_at")
 
   session   Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)

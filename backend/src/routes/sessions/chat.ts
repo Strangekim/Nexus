@@ -79,7 +79,10 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       session.claudeSessionId,
     );
 
-    await handleChatStream(emitter, reply, sessionId);
+    await handleChatStream(emitter, reply, sessionId, {
+      projectId: session.projectId,
+      worktreePath: session.worktreePath,
+    });
   });
 };
 
