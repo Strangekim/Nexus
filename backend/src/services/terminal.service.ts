@@ -1,5 +1,5 @@
 // 웹 터미널 서비스 — node-pty 기반 프로세스 관리
-// node-pty 설치 실패 시 child_process.spawn으로 fallback
+// Linux 유저 분리: runAsUser가 지정되면 sudo -u로 실행
 import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Socket } from 'socket.io';
 
@@ -23,30 +23,44 @@ async function tryLoadNodePty() {
   }
 }
 
+/** 실행할 명령어와 인자 결정 — runAsUser가 있으면 sudo -u */
+function resolveCommand(runAsUser?: string): { cmd: string; args: string[] } {
+  if (runAsUser) {
+    return { cmd: 'sudo', args: ['-u', runAsUser, '-i', 'bash'] };
+  }
+  return { cmd: 'bash', args: [] };
+}
+
 /** node-pty로 bash 스폰 */
 async function spawnWithNodePty(
   cwd: string,
   cols: number,
   rows: number,
+  runAsUser?: string,
 ): Promise<{ pty: PtyProcess; onData: (cb: (data: string) => void) => void } | null> {
   const pty = await tryLoadNodePty();
   if (!pty) return null;
 
-  const ptyProc = pty.spawn('bash', [], {
+  const { cmd, args } = resolveCommand(runAsUser);
+
+  const ptyProc = pty.spawn(cmd, args, {
     name: 'xterm-256color',
     cols,
     rows,
-    cwd,
+    cwd: runAsUser ? undefined : cwd, // sudo -i는 자체적으로 홈 디렉토리 설정
     env: { ...process.env } as Record<string, string>,
   });
+
+  // runAsUser 시 시작 디렉토리를 수동 이동
+  if (runAsUser) {
+    ptyProc.write(`cd ${cwd} 2>/dev/null\n`);
+  }
 
   return {
     pty: {
       write: (data: string) => ptyProc.write(data),
       resize: (c: number, r: number) => ptyProc.resize(c, r),
-      kill: () => {
-        try { ptyProc.kill(); } catch { /* 이미 종료된 경우 무시 */ }
-      },
+      kill: () => { try { ptyProc.kill(); } catch { /* 무시 */ } },
     },
     onData: (cb) => { ptyProc.onData(cb); },
   };
@@ -55,9 +69,12 @@ async function spawnWithNodePty(
 /** child_process.spawn으로 bash 스폰 (fallback) */
 function spawnWithChildProcess(
   cwd: string,
+  runAsUser?: string,
 ): { pty: PtyProcess; onData: (cb: (data: string) => void) => void } {
-  const child = spawn('bash', ['--login'], {
-    cwd,
+  const { cmd, args } = resolveCommand(runAsUser);
+
+  const child = spawn(cmd, [...args], {
+    cwd: runAsUser ? undefined : cwd,
     env: { ...process.env, TERM: 'xterm-256color' },
     stdio: ['pipe', 'pipe', 'pipe'],
   }) as ChildProcessWithoutNullStreams;
@@ -71,40 +88,38 @@ function spawnWithChildProcess(
     callbacks.forEach((cb) => cb(data.toString()));
   });
 
+  // runAsUser 시 시작 디렉토리를 수동 이동
+  if (runAsUser) {
+    child.stdin.write(`cd ${cwd} 2>/dev/null\n`);
+  }
+
   return {
     pty: {
-      write: (data: string) => {
-        try { child.stdin.write(data); } catch { /* 무시 */ }
-      },
-      // child_process는 resize 미지원
-      kill: () => {
-        try { child.kill('SIGTERM'); } catch { /* 이미 종료된 경우 무시 */ }
-      },
+      write: (data: string) => { try { child.stdin.write(data); } catch { /* 무시 */ } },
+      kill: () => { try { child.kill('SIGTERM'); } catch { /* 무시 */ } },
     },
     onData: (cb) => { callbacks.push(cb); },
   };
 }
 
-/** 터미널 세션 시작 */
+/** 터미널 세션 시작 — runAsUser로 Linux 유저 분리 */
 async function startTerminal(
   socket: Socket,
   cwd: string,
   cols = 80,
   rows = 24,
+  runAsUser?: string,
 ): Promise<void> {
-  // 기존 세션이 있으면 먼저 종료
   killTerminal(socket.id);
 
-  // node-pty 우선 시도, 실패 시 fallback
-  let session = await spawnWithNodePty(cwd, cols, rows);
+  let session = await spawnWithNodePty(cwd, cols, rows, runAsUser);
   if (!session) {
     socket.emit('terminal:output', '\r\n[node-pty 미설치 — child_process 모드로 실행]\r\n');
-    session = spawnWithChildProcess(cwd);
+    session = spawnWithChildProcess(cwd, runAsUser);
   }
 
   const { pty, onData } = session;
 
-  // pty 출력을 클라이언트로 전달
   onData((data: string) => {
     socket.emit('terminal:output', data);
   });
@@ -131,7 +146,7 @@ function killTerminal(socketId: string): void {
   }
 }
 
-/** 활성 터미널 수 조회 (모니터링용) */
+/** 활성 터미널 수 조회 */
 function getActiveCount(): number {
   return ptyMap.size;
 }
