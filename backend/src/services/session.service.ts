@@ -39,24 +39,48 @@ async function findById(id: string) {
   });
 }
 
-/** 세션 생성 — worktreePath, branchName 자동 생성 */
-async function create(dto: { folderId: string; title: string; createdBy: string }) {
-  // 폴더의 프로젝트 정보 조회 (repoPath 필요)
-  const folder = await prisma.folder.findUnique({
-    where: { id: dto.folderId },
-    include: { project: { select: { repoPath: true } } },
+/** 세션 생성 — folderId 있으면 폴더 소속, 없으면 프로젝트 직속 */
+async function create(dto: {
+  projectId: string;
+  folderId?: string;
+  title: string;
+  createdBy: string;
+}) {
+  // 프로젝트 존재 확인 (repoPath 필요)
+  const project = await prisma.project.findUnique({
+    where: { id: dto.projectId },
+    select: { repoPath: true },
   });
-  if (!folder) {
-    throw Object.assign(new Error('폴더를 찾을 수 없습니다'), { statusCode: 404 });
+  if (!project) {
+    throw Object.assign(new Error('프로젝트를 찾을 수 없습니다'), { statusCode: 404 });
   }
 
-  // worktreePath, branchName은 세션 ID 기반으로 생성 — 먼저 레코드 생성 후 업데이트
+  // folderId가 있으면 해당 폴더가 이 프로젝트 소속인지 검증
+  if (dto.folderId) {
+    const folder = await prisma.folder.findUnique({ where: { id: dto.folderId } });
+    if (!folder || folder.projectId !== dto.projectId) {
+      throw Object.assign(new Error('폴더를 찾을 수 없습니다'), { statusCode: 404 });
+    }
+  }
+
   const session = await prisma.session.create({
-    data: { folderId: dto.folderId, title: dto.title, createdBy: dto.createdBy },
+    data: {
+      projectId: dto.projectId,
+      folderId: dto.folderId ?? null,
+      title: dto.title,
+      createdBy: dto.createdBy,
+    },
   });
 
-  const rawWorktreePath = folder.project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
-  // 경로 트래버설 방어: 허용된 base 경로 내에 있는지 검증
+  // 프로젝트 직속 세션은 worktree 없이 생성 (전반 논의용)
+  if (!dto.folderId) {
+    return prisma.session.findUnique({
+      where: { id: session.id },
+      include: { creator: userSelect, locker: userSelect },
+    });
+  }
+
+  const rawWorktreePath = project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
   validateWorktreePath(rawWorktreePath);
   const worktreePath = path.resolve(rawWorktreePath);
   const branchName = `session/${session.id}`;
@@ -82,4 +106,13 @@ async function remove(id: string) {
   return prisma.session.delete({ where: { id } });
 }
 
-export const sessionService = { findByFolder, findById, create, update, remove };
+/** 프로젝트 직속 세션 목록 조회 (folderId가 null인 세션) */
+async function findByProject(projectId: string, status?: string) {
+  return prisma.session.findMany({
+    where: { projectId, folderId: null, ...(status ? { status } : {}) },
+    include: { creator: userSelect, locker: userSelect },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export const sessionService = { findByFolder, findByProject, findById, create, update, remove };

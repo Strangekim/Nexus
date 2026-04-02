@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/button';
 import { useCreateSession } from '@/hooks/useProjectMutations';
 
 interface Props {
+  projectId: string;
   folderId?: string;
-  projectId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

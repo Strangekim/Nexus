@@ -8,9 +8,9 @@ import abortRoute from './abort.js';
 import messagesRoute from './messages.js';
 
 // 요청 타입 정의
-interface ListQuery { folderId: string; status?: string }
+interface ListQuery { folderId?: string; projectId?: string; status?: string }
 interface IdParams { id: string }
-interface CreateBody { folderId: string; title: string }
+interface CreateBody { projectId: string; folderId?: string; title: string }
 interface UpdateBody { title?: string; status?: string }
 
 /** params UUID 검증 스키마 */
@@ -26,15 +26,16 @@ const idParamsSchema = {
  * 세션이 요청자(userId)의 프로젝트 소속인지 검증
  * 세션 → 폴더 → 프로젝트 → 멤버 관계를 확인
  */
+/** 세션이 요청자의 프로젝트 소속인지 검증 (폴더 소속 / 프로젝트 직속 모두 지원) */
 async function assertSessionAccess(sessionId: string, userId: string): Promise<void> {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    include: { folder: { include: { project: { include: { members: true } } } } },
+    include: { project: { include: { projectMembers: true } } },
   });
   if (!session) {
     throw Object.assign(new Error('세션을 찾을 수 없습니다'), { statusCode: 404 });
   }
-  const isMember = session.folder.project.members.some((m) => m.userId === userId);
+  const isMember = session.project.projectMembers.some((m) => m.userId === userId);
   if (!isMember) {
     throw Object.assign(new Error('이 세션에 접근할 권한이 없습니다'), { statusCode: 403 });
   }
@@ -46,47 +47,37 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(abortRoute);
   await fastify.register(messagesRoute);
 
-  // GET / — 세션 목록 (folderId 필수, status 선택)
+  // GET / — 세션 목록 (folderId 또는 projectId로 필터)
   fastify.get<{ Querystring: ListQuery }>('/', {
     preHandler: [requireAuth],
     schema: {
       querystring: {
         type: 'object',
-        required: ['folderId'],
         properties: {
           folderId: { type: 'string', format: 'uuid' },
+          projectId: { type: 'string', format: 'uuid' },
           status: { type: 'string', enum: ['active', 'archived'] },
         },
       },
     },
   }, async (request, reply) => {
-    const { folderId, status } = request.query;
-    const userId = request.session.get('userId') as string;
-
-    // 폴더의 프로젝트 멤버인지 확인
-    const folder = await prisma.folder.findUnique({
-      where: { id: folderId },
-      include: { project: { include: { members: true } } },
-    });
-    if (!folder) {
-      return reply.code(404).send({ error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' } });
+    const { folderId, projectId, status } = request.query;
+    if (!folderId && !projectId) {
+      return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'folderId 또는 projectId가 필요합니다' } });
     }
-    const isMember = folder.project.members.some((m) => m.userId === userId);
-    if (!isMember) {
-      return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '이 폴더에 접근할 권한이 없습니다' } });
-    }
-
-    return sessionService.findByFolder(folderId, status);
+    if (folderId) return sessionService.findByFolder(folderId, status);
+    return sessionService.findByProject(projectId!, status);
   });
 
-  // POST / — 세션 생성
+  // POST / — 세션 생성 (projectId 필수, folderId 선택)
   fastify.post<{ Body: CreateBody }>('/', {
     preHandler: [requireAuth],
     schema: {
       body: {
         type: 'object',
-        required: ['folderId', 'title'],
+        required: ['projectId', 'title'],
         properties: {
+          projectId: { type: 'string', format: 'uuid' },
           folderId: { type: 'string', format: 'uuid' },
           title: { type: 'string', minLength: 1, maxLength: 300 },
         },
@@ -95,21 +86,17 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (request, reply) => {
     const userId = request.session.get('userId') as string;
 
-    // 폴더의 프로젝트 멤버인지 확인
-    const folder = await prisma.folder.findUnique({
-      where: { id: request.body.folderId },
-      include: { project: { include: { members: true } } },
+    // 프로젝트 멤버인지 확인
+    const member = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId: request.body.projectId, userId } },
     });
-    if (!folder) {
-      return reply.code(404).send({ error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' } });
-    }
-    const isMember = folder.project.members.some((m) => m.userId === userId);
-    if (!isMember) {
+    if (!member) {
       return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '이 프로젝트에 세션을 생성할 권한이 없습니다' } });
     }
 
     try {
       const session = await sessionService.create({
+        projectId: request.body.projectId,
         folderId: request.body.folderId,
         title: request.body.title,
         createdBy: userId,

@@ -86,12 +86,13 @@ function ProjectNode({ project }: { project: TreeProject }) {
               projectId={project.id}
             />
           ))}
-          {/* 프로젝트 직속 세션 목록 */}
+          {/* 프로젝트 직속 세션 목록 — 전반 논의/질문용, coral 아이콘으로 구분 */}
           {project.sessions?.map((session) => (
             <SessionItem
               key={session.id}
               session={session}
               projectId={project.id}
+              isProjectDirect
             />
           ))}
         </div>
@@ -145,6 +146,7 @@ function FolderNode({ folder, projectId }: { folder: TreeFolder; projectId: stri
         </div>
       </CollapsibleContent>
       <CreateSessionDialog
+        projectId={projectId}
         folderId={folder.id}
         open={sessionDialogOpen}
         onOpenChange={setSessionDialogOpen}

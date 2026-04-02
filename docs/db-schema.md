@@ -151,7 +151,8 @@ model Folder {
 // ─────────────────────────────────────────────
 model Session {
   id               String    @id @default(uuid()) @db.Uuid
-  folderId         String    @map("folder_id") @db.Uuid
+  projectId        String    @map("project_id") @db.Uuid          // 소속 프로젝트 (필수)
+  folderId         String?   @map("folder_id") @db.Uuid           // 소속 폴더 (null이면 프로젝트 직속 세션)
   claudeSessionId  String?   @map("claude_session_id") @db.VarChar(100)
   title            String    @db.VarChar(300)
   lockedBy         String?   @map("locked_by") @db.Uuid

@@ -66,10 +66,10 @@ export async function deleteFolder(projectId: string, id: string): Promise<void>
   });
 }
 
-/** 세션 생성 — folderId 또는 projectId 중 하나를 전달 */
+/** 세션 생성 — projectId 필수, folderId 선택 (없으면 프로젝트 직속) */
 export async function createSession(data: {
+  projectId: string;
   folderId?: string;
-  projectId?: string;
   title: string;
 }): Promise<Session> {
   return apiFetch<Session>('/api/sessions', {

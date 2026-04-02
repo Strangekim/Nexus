@@ -21,6 +21,12 @@ async function getTree(projectId?: string) {
           },
         },
       },
+      // 프로젝트 직속 세션 (folderId가 null인 세션)
+      sessions: {
+        where: { folderId: null },
+        orderBy: { createdAt: 'desc' },
+        include: { locker: userSelect },
+      },
     },
   });
 
@@ -40,6 +46,14 @@ async function getTree(projectId?: string) {
         lockedBy: s.locker,
         type: 'session' as const,
       })),
+    })),
+    // 프로젝트 직속 세션 (전반 논의/질문용)
+    sessions: p.sessions.map((s) => ({
+      id: s.id,
+      title: s.title,
+      status: s.status,
+      lockedBy: s.locker,
+      type: 'session' as const,
     })),
   }));
 }

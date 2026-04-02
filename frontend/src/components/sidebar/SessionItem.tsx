@@ -3,7 +3,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { MessageSquare, Lock, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { MessageSquare, MessageCircle, Lock, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -17,9 +17,11 @@ import type { TreeSession } from '@/types/project';
 interface SessionItemProps {
   session: TreeSession;
   projectId: string;
+  /** 폴더 없이 프로젝트에 직속된 세션 여부 (전반 논의/질문용) */
+  isProjectDirect?: boolean;
 }
 
-export function SessionItem({ session, projectId }: SessionItemProps) {
+export function SessionItem({ session, projectId, isProjectDirect = false }: SessionItemProps) {
   const router = useRouter();
   const pathname = usePathname();
   const deleteSession = useDeleteSession();
@@ -31,6 +33,10 @@ export function SessionItem({ session, projectId }: SessionItemProps) {
   const handleClick = () => {
     router.push(href);
   };
+
+  // 프로젝트 직속 세션: MessageCircle + coral, 폴더 하위 세션: MessageSquare + teal
+  const SessionIcon = isProjectDirect ? MessageCircle : MessageSquare;
+  const iconColor = isProjectDirect ? '#E0845E' : '#2D7D7B';
 
   return (
     <div className="group flex items-center">
@@ -48,7 +54,7 @@ export function SessionItem({ session, projectId }: SessionItemProps) {
           if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
         }}
       >
-        <MessageSquare className="size-3.5 shrink-0" style={{ color: '#6B6B7B' }} />
+        <SessionIcon className="size-3.5 shrink-0" style={{ color: iconColor }} />
         <span className="truncate">{session.title}</span>
         {session.lockedBy && (
           <Lock className="size-3 shrink-0" style={{ color: '#E0845E' }} />
