@@ -20,7 +20,7 @@ interface TerminalEntry {
 const MAX_TOTAL_SESSIONS = 10;
 
 /** 사용자 1인당 최대 터미널 세션 수 */
-const MAX_USER_SESSIONS = 3;
+const MAX_USER_SESSIONS = 1;
 
 /** socketId → 터미널 세션 항목 매핑 */
 const ptyMap = new Map<string, TerminalEntry>();
@@ -131,13 +131,12 @@ async function startTerminal(
     throw new Error(`전체 터미널 세션 한도(${MAX_TOTAL_SESSIONS}개)를 초과했습니다`);
   }
 
-  // 사용자별 세션 수 제한 확인
-  let userSessionCount = 0;
-  for (const entry of ptyMap.values()) {
-    if (entry.userId === userId) userSessionCount++;
-  }
-  if (userSessionCount >= MAX_USER_SESSIONS) {
-    throw new Error(`사용자당 터미널 세션 한도(${MAX_USER_SESSIONS}개)를 초과했습니다`);
+  // 사용자별 기존 세션 자동 종료 (1인 1세션 정책)
+  for (const [socketId, entry] of ptyMap.entries()) {
+    if (entry.userId === userId) {
+      entry.pty.kill();
+      ptyMap.delete(socketId);
+    }
   }
 
   let session = await spawnWithNodePty(cwd, cols, rows, runAsUser);
