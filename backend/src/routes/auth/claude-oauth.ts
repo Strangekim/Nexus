@@ -3,29 +3,34 @@
  * @description Claude OAuth 2.0 PKCE 인증 라우트
  *
  * MANUAL 모드: 사용자가 Claude 인증 URL에서 code를 직접 복사해 붙여넣음.
- * PKCE code_verifier는 세션에만 저장 — DB/로그 기록 절대 금지.
+ * PKCE code_verifier는 인메모리 맵에 저장 — DB/로그 기록 절대 금지.
+ *
+ * 세션 쿠키 대신 인메모리 맵을 사용하는 이유:
+ * 프론트(:3000) ↔ 백엔드(:8080) 크로스오리진 환경에서
+ * sameSite: 'lax' 쿠키가 POST 요청 시 전달되지 않아 세션이 유실될 수 있음.
  */
 import { FastifyPluginAsync } from 'fastify';
 import crypto from 'crypto';
 import { requireAuth } from '../../plugins/auth.js';
 import { claudeAuthService } from '../../services/claude-auth.service.js';
 import prisma from '../../lib/prisma.js';
+import { setPkce, getPkce, deletePkce } from '../../lib/oauth-pkce-store.js';
 
 const claudeOAuthRoute: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /api/auth/claude/start
    * OAuth 흐름 시작 — PKCE 파라미터 생성 후 인증 URL 반환.
-   * code_verifier는 세션에만 저장, 응답에 포함하지 않음.
+   * code_verifier는 인메모리 맵에만 저장, 응답/DB/로그에 포함하지 않음.
    */
   fastify.post('/claude/start', { preHandler: [requireAuth] }, async (request, reply) => {
+    const userId = request.userId;
     const codeVerifier = claudeAuthService.generateCodeVerifier();
     const codeChallenge = claudeAuthService.generateCodeChallenge(codeVerifier);
     // CSRF 방어용 state — 32바이트 랜덤 hex
     const state = crypto.randomBytes(32).toString('hex');
 
-    // 세션에만 저장 (DB/로그 기록 금지)
-    request.session.set('oauthCodeVerifier', codeVerifier);
-    request.session.set('oauthState', state);
+    // 인메모리 맵에 저장 (세션 쿠키 크로스오리진 문제 우회, DB/로그 기록 금지)
+    setPkce(userId, codeVerifier, state);
 
     const authUrl = claudeAuthService.generateAuthUrl(state, codeChallenge);
 
@@ -56,15 +61,16 @@ const claudeOAuthRoute: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const userId = request.userId;
 
-      // 세션에서 PKCE 파라미터 꺼내기
-      const codeVerifier = request.session.get('oauthCodeVerifier');
-      const savedState   = request.session.get('oauthState');
+      // 인메모리 맵에서 PKCE 파라미터 조회 (세션 쿠키 크로스오리진 문제 우회)
+      const pkce = getPkce(userId);
 
-      if (!codeVerifier || !savedState) {
+      if (!pkce) {
         return reply.code(400).send({
           error: { code: 'OAUTH_SESSION_EXPIRED', message: 'OAuth 세션이 만료되었습니다. 다시 시작해주세요.' },
         });
       }
+
+      const { codeVerifier, state: savedState } = pkce;
 
       // URL이 들어온 경우 code 파라미터만 추출
       let rawCode = request.body.code.trim();
@@ -77,9 +83,8 @@ const claudeOAuthRoute: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // 1회용 — 교환 전 세션에서 즉시 삭제 (재사용 방지)
-      request.session.set('oauthCodeVerifier', undefined as unknown as string);
-      request.session.set('oauthState', undefined as unknown as string);
+      // 1회용 — 교환 전 즉시 삭제 (재사용 방지)
+      deletePkce(userId);
 
       let tokens;
       try {

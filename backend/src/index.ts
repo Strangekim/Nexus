@@ -18,6 +18,7 @@ import { registerTerminalNamespace } from './plugins/terminal.js';
 import { registerSocketPlugin } from './plugins/socket.js';
 import { socketService } from './services/socket.service.js';
 import { lockService } from './services/lock.service.js';
+import { pruneExpiredPkce } from './lib/oauth-pkce-store.js';
 
 const app = Fastify({ logger: true });
 
@@ -95,6 +96,11 @@ const start = async () => {
         app.log.error({ err }, '만료 락 해제 중 오류 발생');
       });
     }, 60_000);
+
+    // 만료된 OAuth PKCE 항목 정리 타이머 — 5분마다 실행
+    setInterval(() => {
+      pruneExpiredPkce();
+    }, 5 * 60_000);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
