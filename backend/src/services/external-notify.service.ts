@@ -67,13 +67,13 @@ class ExternalNotifyService {
 
     const smsMsg = `[Nexus] "${projectName}" 프로젝트의 "${sessionTitle}" 작업이 완료되었습니다.`;
 
+    // TODO: 알리고 API 인증 설정 완료 후 주석 해제
     // SMS 발송 — notifySms 활성화 + 전화번호 등록된 경우에만
-    // 알리고 환경변수가 미설정이면 smsService.sendSms() 내부에서 자동 skip됨
-    if (user.notifySms && user.phone) {
-      smsService.sendSms(user.phone, smsMsg).catch((err) => {
-        console.error('[ExternalNotify] SMS 발송 실패:', err);
-      });
-    }
+    // if (user.notifySms && user.phone) {
+    //   smsService.sendSms(user.phone, smsMsg).catch((err) => {
+    //     console.error('[ExternalNotify] SMS 발송 실패:', err);
+    //   });
+    // }
 
     // WebSocket으로 브라우저에 작업 완료 이벤트 전송
     // notifyBrowser, notifySound 플래그를 포함하여 클라이언트가 각 동작을 독립적으로 결정
@@ -112,12 +112,12 @@ class ExternalNotifyService {
 
     const smsMsg = `[Nexus] "${sessionTitle}" 세션에서 허가가 필요합니다. Nexus를 확인해주세요.`;
 
-    // SMS 발송 — notifySms 활성화 + 전화번호 등록된 경우에만
-    if (user.notifySms && user.phone) {
-      smsService.sendSms(user.phone, smsMsg).catch((err) => {
-        console.error('[ExternalNotify] 허가 요청 SMS 발송 실패:', err);
-      });
-    }
+    // TODO: 알리고 API 인증 설정 완료 후 주석 해제
+    // if (user.notifySms && user.phone) {
+    //   smsService.sendSms(user.phone, smsMsg).catch((err) => {
+    //     console.error('[ExternalNotify] 허가 요청 SMS 발송 실패:', err);
+    //   });
+    // }
 
     // WebSocket으로 브라우저에 허가 요청 이벤트 전송
     const payload: PermissionRequiredPayload = { sessionId, sessionTitle };
