@@ -10,10 +10,14 @@ interface PtyProcess {
   kill: () => void;
 }
 
-/** 터미널 세션 항목 — pty 프로세스와 소유 userId */
+/** 터미널 세션 항목 — pty 프로세스, 소유 userId, 마지막 활동 시각, socket 참조 */
 interface TerminalEntry {
   pty: PtyProcess;
   userId: string;
+  /** 마지막 입력/시작 시각 (유휴 타임아웃 계산용) */
+  lastActivity: number;
+  /** 타임아웃 이벤트 전송을 위한 socket 참조 */
+  socket: Socket;
 }
 
 /** 전체 동시 터미널 세션 최대 수 */
@@ -22,8 +26,24 @@ const MAX_TOTAL_SESSIONS = 10;
 /** 사용자 1인당 최대 터미널 세션 수 */
 const MAX_USER_SESSIONS = 1;
 
+/** 유휴 세션 자동 종료 시간 — 15분 */
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+
 /** socketId → 터미널 세션 항목 매핑 */
 const ptyMap = new Map<string, TerminalEntry>();
+
+// 1분마다 유휴 세션 정리
+setInterval(() => {
+  const now = Date.now();
+  for (const [socketId, entry] of ptyMap.entries()) {
+    if (now - entry.lastActivity > IDLE_TIMEOUT_MS) {
+      entry.pty.kill();
+      ptyMap.delete(socketId);
+      // 클라이언트에 타임아웃 이벤트 전송
+      entry.socket.emit('terminal:timeout', { message: '유휴 상태로 인해 터미널 세션이 종료되었습니다 (15분)' });
+    }
+  }
+}, 60_000);
 
 /** node-pty 동적 로드 시도 */
 async function tryLoadNodePty() {
@@ -63,9 +83,9 @@ async function spawnWithNodePty(
     env: { ...process.env } as Record<string, string>,
   });
 
-  // runAsUser 시 시작 디렉토리를 수동 이동
+  // runAsUser 시 시작 디렉토리를 수동 이동 — 따옴표로 감싸 공백/특수문자 인젝션 방지
   if (runAsUser) {
-    ptyProc.write(`cd ${cwd} 2>/dev/null\n`);
+    ptyProc.write(`cd "${cwd}" 2>/dev/null\n`);
   }
 
   return {
@@ -100,9 +120,9 @@ function spawnWithChildProcess(
     callbacks.forEach((cb) => cb(data.toString()));
   });
 
-  // runAsUser 시 시작 디렉토리를 수동 이동
+  // runAsUser 시 시작 디렉토리를 수동 이동 — 따옴표로 감싸 공백/특수문자 인젝션 방지
   if (runAsUser) {
-    child.stdin.write(`cd ${cwd} 2>/dev/null\n`);
+    child.stdin.write(`cd "${cwd}" 2>/dev/null\n`);
   }
 
   return {
@@ -151,13 +171,17 @@ async function startTerminal(
     socket.emit('terminal:output', data);
   });
 
-  // userId와 함께 세션 등록
-  ptyMap.set(socket.id, { pty, userId });
+  // userId, socket 참조, 마지막 활동 시각과 함께 세션 등록
+  ptyMap.set(socket.id, { pty, userId, lastActivity: Date.now(), socket });
 }
 
-/** 터미널 입력 처리 */
+/** 터미널 입력 처리 — 마지막 활동 시각 갱신 */
 function writeInput(socketId: string, data: string): void {
-  ptyMap.get(socketId)?.pty.write(data);
+  const entry = ptyMap.get(socketId);
+  if (entry) {
+    entry.lastActivity = Date.now();
+    entry.pty.write(data);
+  }
 }
 
 /** 터미널 크기 변경 */

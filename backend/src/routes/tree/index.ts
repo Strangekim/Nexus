@@ -3,6 +3,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { treeService } from '../../services/tree.service.js';
 import { fileService } from '../../services/file.service.js';
+import prisma from '../../lib/prisma.js';
 
 // 요청 타입 정의
 interface TreeQuery { projectId?: string }
@@ -41,6 +42,16 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (request, reply) => {
     try {
       const { path, projectId } = request.query;
+      const userId = (request.session as { userId?: string }).userId!;
+
+      // 프로젝트 멤버십 확인 — 멤버가 아니면 403 반환
+      const member = await prisma.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId } },
+      });
+      if (!member) {
+        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '프로젝트 접근 권한이 없습니다' } });
+      }
+
       const result = await fileService.readFile(projectId, path);
       return result;
     } catch (err: unknown) {
