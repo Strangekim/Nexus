@@ -135,7 +135,7 @@ function FolderNode({ folder, projectId }: { folder: TreeFolder; projectId: stri
         }
       />
       <CollapsibleContent>
-        <div className="ml-3 border-l pl-1" style={{ borderColor: '#E0845E33' }}>
+        <div className="ml-5 border-l pl-2" style={{ borderColor: '#E0845E33' }}>
           {folder.sessions.map((session) => (
             <SessionItem
               key={session.id}

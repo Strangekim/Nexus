@@ -28,7 +28,7 @@ const MOCK_TREE: TreeProject[] = [
         type: 'folder',
         sessions: [
           { id: 'mock-sess-1', title: '인증 시스템 구현', status: 'active', lockedBy: null, type: 'session' },
-          { id: 'mock-sess-2', title: 'API 엔드포인트 설계', status: 'active', lockedBy: null, type: 'session' },
+          { id: 'mock-sess-2', title: 'API 엔드포인트 설계', status: 'active', lockedBy: { id: 'user-2', name: '김민수' }, type: 'session' },
           { id: 'mock-sess-5', title: 'Prisma 스키마 정의', status: 'active', lockedBy: null, type: 'session' },
         ],
       },

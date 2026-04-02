@@ -57,7 +57,12 @@ export function SessionItem({ session, projectId, isProjectDirect = false }: Ses
         <SessionIcon className="size-3.5 shrink-0" style={{ color: iconColor }} />
         <span className="truncate">{session.title}</span>
         {session.lockedBy && (
-          <Lock className="size-3 shrink-0" style={{ color: '#E0845E' }} />
+          <span className="flex items-center gap-0.5 shrink-0" title={`${session.lockedBy.name} 작업 중`}>
+            <Lock className="size-3" style={{ color: '#E0845E' }} />
+            <span className="text-[10px] text-[#E0845E] max-w-[40px] truncate">
+              {session.lockedBy.name}
+            </span>
+          </span>
         )}
       </button>
 
