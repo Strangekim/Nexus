@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { Bell, Settings } from 'lucide-react';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -23,7 +23,8 @@ interface NotificationDropdownProps {
 }
 
 /** 알림 드롭다운 패널 — 뷰포트 기준 fixed 배치로 사이드바 클리핑 방지 */
-export function NotificationDropdown({ onClose, position }: NotificationDropdownProps) {
+export const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProps>(
+function NotificationDropdownInner({ onClose, position }, ref) {
   const [showSettings, setShowSettings] = useState(false);
   // 설정 패널 내 탭 상태 — 알림 설정 | Claude 연동
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('notification');
@@ -38,6 +39,7 @@ export function NotificationDropdown({ onClose, position }: NotificationDropdown
   return (
     // fixed 포지셔닝으로 사이드바 경계 외부로도 자유롭게 표시
     <div
+      ref={ref}
       className="fixed z-[200] w-80 overflow-hidden rounded-lg border border-[#E8E5DE] bg-white shadow-xl"
       style={{
         top: position.top,
@@ -130,4 +132,4 @@ export function NotificationDropdown({ onClose, position }: NotificationDropdown
       )}
     </div>
   );
-}
+});

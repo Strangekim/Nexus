@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type RefObject } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRealtimeStore } from '@/stores/realtimeStore';
@@ -19,6 +19,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<DropdownPosition>({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const unreadCount = useRealtimeStore((s) => s.unreadCount);
 
   /** 버튼 위치 기반으로 드롭다운 좌표 계산 */
@@ -49,7 +50,10 @@ export function NotificationBell() {
     if (!open) return;
 
     const handleOutsideClick = (e: MouseEvent) => {
-      if (buttonRef.current && buttonRef.current.contains(e.target as Node)) return;
+      const target = e.target as Node;
+      // 벨 버튼 또는 드롭다운 내부 클릭이면 무시
+      if (buttonRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
       setOpen(false);
     };
 
@@ -93,6 +97,7 @@ export function NotificationBell() {
       {/* 드롭다운 패널 — 뷰포트 기준 fixed 포지셔닝 */}
       {open && (
         <NotificationDropdown
+          ref={dropdownRef}
           onClose={() => setOpen(false)}
           position={dropdownPos}
         />
