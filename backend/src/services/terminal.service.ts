@@ -10,8 +10,20 @@ interface PtyProcess {
   kill: () => void;
 }
 
-/** socketId → pty 프로세스 매핑 */
-const ptyMap = new Map<string, PtyProcess>();
+/** 터미널 세션 항목 — pty 프로세스와 소유 userId */
+interface TerminalEntry {
+  pty: PtyProcess;
+  userId: string;
+}
+
+/** 전체 동시 터미널 세션 최대 수 */
+const MAX_TOTAL_SESSIONS = 10;
+
+/** 사용자 1인당 최대 터미널 세션 수 */
+const MAX_USER_SESSIONS = 3;
+
+/** socketId → 터미널 세션 항목 매핑 */
+const ptyMap = new Map<string, TerminalEntry>();
 
 /** node-pty 동적 로드 시도 */
 async function tryLoadNodePty() {
@@ -102,15 +114,31 @@ function spawnWithChildProcess(
   };
 }
 
-/** 터미널 세션 시작 — runAsUser로 Linux 유저 분리 */
+/** 터미널 세션 시작 — runAsUser로 Linux 유저 분리, 동시 세션 수 제한 적용 */
 async function startTerminal(
   socket: Socket,
+  userId: string,
   cwd: string,
   cols = 80,
   rows = 24,
   runAsUser?: string,
 ): Promise<void> {
+  // 기존 세션이 있으면 먼저 정리
   killTerminal(socket.id);
+
+  // 전체 세션 수 제한 확인
+  if (ptyMap.size >= MAX_TOTAL_SESSIONS) {
+    throw new Error(`전체 터미널 세션 한도(${MAX_TOTAL_SESSIONS}개)를 초과했습니다`);
+  }
+
+  // 사용자별 세션 수 제한 확인
+  let userSessionCount = 0;
+  for (const entry of ptyMap.values()) {
+    if (entry.userId === userId) userSessionCount++;
+  }
+  if (userSessionCount >= MAX_USER_SESSIONS) {
+    throw new Error(`사용자당 터미널 세션 한도(${MAX_USER_SESSIONS}개)를 초과했습니다`);
+  }
 
   let session = await spawnWithNodePty(cwd, cols, rows, runAsUser);
   if (!session) {
@@ -124,24 +152,25 @@ async function startTerminal(
     socket.emit('terminal:output', data);
   });
 
-  ptyMap.set(socket.id, pty);
+  // userId와 함께 세션 등록
+  ptyMap.set(socket.id, { pty, userId });
 }
 
 /** 터미널 입력 처리 */
 function writeInput(socketId: string, data: string): void {
-  ptyMap.get(socketId)?.write(data);
+  ptyMap.get(socketId)?.pty.write(data);
 }
 
 /** 터미널 크기 변경 */
 function resizeTerminal(socketId: string, cols: number, rows: number): void {
-  ptyMap.get(socketId)?.resize?.(cols, rows);
+  ptyMap.get(socketId)?.pty.resize?.(cols, rows);
 }
 
 /** 터미널 종료 */
 function killTerminal(socketId: string): void {
-  const pty = ptyMap.get(socketId);
-  if (pty) {
-    pty.kill();
+  const entry = ptyMap.get(socketId);
+  if (entry) {
+    entry.pty.kill();
     ptyMap.delete(socketId);
   }
 }
