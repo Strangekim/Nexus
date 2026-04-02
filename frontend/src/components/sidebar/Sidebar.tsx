@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ProjectTree } from './ProjectTree';
 import { CreateProjectDialog } from './CreateProjectDialog';
+import { NotificationBell } from '@/components/notification/NotificationBell';
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -73,14 +74,19 @@ function SidebarHeader({ onCollapse }: { onCollapse: () => void }) {
           style={{ height: 'auto' }}
         />
       </Link>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={onCollapse}
-        className="text-[#6B6B7B] hover:text-[#1A1A1A]"
-      >
-        <PanelLeftClose className="size-4" />
-      </Button>
+
+      {/* 알림 벨 + 접기 버튼 */}
+      <div className="flex items-center gap-1">
+        <NotificationBell />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onCollapse}
+          className="text-[#6B6B7B] hover:text-[#1A1A1A]"
+        >
+          <PanelLeftClose className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 }
