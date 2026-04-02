@@ -9,9 +9,11 @@ import { useMessages } from '@/hooks/useMessages';
 
 interface ChatPanelProps {
   sessionId: string;
+  /** 파일 경로 클릭 시 코드 뷰어 열기 콜백 */
+  onFileClick?: (path: string) => void;
 }
 
-export function ChatPanel({ sessionId }: ChatPanelProps) {
+export function ChatPanel({ sessionId, onFileClick }: ChatPanelProps) {
   const {
     messages,
     streamingText,
@@ -40,6 +42,7 @@ export function ChatPanel({ sessionId }: ChatPanelProps) {
         streamingText={streamingText}
         isStreaming={isStreaming}
         toolUses={toolUses}
+        onFileClick={onFileClick}
       />
 
       {/* 에러 표시 */}

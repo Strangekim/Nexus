@@ -9,6 +9,8 @@ import type { Message, ActiveToolUse } from '@/types/message';
 
 interface MessageItemProps {
   message: Message;
+  /** 파일 경로 클릭 콜백 */
+  onFileClick?: (path: string) => void;
 }
 
 /** tool_use 타입 메시지의 content(JSON)를 ActiveToolUse 형태로 파싱 */
@@ -35,7 +37,7 @@ function parseToolUse(content: string): ActiveToolUse | null {
   }
 }
 
-function MessageItemRaw({ message }: MessageItemProps) {
+function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
   const isUser = message.role === 'user';
 
   // 유저 메시지
@@ -82,7 +84,7 @@ function MessageItemRaw({ message }: MessageItemProps) {
       </div>
       {/* 어시스턴트 메시지 본문 */}
       <div className="flex-1 min-w-0">
-        <StreamingMessage content={message.content} />
+        <StreamingMessage content={message.content} onFileClick={onFileClick} />
       </div>
     </div>
   );

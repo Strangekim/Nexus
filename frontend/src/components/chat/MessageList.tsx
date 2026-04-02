@@ -13,6 +13,8 @@ interface MessageListProps {
   streamingText: string;
   isStreaming: boolean;
   toolUses: ActiveToolUse[];
+  /** 파일 경로 클릭 시 코드 뷰어 열기 */
+  onFileClick?: (path: string) => void;
 }
 
 export function MessageList({
@@ -20,6 +22,7 @@ export function MessageList({
   streamingText,
   isStreaming,
   toolUses,
+  onFileClick,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -33,7 +36,7 @@ export function MessageList({
       <div className="max-w-3xl mx-auto">
         {/* 기존 메시지 */}
         {messages.map((msg) => (
-          <MessageItem key={msg.id} message={msg} />
+          <MessageItem key={msg.id} message={msg} onFileClick={onFileClick} />
         ))}
 
         {/* 스트리밍 중인 어시스턴트 응답 */}
@@ -52,7 +55,7 @@ export function MessageList({
               ))}
               {/* 텍스트 스트리밍 */}
               {streamingText ? (
-                <StreamingMessage content={streamingText} isStreaming />
+                <StreamingMessage content={streamingText} isStreaming onFileClick={onFileClick} />
               ) : toolUses.length === 0 ? (
                 // 로딩 표시
                 <div className="flex items-center gap-1 py-2">
