@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 import prisma from '../lib/prisma.js';
 import { StreamEvent } from './claude.service.js';
 import { createStreamHandler } from '../lib/stream-parser.js';
+import { claudeAuthService } from './claude-auth.service.js';
 
 /** 프로젝트당 동시 질의 카운터 */
 const activeQueries = new Map<string, number>();
@@ -57,9 +58,9 @@ class TeamQueryService {
 
   /**
    * 팀 질의 실행 — EventEmitter 반환 (채팅과 동일 패턴).
-   * @param apiKey 요청 사용자의 개인 Claude API 키 — 있으면 ANTHROPIC_API_KEY로 주입
+   * @param userId 요청 사용자 ID — CLAUDE_CONFIG_DIR 결정에 사용
    */
-  async query(projectId: string, message: string, folderId?: string, apiKey?: string | null): Promise<EventEmitter> {
+  async query(projectId: string, message: string, folderId?: string, userId?: string | null): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
     // 동시 질의 수 확인
@@ -98,10 +99,12 @@ class TeamQueryService {
     // 카운터 증가
     activeQueries.set(projectId, current + 1);
 
-    // apiKey가 있으면 ANTHROPIC_API_KEY로 주입, 없으면 서버 환경 그대로 사용
-    const env = apiKey
-      ? { ...process.env, ANTHROPIC_API_KEY: apiKey }
-      : { ...process.env };
+    // userId가 있으면 CLAUDE_CONFIG_DIR 주입 (OAuth 인증) + 토큰 자동 갱신
+    const env: Record<string, string | undefined> = { ...process.env };
+    if (userId) {
+      await claudeAuthService.ensureValidToken(userId);
+      env.CLAUDE_CONFIG_DIR = claudeAuthService.getConfigDir(userId);
+    }
 
     // Claude Code 실행 — 읽기+Bash+Write 허용, Edit(기존 파일 수정) 금지
     const proc = spawn('claude', [

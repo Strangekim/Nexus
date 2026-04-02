@@ -183,24 +183,20 @@ frontend/src/components/chat/
    - 이후 채팅: `claude -p "..." --resume {claudeSessionId} --output-format stream-json`
    - 다른 사용자가 이어받아도 동일한 `claudeSessionId`로 resume
 
-2. **백엔드: 리눅스 사용자 전환 (구독 모드)**
+2. **백엔드: CLAUDE_CONFIG_DIR 기반 인증 분리 (구독 모드)**
    ```typescript
-   // 구독 모드: 세션 생성자의 리눅스 유저로 CLI 실행
+   // 구독 모드: 사용자별 CLAUDE_CONFIG_DIR로 OAuth 자격증명 분리
    if (user.authMode === 'subscription') {
-     const targetUser = getUserLinuxInfo(session.creator.linuxUser);
-     spawnOptions.uid = targetUser.uid;
-     spawnOptions.gid = targetUser.gid;
-     spawnOptions.env = { ...process.env, HOME: `/home/${session.creator.linuxUser}` };
+     const configDir = `${process.env.CLAUDE_CONFIGS_DIR}/${session.creator.id}`;
+     spawnOptions.env = { ...process.env, CLAUDE_CONFIG_DIR: configDir };
    }
-   // API 모드: ANTHROPIC_API_KEY 환경변수 설정
-   if (user.authMode === 'api') {
-     spawnOptions.env = { ...process.env, ANTHROPIC_API_KEY: config.anthropicApiKey };
-   }
+   // API 모드는 현재 미지원 — 차단
    ```
 
-3. **백엔드: JSONL 파일 접근 권한**
-   - 서버 초기화 스크립트에서 `nexus-team` 그룹 생성 + 유저 추가
-   - JSONL 디렉토리(`~/.claude/`) 그룹 읽기 권한 설정
+3. **백엔드: JSONL 파일 접근 (세션 이어받기)**
+   - 세션 이어받기 시 생성자의 `CLAUDE_CONFIG_DIR`을 그대로 참조하여 `--resume` 실행
+   - `CLAUDE_CONFIG_DIR/{creator.id}/projects/{hash}/*.jsonl` 경로에서 JSONL에 접근
+   - 동일 서버 프로세스가 실행하므로 별도 파일 권한 설정 불필요 (백엔드 프로세스가 해당 디렉토리에 접근권한 보유)
 
 4. **프론트엔드: 이어받기 UX**
    - 다른 팀원의 세션 클릭 → 이전 대화 히스토리 로드 (읽기 전용)
@@ -209,13 +205,13 @@ frontend/src/components/chat/
 
 ### 의존성
 - 2.2 세션 락 (이어받기 전 락 필요)
-- EC2 리눅스 사용자 설정 완료
+- Claude OAuth 연동 완료 (사용자별 credentials.json 존재)
 
 ### 완료 기준
 - [x] 팀원 A가 시작한 세션에서 팀원 B가 이어서 작업 가능
 - [x] `--resume`으로 Claude Code 컨텍스트 유지
-- [ ] 구독 모드에서 리눅스 사용자 전환 동작 (향후 구현 — EC2 리눅스 유저 설정 선행 필요)
-- [x] API 모드에서 ANTHROPIC_API_KEY로 동작 (사용자별 claude_account 필드 주입)
+- [x] 구독 모드에서 CLAUDE_CONFIG_DIR 기반 인증 분리 동작
+- [ ] API 모드 — 현재 미지원 (차단됨, 향후 정책 결정 후 구현)
 
 ---
 

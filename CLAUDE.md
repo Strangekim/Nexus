@@ -91,6 +91,10 @@ Claude Code CLI를 내부적으로 래핑하여, 웹에서 자연어로 AI에게
 - 세션 인증은 httpOnly cookie 방식 (JWT 아님)
 - worktree 경로 형식: `/home/ubuntu/projects-wt/{프로젝트명}/{세션ID}/`
 - mergeStatus 값: `working` | `merged` | `conflict`
+- Claude 인증 방식: OAuth PKCE (subscription 모드). `api` 모드는 미지원/차단
+- 사용자별 Claude 인증 디렉토리: `{CLAUDE_CONFIGS_DIR}/{userId}/` — `CLAUDE_CONFIG_DIR` 환경변수로 주입
+- `credentials.json` 파일 권한 600, claude-configs 디렉토리 권한 700 유지
+- OAuth 토큰(access_token, refresh_token)은 API 응답에 절대 노출 금지
 
 ## 서브에이전트 작업 시 주의사항
 - 병렬 서브에이전트가 같은 파일을 수정하면 충돌 발생 → Plan 문서의 "충돌 파일" 컬럼 확인

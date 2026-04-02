@@ -4,10 +4,14 @@ import session, { type FastifySessionOptions } from '@fastify/session';
 import connectPgSimple from 'connect-pg-simple';
 import { env } from '../config/env.js';
 
-// fastify Session 타입 확장 — userId 저장용
+// fastify Session 타입 확장 — userId + OAuth PKCE 임시 데이터 저장용
 declare module 'fastify' {
   interface Session {
     userId: string;
+    /** OAuth PKCE code_verifier — 세션에만 저장, DB/로그 기록 금지 */
+    oauthCodeVerifier?: string;
+    /** OAuth state — CSRF 방어용 */
+    oauthState?: string;
   }
 }
 

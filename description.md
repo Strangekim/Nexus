@@ -44,7 +44,7 @@
 - `--output-format stream-json`으로 출력을 캡처하여 SSE로 프론트에 전달
 - `--resume {session-id}`로 Claude Code 세션 이어가기
 - `cwd`를 프로젝트 디렉토리로 설정 → Claude Code가 해당 프로젝트의 CLAUDE.md, skills, 코드를 자동 인식
-- 팀원 각자의 Claude 구독(Pro/Max/Team)으로 인증 및 과금
+- 팀원 각자의 Claude 구독(Pro/Max/Team)으로 OAuth 인증 및 과금 (CLAUDE_CONFIG_DIR 기반 사용자별 인증 분리)
 
 ### 2.2 프로젝트 관리 (PM 기능)
 
@@ -193,6 +193,14 @@ EC2 Instance (호스트에서 직접 실행)
 │   └── audio-platform/
 │       └── session-ghi/            ← branch: session/ghi
 │
+├── /home/ubuntu/claude-configs/    ← 팀원별 Claude OAuth 인증 디렉토리 (CLAUDE_CONFIGS_DIR)
+│   ├── {userId-1}/                 ← 사용자 A의 CLAUDE_CONFIG_DIR (권한: 700)
+│   │   ├── credentials.json        ← OAuth 토큰 (권한: 600)
+│   │   └── projects/               ← Claude Code JSONL 세션 파일
+│   └── {userId-2}/                 ← 사용자 B의 CLAUDE_CONFIG_DIR (권한: 700)
+│       ├── credentials.json
+│       └── projects/
+│
 └── PostgreSQL                      ← 호스트 직접 설치
 ```
 
@@ -256,10 +264,10 @@ EC2 Instance (호스트에서 직접 실행)
 │  - users     │ │  에 설치)  │ │ - shopping-mall/ │
 │  - projects  │ │           │ │ - audio-platform/│
 │  - folders   │ │ 팀원 구독  │ │ - ...            │
-│  - sessions  │ │ 기반 인증  │ │                  │
-│  - messages  │ │           │ │ 각 프로젝트:     │
-│  - commits   │ │           │ │  .git/           │
-│  - usage_logs│ │           │ │  CLAUDE.md       │
+│  - sessions  │ │ OAuth      │ │                  │
+│  - messages  │ │ PKCE 인증  │ │ 각 프로젝트:     │
+│  - commits   │ │ (사용자별  │ │  .git/           │
+│  - usage_logs│ │ config_dir)│ │  CLAUDE.md       │
 └──────────────┘ └──────────┘ │  .claude/skills  │
                               └──────────────────┘
 ```
@@ -313,7 +321,7 @@ EC2 Instance (호스트에서 직접 실행)
 | **AWS EC2** | 공유 코드베이스 + Claude Code 실행 환경 |
 | **pm2** | Nexus 프론트+백엔드 프로세스 관리 |
 | **Nginx** | 리버스 프록시, WebSocket 업그레이드, HTTPS |
-| **Claude Code CLI** | EC2 호스트에 설치, 팀원 구독으로 인증 |
+| **Claude Code CLI** | EC2 호스트에 설치, 팀원별 Claude OAuth(PKCE) + CLAUDE_CONFIG_DIR로 인증 분리 |
 | **GitHub** | 원격 레포 백업 |
 
 ---
@@ -389,9 +397,9 @@ users (
   email         VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role          VARCHAR(20) DEFAULT 'member',  -- 'admin' | 'member'
-  linux_user    VARCHAR(50),                   -- EC2 리눅스 유저명 (구독 모드용)
+  linux_user    VARCHAR(50),                   -- EC2 리눅스 유저명 (레거시 컬럼, 현재는 CLAUDE_CONFIG_DIR 방식 사용)
   auth_mode     VARCHAR(20) DEFAULT 'subscription', -- 'subscription' | 'api'
-  claude_account TEXT,                          -- Claude 구독 계정 식별 정보
+  claude_account TEXT,                          -- OAuth 연동 상태 마커 ("oauth_connected" 또는 null)
   created_at    TIMESTAMP DEFAULT NOW()
 )
 
@@ -513,16 +521,16 @@ user_sessions (
 | PostgreSQL | 호스트 직접 설치 | 추가 비용 없음 |
 | 도메인 + HTTPS | ~$15/년 | Route53 + Let's Encrypt |
 
-### 인증 모드 (2가지)
-| 모드 | 인증 방식 | 과금 | 전환 방법 |
-|------|-----------|------|-----------|
-| **구독 모드 (기본)** | 팀원별 리눅스 유저로 `claude /login` | 월 고정 (개인 구독) | 기본값 |
-| **API 모드 (백업)** | 팀 공용 `ANTHROPIC_API_KEY` 환경변수 | 토큰 사용량 기반 | 관리자가 DB에서 해당 팀원의 모드를 swap |
+### 인증 모드
+| 모드 | 인증 방식 | 과금 | 상태 |
+|------|-----------|------|------|
+| **구독 모드 (기본)** | Claude OAuth (PKCE) + CLAUDE_CONFIG_DIR 사용자별 분리 | 월 고정 (개인 구독) | 지원 |
+| **API 모드** | 회사 공용 `ANTHROPIC_API_KEY` | 토큰 사용량 기반 | **미지원 (차단)** |
 
-- 기본적으로 모든 팀원은 **구독 모드**로 운영
-- 팀원의 구독 토큰이 소진되면 관리자에게 요청 → 관리자가 DB에서 해당 팀원을 API 모드로 전환
-- API 모드 시 Nexus 백엔드가 `ANTHROPIC_API_KEY` 환경변수를 세팅하여 Claude Code 실행
-- 토큰 리셋 후 다시 구독 모드로 복귀
+- 모든 팀원은 **구독 모드**로만 운영한다
+- 팀원별 OAuth 인증: Nexus 웹에서 "Claude 연동" 버튼 클릭 → OAuth PKCE 흐름 → `credentials.json`이 `CLAUDE_CONFIG_DIR/{userId}/`에 저장
+- Claude Code CLI 실행 시 `CLAUDE_CONFIG_DIR` 환경변수로 사용자별 인증 디렉토리를 지정하여 완전한 인증 분리 보장
+- API 모드는 보안 정책상 차단됨 (회사 API 키를 여러 사용자가 공유하는 것은 허용하지 않음)
 
 ---
 
@@ -580,5 +588,5 @@ user_sessions (
 | 동시 세션 파일 충돌 | 코드 꼬임 | git worktree로 세션별 작업 디렉토리 격리 |
 | EC2 단일 장애점 | 전체 서비스 중단 | Git 원격(GitHub) 백업 + EC2 스냅샷 |
 | Claude Code 동시 실행 | JSONL 오염 가능 | worktree로 cwd 분리 + 세션별 독립 claude_session_id |
-| 팀원 구독 인증 관리 | EC2에서 여러 계정 전환 필요 | 팀원별 리눅스 유저 분리 + 구독/API 이중 모드 |
+| 팀원 구독 인증 관리 | EC2에서 여러 계정 전환 필요 | Claude OAuth PKCE + CLAUDE_CONFIG_DIR로 사용자별 인증 디렉토리 분리 |
 | 명령 실행 보안 | 시스템 손상 가능 | `--allowedTools`로 권한 제어 + Skills에 허용 명령 정의 |

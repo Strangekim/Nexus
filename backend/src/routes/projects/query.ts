@@ -6,7 +6,7 @@ import { transformStreamEvent } from '../../services/sse-transformer.js';
 import { createHttpError } from '../../lib/errors.js';
 import { StreamEvent } from '../../services/claude.service.js';
 import { memberService } from '../../services/member.service.js';
-import prisma from '../../lib/prisma.js';
+import { claudeAuthService } from '../../services/claude-auth.service.js';
 
 interface Params { id: string }
 interface Body { message: string; folderId?: string }
@@ -37,20 +37,16 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
   }, async (request, reply) => {
     const { id: projectId } = request.params;
     const { message, folderId } = request.body;
+    const userId = request.userId;
 
     // SSE 헤더 전송 전 멤버십 검증 (헤더 write 이후엔 에러 응답 불가)
-    await memberService.assertProjectMember(projectId, request.userId);
+    await memberService.assertProjectMember(projectId, userId);
 
-    // 사용자 개인 Claude API 키 조회
-    const user = await prisma.user.findUnique({
-      where: { id: request.userId },
-      select: { claudeAccount: true },
-    });
-
-    // API 키 미설정 시 질의 불가
-    if (!user?.claudeAccount) {
+    // OAuth 연동 여부 확인 (credentials.json 존재 여부)
+    const creds = await claudeAuthService.getCredentials(userId);
+    if (!creds) {
       return reply.code(403).send({
-        error: { code: 'NO_CLAUDE_KEY', message: 'Claude API 키를 먼저 설정해주세요 (설정 > Claude API 키).' },
+        error: { code: 'CLAUDE_NOT_CONNECTED', message: 'Claude 계정을 먼저 연동해주세요 (설정 > Claude 계정 연동).' },
       });
     }
 
@@ -64,8 +60,8 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
 
     let emitter;
     try {
-      // 사용자 API 키를 팀 질의 서비스에 전달
-      emitter = await pmQueryService.query(projectId, message, folderId, user.claudeAccount);
+      // userId로 CLAUDE_CONFIG_DIR 결정 (OAuth 인증 사용)
+      emitter = await pmQueryService.query(projectId, message, folderId, userId);
     } catch {
       throw createHttpError(500, '팀 질의 서비스 오류');
     }

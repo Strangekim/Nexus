@@ -2,6 +2,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { createStreamHandler } from '../lib/stream-parser.js';
+import { claudeAuthService } from './claude-auth.service.js';
 
 /** stream-json 이벤트 기본 타입 */
 export interface StreamEvent {
@@ -15,33 +16,39 @@ class ClaudeService {
 
   /**
    * CLI 실행 + stdout stream-json 파싱.
-   * @param apiKey 사용자 개인 Claude API 키 — 있으면 ANTHROPIC_API_KEY 환경변수로 주입,
-   *               없으면 서버 EC2 환경의 Claude 인증(로그인 세션)을 그대로 사용
+   * userId를 받아 CLAUDE_CONFIG_DIR 환경변수를 주입하고,
+   * 실행 전 토큰 만료 여부를 확인하여 자동 갱신한다.
+   *
+   * @param userId 요청 사용자 ID — 사용자별 claude-configs 디렉토리 결정
    */
-  executeChat(
+  async executeChat(
     sessionId: string,
     message: string,
     worktreePath: string,
     claudeSessionId?: string | null,
-    apiKey?: string | null,
-  ): EventEmitter {
+    userId?: string | null,
+  ): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
     // claudeSessionId에서 -- 시작 문자열 제거 (인자 인젝션 방지)
     const safeClaudeSessionId = claudeSessionId?.replace(/^--/, '') ?? null;
 
-    // message는 stdin으로 전달 — args에 직접 포함하면 셸 인젝션 위험이 있음
-    // '--' 구분자 이후 위치 인자로 넘기는 방식 대신 stdin 파이프 사용
     const args = ['--output-format', 'stream-json', '-p'];
     if (safeClaudeSessionId) {
       // --resume은 다른 플래그 앞에 위치
       args.unshift('--resume', safeClaudeSessionId);
     }
 
-    // apiKey가 있으면 ANTHROPIC_API_KEY로 주입, 없으면 서버 환경 그대로 사용
-    const env = apiKey
-      ? { ...process.env, ANTHROPIC_API_KEY: apiKey }
-      : { ...process.env };
+    // userId가 있으면 CLAUDE_CONFIG_DIR을 사용자별 디렉토리로 주입
+    // 토큰 만료 시 자동 갱신 (ensureValidToken 내부에서 처리)
+    const env: Record<string, string | undefined> = { ...process.env };
+
+    if (userId) {
+      // 만료 토큰 자동 갱신 — 실패 시 null (이미 갱신 시도 완료)
+      await claudeAuthService.ensureValidToken(userId);
+      // CLAUDE_CONFIG_DIR 환경변수로 사용자별 인증 분리
+      env.CLAUDE_CONFIG_DIR = claudeAuthService.getConfigDir(userId);
+    }
 
     const proc = spawn('claude', args, {
       cwd: worktreePath,

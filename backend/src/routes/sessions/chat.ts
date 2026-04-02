@@ -4,7 +4,7 @@ import { requireAuth } from '../../plugins/auth.js';
 import { sessionService } from '../../services/session.service.js';
 import { messageService } from '../../services/message.service.js';
 import { claudeService, StreamEvent } from '../../services/claude.service.js';
-import { transformStreamEvent } from '../../services/sse-transformer.js';
+import { claudeAuthService } from '../../services/claude-auth.service.js';
 import { handleChatStream } from './chat-stream.js';
 import { lockService } from '../../services/lock.service.js';
 import prisma from '../../lib/prisma.js';
@@ -36,23 +36,11 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     const { id: sessionId } = request.params;
     const { message } = request.body;
 
-    // 사용자 인증 모드 + 개인 API 키 조회
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { authMode: true, claudeAccount: true },
-    });
-
-    if (user?.authMode === 'api') {
-      // api 모드는 현재 미지원
+    // OAuth 연동 여부 확인 (credentials.json 존재 여부)
+    const creds = await claudeAuthService.getCredentials(userId);
+    if (!creds) {
       return reply.code(403).send({
-        error: { code: 'FORBIDDEN', message: 'API 모드는 현재 지원하지 않습니다. 관리자에게 subscription 모드로 변경을 요청하세요.' },
-      });
-    }
-
-    // subscription 모드: 개인 API 키 필수 확인
-    if (user?.authMode === 'subscription' && !user.claudeAccount) {
-      return reply.code(403).send({
-        error: { code: 'NO_CLAUDE_KEY', message: 'Claude API 키를 먼저 설정해주세요 (설정 > Claude API 키).' },
+        error: { code: 'CLAUDE_NOT_CONNECTED', message: 'Claude 계정을 먼저 연동해주세요 (설정 > Claude 계정 연동).' },
       });
     }
 
@@ -95,14 +83,13 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       'X-Accel-Buffering': 'no',
     });
 
-    // Claude CLI 실행 및 스트림 처리
-    // 사용자 개인 API 키가 있으면 주입, 없으면 서버 EC2 인증 사용
-    const emitter = claudeService.executeChat(
+    // Claude CLI 실행 — userId로 CLAUDE_CONFIG_DIR 결정 (OAuth 인증 사용)
+    const emitter = await claudeService.executeChat(
       sessionId,
       message,
       session.worktreePath,
       session.claudeSessionId,
-      user?.claudeAccount,
+      userId,
     );
 
     // 외부 알림용 프로젝트 이름 조회
