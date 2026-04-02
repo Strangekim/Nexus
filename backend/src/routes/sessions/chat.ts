@@ -47,11 +47,28 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // 세션 락 자동 획득/갱신
-    await prisma.session.update({
-      where: { id: sessionId },
-      data: { lockedBy: userId, lockedAt: new Date(), lastActivityAt: new Date() },
+    // 원자적 락 획득: lockedBy가 null이거나 자기 자신인 경우에만 업데이트
+    // 동시 요청 시 두 요청 모두 락을 획득하는 레이스 컨디션 방지
+    const lockResult = await prisma.session.updateMany({
+      where: {
+        id: sessionId,
+        OR: [
+          { lockedBy: null },
+          { lockedBy: userId },
+        ],
+      },
+      data: {
+        lockedBy: userId,
+        lockedAt: new Date(),
+        lastActivityAt: new Date(),
+      },
     });
+
+    if (lockResult.count === 0) {
+      return reply.code(409).send({
+        error: { code: 'SESSION_LOCKED', message: '다른 사용자가 작업 중입니다' },
+      });
+    }
 
     // 사용자 메시지 저장
     await messageService.saveUserMessage(sessionId, userId, message);

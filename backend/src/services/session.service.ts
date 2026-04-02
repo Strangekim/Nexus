@@ -46,7 +46,7 @@ async function create(dto: {
   title: string;
   createdBy: string;
 }) {
-  // 프로젝트 존재 확인 (repoPath 필요)
+  // 트랜잭션 외부에서 검증 먼저 수행 (읽기 전용 조회이므로 트랜잭션 불필요)
   const project = await prisma.project.findUnique({
     where: { id: dto.projectId },
     select: { repoPath: true },
@@ -63,32 +63,35 @@ async function create(dto: {
     }
   }
 
-  const session = await prisma.session.create({
-    data: {
-      projectId: dto.projectId,
-      folderId: dto.folderId ?? null,
-      title: dto.title,
-      createdBy: dto.createdBy,
-    },
-  });
+  // create → update를 원자적으로 처리하여 좀비 세션 방지
+  return prisma.$transaction(async (tx) => {
+    const session = await tx.session.create({
+      data: {
+        projectId: dto.projectId,
+        folderId: dto.folderId ?? null,
+        title: dto.title,
+        createdBy: dto.createdBy,
+      },
+    });
 
-  // 프로젝트 직속 세션은 worktree 없이 생성 (전반 논의용)
-  if (!dto.folderId) {
-    return prisma.session.findUnique({
+    // 프로젝트 직속 세션은 worktree 없이 생성 (전반 논의용)
+    if (!dto.folderId) {
+      return tx.session.findUnique({
+        where: { id: session.id },
+        include: { creator: userSelect, locker: userSelect },
+      });
+    }
+
+    const rawWorktreePath = project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
+    validateWorktreePath(rawWorktreePath);
+    const worktreePath = path.resolve(rawWorktreePath);
+    const branchName = `session/${session.id}`;
+
+    return tx.session.update({
       where: { id: session.id },
+      data: { worktreePath, branchName },
       include: { creator: userSelect, locker: userSelect },
     });
-  }
-
-  const rawWorktreePath = project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
-  validateWorktreePath(rawWorktreePath);
-  const worktreePath = path.resolve(rawWorktreePath);
-  const branchName = `session/${session.id}`;
-
-  return prisma.session.update({
-    where: { id: session.id },
-    data: { worktreePath, branchName },
-    include: { creator: userSelect, locker: userSelect },
   });
 }
 
