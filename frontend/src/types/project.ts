@@ -21,13 +21,16 @@ export interface Folder {
 /** 세션 */
 export interface Session {
   id: string;
-  folderId: string;
+  /** 폴더에 속하지 않는 경우 null */
+  folderId: string | null;
   claudeSessionId?: string;
   title: string;
   status: 'active' | 'archived';
-  lockedBy?: { id: string; name: string } | null;
+  /** 백엔드 Prisma include 응답의 관계명: locker */
+  locker?: { id: string; name: string } | null;
   lockedAt?: string | null;
-  createdBy?: { id: string; name: string } | null;
+  /** 백엔드 Prisma include 응답의 관계명: creator */
+  creator?: { id: string; name: string } | null;
   worktreePath?: string;
   branchName?: string;
   mergeStatus: 'working' | 'merged' | 'conflict';

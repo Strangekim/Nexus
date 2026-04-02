@@ -50,8 +50,19 @@ async function sessionAuthMiddleware(
  * - join:session / leave:session → 'session:{id}' 룸
  */
 function registerRoomHandlers(socket: AuthenticatedSocket): void {
-  socket.on('join:project', (projectId: string) => {
-    if (projectId) socket.join(`project:${projectId}`);
+  socket.on('join:project', async (projectId: string) => {
+    if (!projectId) return;
+
+    // DB에서 멤버십 확인 후 룸 참가 허용 — 비멤버는 join 거부
+    const member = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: socket.data.userId } },
+    });
+    if (!member) {
+      socket.emit('error:join-project', { message: '해당 프로젝트의 멤버가 아닙니다' });
+      return;
+    }
+
+    socket.join(`project:${projectId}`);
   });
 
   socket.on('leave:project', (projectId: string) => {

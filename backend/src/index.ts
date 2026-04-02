@@ -27,6 +27,16 @@ app.setErrorHandler((err, _request, reply) => {
     statusCode === 409 ? 'CONFLICT' :
     statusCode === 400 ? 'BAD_REQUEST' :
     'INTERNAL_ERROR';
+
+  // 500 에러는 원본 메시지를 클라이언트에 노출하지 않는다 — 로그에만 기록
+  if (statusCode >= 500) {
+    app.log.error({ err }, '서버 내부 오류 발생');
+    reply.code(statusCode).send({
+      error: { code, message: '서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' },
+    });
+    return;
+  }
+
   reply.code(statusCode).send({
     error: { code, message: error.message },
   });

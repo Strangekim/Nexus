@@ -3,6 +3,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../../plugins/auth.js';
 import prisma from '../../../lib/prisma.js';
 import { createHttpError } from '../../../lib/errors.js';
+import { memberService } from '../../../services/member.service.js';
 
 /** 쿼리 파라미터 타입 */
 interface CommitsQuery {
@@ -42,6 +43,9 @@ const commitsIndexRoute: FastifyPluginAsync = async (fastify) => {
     // 프로젝트 존재 여부 확인
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
+
+    // 프로젝트 멤버십 검증
+    await memberService.assertProjectMember(projectId, request.userId);
 
     // where 조건 구성
     const where: Record<string, unknown> = { projectId };

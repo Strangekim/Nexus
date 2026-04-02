@@ -4,6 +4,7 @@
 import { Activity, Users, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useDashboardActivity } from '@/hooks/useDashboard';
+import { getAvatarColor } from '@/lib/utils';
 
 interface Props {
   projectId: string;
@@ -12,14 +13,6 @@ interface Props {
 /** 이름 이니셜 추출 */
 function getInitial(name: string): string {
   return name.slice(0, 1);
-}
-
-/** 아바타 배경색 — 이름 해시 기반 */
-const AVATAR_COLORS = ['#2D7D7B', '#E0845E', '#5B7D9A', '#7D6B2D', '#7D2D5B'];
-function avatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
 export default function ActivityFeedCard({ projectId }: Props) {
@@ -52,7 +45,7 @@ export default function ActivityFeedCard({ projectId }: Props) {
                 {/* 아바타 */}
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0"
-                  style={{ backgroundColor: avatarColor(user.name) }}
+                  style={{ backgroundColor: getAvatarColor(user.name) }}
                 >
                   {getInitial(user.name)}
                 </div>

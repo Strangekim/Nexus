@@ -4,6 +4,7 @@ import { requireAuth } from '../../../plugins/auth.js';
 import prisma from '../../../lib/prisma.js';
 import { commitSyncService } from '../../../services/commit-sync.service.js';
 import { createHttpError } from '../../../lib/errors.js';
+import { memberService } from '../../../services/member.service.js';
 
 /** 라우트 파라미터 타입 */
 interface RevertParams { id: string; hash: string }
@@ -28,6 +29,9 @@ const commitRevertRoute: FastifyPluginAsync = async (fastify) => {
     // 프로젝트 확인
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
+
+    // 프로젝트 멤버십 검증
+    await memberService.assertProjectMember(projectId, request.userId);
 
     // 커밋 확인
     const commit = await prisma.commit.findFirst({

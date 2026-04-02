@@ -3,6 +3,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import prisma from '../../lib/prisma.js';
 import { createHttpError } from '../../lib/errors.js';
+import { memberService } from '../../services/member.service.js';
 
 interface IdParams { id: string }
 interface StatsQuery { period?: 'today' | 'week' | 'month' }
@@ -21,10 +22,11 @@ function getPeriodStart(period: string): Date {
   return d;
 }
 
-/** 프로젝트 존재 확인 */
-async function assertProject(projectId: string) {
+/** 프로젝트 존재 확인 및 멤버십 검증 */
+async function assertProjectMember(projectId: string, userId: string) {
   const proj = await prisma.project.findUnique({ where: { id: projectId } });
   if (!proj) throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
+  await memberService.assertProjectMember(projectId, userId);
   return proj;
 }
 
@@ -34,7 +36,7 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
   }, async (request) => {
     const { id } = request.params;
-    await assertProject(id);
+    await assertProjectMember(id, request.userId);
 
     // 현재 락 보유 중인 세션 조회
     const lockedSessions = await prisma.session.findMany({
@@ -80,7 +82,7 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (request) => {
     const { id } = request.params;
     const period = request.query.period ?? 'week';
-    await assertProject(id);
+    await assertProjectMember(id, request.userId);
 
     const since = getPeriodStart(period);
 
@@ -113,7 +115,7 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
   }, async (request) => {
     const { id } = request.params;
-    await assertProject(id);
+    await assertProjectMember(id, request.userId);
 
     // commits.filesChanged JSONB 배열에서 파일별 빈도 집계
     const commits = await prisma.commit.findMany({
@@ -146,7 +148,7 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
   }, async (request) => {
     const { id } = request.params;
-    await assertProject(id);
+    await assertProjectMember(id, request.userId);
 
     // 프로젝트 멤버 목록
     const members = await prisma.projectMember.findMany({

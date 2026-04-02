@@ -52,4 +52,17 @@ async function remove(projectId: string, userId: string) {
   await prisma.projectMember.delete({ where: { id: member.id } });
 }
 
-export const memberService = { findByProject, add, changeRole, remove };
+/**
+ * 프로젝트 멤버십 검증 — 멤버가 아니면 403 에러를 throw
+ * 모든 프로젝트 하위 라우트에서 접근 제어 용도로 사용
+ */
+async function assertProjectMember(projectId: string, userId: string): Promise<void> {
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!member) {
+    throw createHttpError(403, '해당 프로젝트의 멤버가 아닙니다');
+  }
+}
+
+export const memberService = { findByProject, add, changeRole, remove, assertProjectMember };

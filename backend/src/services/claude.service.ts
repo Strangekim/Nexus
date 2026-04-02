@@ -1,6 +1,7 @@
 // Claude Code CLI 래핑 서비스 — 프로세스 관리 + stream-json 파싱
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import { createStreamHandler } from '../lib/stream-parser.js';
 
 /** stream-json 이벤트 기본 타입 */
 export interface StreamEvent {
@@ -45,23 +46,10 @@ class ClaudeService {
 
     this.processes.set(sessionId, proc);
 
-    let buffer = '';
+    // 공통 stream-json 파서 사용
+    const { onData, flush } = createStreamHandler(emitter);
 
-    proc.stdout.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const event = JSON.parse(line) as StreamEvent;
-          emitter.emit('event', event);
-        } catch {
-          // JSON 파싱 실패 — 무시
-        }
-      }
-    });
+    proc.stdout.on('data', onData);
 
     proc.stderr.on('data', (chunk: Buffer) => {
       emitter.emit('error', chunk.toString());
@@ -70,14 +58,7 @@ class ClaudeService {
     proc.on('close', (code) => {
       this.processes.delete(sessionId);
       // 버퍼에 남은 데이터 처리
-      if (buffer.trim()) {
-        try {
-          const event = JSON.parse(buffer) as StreamEvent;
-          emitter.emit('event', event);
-        } catch {
-          // 무시
-        }
-      }
+      flush();
       emitter.emit('close', code);
     });
 

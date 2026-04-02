@@ -5,6 +5,7 @@ import { lockService } from '../../services/lock.service.js';
 import { socketService } from '../../services/socket.service.js';
 import { createHttpError } from '../../lib/errors.js';
 import prisma from '../../lib/prisma.js';
+import { memberService } from '../../services/member.service.js';
 
 interface IdParams { id: string }
 interface TransferBody { toUserId: string }
@@ -54,6 +55,7 @@ const lockRoutes: FastifyPluginAsync = async (fastify) => {
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
       select: {
+        projectId: true,
         lockedBy: true,
         title: true,
         locker: { select: { name: true } },
@@ -61,6 +63,9 @@ const lockRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     if (!session) throw createHttpError(404, '세션을 찾을 수 없습니다');
+
+    // 해당 세션의 프로젝트 멤버십 검증
+    await memberService.assertProjectMember(session.projectId, requesterId);
     if (!session.lockedBy) throw createHttpError(400, '현재 락이 없는 세션입니다');
     if (session.lockedBy === requesterId) {
       throw createHttpError(400, '본인이 락 보유자입니다');

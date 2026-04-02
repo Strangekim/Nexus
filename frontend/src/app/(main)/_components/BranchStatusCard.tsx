@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/card';
 import BranchGraph, { BRANCH_COLORS, GraphRow, ROW_HEIGHT } from './BranchGraph';
 
-// 그래프 목데이터 — 각 행은 하나의 커밋/이벤트
+// TODO: 브랜치 API 연동 — 현재 별도 브랜치 목록 API 없으므로 목데이터 유지
+// 브랜치 API가 구현되면 아래 GRAPH를 API 응답으로 교체한다
 const GRAPH: GraphRow[] = [
   { id: 'g1', hash: 'a1b2c3d', msg: '인증 시스템 구현', author: '김민수', time: '2시간 전', lane: 'auth' },
   { id: 'g2', hash: 'e4f5g6h', msg: '로그인 페이지 UI', author: '이수진', time: '3시간 전', lane: 'chat' },

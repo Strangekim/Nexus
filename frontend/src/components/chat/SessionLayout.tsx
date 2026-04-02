@@ -34,7 +34,7 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
       <div className="flex-1 overflow-hidden">
         <ChatPanel
           sessionId={sessionId}
-          creator={session?.createdBy}
+          creator={session?.creator}
           onFileClick={(path) => codeViewer.openFile(path, projectId)}
         />
       </div>

@@ -4,6 +4,7 @@
 import { BarChart2, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useDashboardUsage } from '@/hooks/useDashboard';
+import { getAvatarColor } from '@/lib/utils';
 
 interface Props {
   projectId: string;
@@ -14,14 +15,6 @@ function formatDuration(ms: number): string {
   if (ms < 60_000) return `${Math.round(ms / 1000)}초`;
   if (ms < 3_600_000) return `${Math.round(ms / 60_000)}분`;
   return `${(ms / 3_600_000).toFixed(1)}시간`;
-}
-
-/** 아바타 배경색 — 이름 해시 기반 */
-const COLORS = ['#2D7D7B', '#E0845E', '#5B7D9A', '#7D6B2D', '#7D2D5B'];
-function avatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return COLORS[hash % COLORS.length];
 }
 
 export default function UsageTableCard({ projectId }: Props) {
@@ -62,7 +55,7 @@ export default function UsageTableCard({ projectId }: Props) {
                     <div className="flex items-center gap-2">
                       <div
                         className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0"
-                        style={{ backgroundColor: avatarColor(row.name) }}
+                        style={{ backgroundColor: getAvatarColor(row.name) }}
                       >
                         {row.name.slice(0, 1)}
                       </div>

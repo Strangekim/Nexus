@@ -21,12 +21,11 @@ export type NotificationType =
   | 'task_complete'
   | 'mention';
 
-/** 알림 정보 */
+/** 알림 정보 — message 컬럼은 DB에 없으므로 payload에서 메시지 정보를 추출한다 */
 export interface Notification {
   id: string;
   type: NotificationType;
-  message: string;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | null;
   isRead: boolean;
   createdAt: string; // ISO 8601
 }

@@ -35,7 +35,9 @@ interface NotificationItemProps {
 /** 알림 항목 컴포넌트 */
 export function NotificationItem({ notification, onRead, onClose }: NotificationItemProps) {
   const router = useRouter();
-  const { id, type, message, payload, isRead, createdAt } = notification;
+  const { id, type, payload, isRead, createdAt } = notification;
+  // payload.message가 있으면 사용, 없으면 타입 기본값 표시
+  const message = (payload?.message as string | undefined) ?? type.replace(/_/g, ' ');
 
   /** 클릭 시 읽음 처리 + 해당 세션으로 이동 */
   const handleClick = () => {
