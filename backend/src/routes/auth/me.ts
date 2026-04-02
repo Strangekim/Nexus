@@ -20,6 +20,11 @@ const meRoute: FastifyPluginAsync = async (fastify) => {
           role: true,
           linuxUser: true,
           authMode: true,
+          // 알림 설정 필드
+          phone: true,
+          notifySms: true,
+          notifyBrowser: true,
+          notifySound: true,
         },
       });
 

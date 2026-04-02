@@ -6,4 +6,9 @@ export interface User {
   role: 'admin' | 'member';
   linuxUser?: string;
   authMode: 'subscription' | 'api';
+  // 알림 설정
+  phone?: string | null;
+  notifySms?: boolean;
+  notifyBrowser?: boolean;
+  notifySound?: boolean;
 }

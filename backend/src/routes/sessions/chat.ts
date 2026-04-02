@@ -7,6 +7,7 @@ import { claudeService, StreamEvent } from '../../services/claude.service.js';
 import { transformStreamEvent } from '../../services/sse-transformer.js';
 import { handleChatStream } from './chat-stream.js';
 import { lockService } from '../../services/lock.service.js';
+import prisma from '../../lib/prisma.js';
 
 /** 요청 타입 정의 */
 interface ChatParams { id: string }
@@ -79,9 +80,18 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       session.claudeSessionId,
     );
 
+    // 외부 알림용 프로젝트 이름 조회
+    const project = await prisma.project.findUnique({
+      where: { id: session.projectId },
+      select: { name: true },
+    }).catch(() => null);
+
     await handleChatStream(emitter, reply, sessionId, {
       projectId: session.projectId,
       worktreePath: session.worktreePath,
+      createdBy: session.createdBy,
+      sessionTitle: session.title,
+      projectName: project?.name ?? '',
     });
   });
 };

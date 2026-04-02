@@ -16,6 +16,11 @@ model User {
   authMode       String   @default("subscription") @map("auth_mode") @db.VarChar(20)
   claudeAccount  String?  @map("claude_account") @db.Text
   createdAt      DateTime @default(now()) @map("created_at")
+  // 알림 설정
+  phone          String?  @db.VarChar(20)
+  notifySms      Boolean  @default(false) @map("notify_sms")
+  notifyBrowser  Boolean  @default(true)  @map("notify_browser")
+  notifySound    Boolean  @default(true)  @map("notify_sound")
 
   sessions         Session[]       @relation("CreatedSessions")
   lockedSessions   Session[]       @relation("LockedSessions")

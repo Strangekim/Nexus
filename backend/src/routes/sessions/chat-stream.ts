@@ -5,6 +5,7 @@ import { StreamEvent } from '../../services/claude.service.js';
 import { transformStreamEvent, SseEvent } from '../../services/sse-transformer.js';
 import { messageService } from '../../services/message.service.js';
 import { commitSyncService } from '../../services/commit-sync.service.js';
+import { externalNotifyService } from '../../services/external-notify.service.js';
 import prisma from '../../lib/prisma.js';
 
 /** SSE 이벤트를 클라이언트로 전송 */
@@ -12,10 +13,16 @@ function sendSseEvent(reply: FastifyReply, event: string, data: object) {
   reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-/** 커밋 동기화에 필요한 세션 컨텍스트 */
+/** 커밋 동기화 및 외부 알림에 필요한 세션 컨텍스트 */
 interface SessionContext {
   projectId: string;
   worktreePath: string | null;
+  /** 세션 생성자 유저 ID — 작업 완료 외부 알림 발송 대상 */
+  createdBy?: string | null;
+  /** 세션 제목 — SMS/푸시 알림 메시지에 사용 */
+  sessionTitle?: string;
+  /** 프로젝트 이름 — SMS/푸시 알림 메시지에 사용 */
+  projectName?: string;
 }
 
 /** 스트림 이벤트 수집 및 SSE 전달 처리 */
@@ -81,6 +88,18 @@ export function handleChatStream(
             messageId: saved.id,
             sessionId,
             totalTokens,
+          });
+        }
+
+        // done 이후 외부 알림 발송 (SMS + 브라우저 푸시 + 알림음)
+        if (sessionCtx?.createdBy && sessionCtx.sessionTitle && sessionCtx.projectName) {
+          externalNotifyService.notifyTaskComplete(
+            sessionCtx.createdBy,
+            sessionId,
+            sessionCtx.sessionTitle,
+            sessionCtx.projectName,
+          ).catch((err) => {
+            console.error('외부 알림 발송 실패:', err);
           });
         }
 

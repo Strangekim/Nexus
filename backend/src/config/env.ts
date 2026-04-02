@@ -7,6 +7,10 @@ interface Env {
   SESSION_SECRET: string;
   FRONTEND_URL: string;
   NODE_ENV: 'development' | 'production';
+  // 알리고 SMS — optional (미설정 시 SMS 비활성화)
+  ALIGO_API_KEY?: string;
+  ALIGO_USER_ID?: string;
+  ALIGO_SENDER?: string;
 }
 
 function loadEnv(): Env {
@@ -23,6 +27,9 @@ function loadEnv(): Env {
     SESSION_SECRET: process.env.SESSION_SECRET!,
     FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
     NODE_ENV: (process.env.NODE_ENV as Env['NODE_ENV']) || 'development',
+    ALIGO_API_KEY: process.env.ALIGO_API_KEY,
+    ALIGO_USER_ID: process.env.ALIGO_USER_ID,
+    ALIGO_SENDER: process.env.ALIGO_SENDER,
   };
 }
 

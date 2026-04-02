@@ -7,6 +7,9 @@ import { useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '@/lib/socket';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { useAuthStore } from '@/stores/authStore';
+import { showNotification } from '@/lib/browser-notification';
+import { playNotificationSound } from '@/lib/notification-sound';
 import type { LockInfo, OnlineUser, Notification, SocketPayload } from '@/types/realtime';
 
 interface UseRealtimeSyncOptions {
@@ -16,10 +19,20 @@ interface UseRealtimeSyncOptions {
   sessionId?: string;
 }
 
+/** task-complete WebSocket 이벤트 페이로드 */
+interface TaskCompletePayload {
+  sessionId: string;
+  sessionTitle: string;
+  projectName: string;
+  notifyBrowser: boolean;
+  notifySound: boolean;
+}
+
 /** Socket.IO 이벤트를 구독하고 Zustand 스토어와 TanStack Query를 동기화 */
 export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions = {}) {
   const queryClient = useQueryClient();
   const { setLock, setOnlineUsers, addNotification } = useRealtimeStore();
+  const user = useAuthStore((s) => s.user);
 
   // 이벤트 핸들러 — 소켓 이벤트 → 스토어 업데이트
   const handleLockUpdated = useCallback(
@@ -53,6 +66,29 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
     queryClient.invalidateQueries({ queryKey: ['tree'] });
   }, [queryClient]);
 
+  // 작업 완료 이벤트 — 브라우저 푸시 알림 + 알림음 처리
+  const handleTaskComplete = useCallback(
+    (payload: SocketPayload<TaskCompletePayload>) => {
+      const { sessionTitle, projectName, notifyBrowser, notifySound } = payload.data;
+
+      // 유저 설정과 서버에서 내려온 설정 모두 true인 경우에만 동작
+      const browserEnabled = notifyBrowser && (user?.notifyBrowser ?? true);
+      const soundEnabled = notifySound && (user?.notifySound ?? true);
+
+      if (browserEnabled) {
+        showNotification(
+          `작업 완료 — ${projectName}`,
+          `"${sessionTitle}" 세션의 작업이 완료되었습니다.`,
+        );
+      }
+
+      if (soundEnabled) {
+        playNotificationSound();
+      }
+    },
+    [user],
+  );
+
   // 이벤트 구독/해제
   useEffect(() => {
     const socket = getSocket();
@@ -62,6 +98,7 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
     socket.on('notification:new', handleNewNotification);
     socket.on('session:created', handleSessionCreated);
     socket.on('session:deleted', handleSessionDeleted);
+    socket.on('session:task-complete', handleTaskComplete);
 
     return () => {
       socket.off('session:lock-updated', handleLockUpdated);
@@ -69,8 +106,9 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
       socket.off('notification:new', handleNewNotification);
       socket.off('session:created', handleSessionCreated);
       socket.off('session:deleted', handleSessionDeleted);
+      socket.off('session:task-complete', handleTaskComplete);
     };
-  }, [handleLockUpdated, handleOnlineUsers, handleNewNotification, handleSessionCreated, handleSessionDeleted]);
+  }, [handleLockUpdated, handleOnlineUsers, handleNewNotification, handleSessionCreated, handleSessionDeleted, handleTaskComplete]);
 
   // 프로젝트 룸 자동 join/leave
   useEffect(() => {

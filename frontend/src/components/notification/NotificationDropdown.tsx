@@ -2,10 +2,12 @@
 
 'use client';
 
-import { Bell } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, Settings } from 'lucide-react';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationItem } from './NotificationItem';
+import { NotificationSettings } from './NotificationSettings';
 
 /** 표시할 최대 알림 수 */
 const MAX_DISPLAY = 10;
@@ -16,6 +18,7 @@ interface NotificationDropdownProps {
 
 /** 알림 드롭다운 패널 */
 export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
+  const [showSettings, setShowSettings] = useState(false);
   const { notifications: storeNotifs } = useRealtimeStore();
   const { notifications: serverNotifs, markAsRead, markAllAsRead } = useNotifications();
 
@@ -29,17 +32,26 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
       className="absolute left-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-lg border border-[#E8E5DE] bg-white shadow-lg"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* 헤더: 제목 + 모두 읽음 버튼 */}
+      {/* 헤더: 제목 + 설정 버튼 + 모두 읽음 버튼 */}
       <div className="flex items-center justify-between border-b border-[#E8E5DE] px-3 py-2.5">
         <span className="text-sm font-semibold text-[#1A1A1A]">알림</span>
-        {unreadCount > 0 && (
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={() => markAllAsRead()}
+              className="text-xs text-[#2D7D7B] transition-colors hover:text-[#1A1A1A]"
+            >
+              모두 읽음
+            </button>
+          )}
           <button
-            onClick={() => markAllAsRead()}
-            className="text-xs text-[#2D7D7B] transition-colors hover:text-[#1A1A1A]"
+            onClick={() => setShowSettings((v) => !v)}
+            className="text-[#6B6B7B] transition-colors hover:text-[#1A1A1A]"
+            aria-label="알림 설정"
           >
-            모두 읽음
+            <Settings className="size-3.5" />
           </button>
-        )}
+        </div>
       </div>
 
       {/* 알림 목록 */}
@@ -68,6 +80,13 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
           <span className="text-xs text-[#6B6B7B]">
             총 {allNotifs.length}개 중 최근 {MAX_DISPLAY}개
           </span>
+        </div>
+      )}
+
+      {/* 알림 설정 패널 — 토글 시 표시 */}
+      {showSettings && (
+        <div className="border-t border-[#E8E5DE]">
+          <NotificationSettings />
         </div>
       )}
     </div>
