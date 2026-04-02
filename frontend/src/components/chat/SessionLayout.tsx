@@ -39,10 +39,12 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
         />
       </div>
 
-      {/* 터미널 토글 바 — 항상 표시 */}
-      <TerminalToggleBar isOpen={terminalOpen} onToggle={handleTerminalToggle} />
+      {/* 터미널 토글 바 — PC에서만 표시 (모바일 숨김) */}
+      <div className="hidden lg:block">
+        <TerminalToggleBar isOpen={terminalOpen} onToggle={handleTerminalToggle} />
+      </div>
 
-      {/* 터미널 패널 — 토글 시 표시 */}
+      {/* 터미널 패널 — PC에서만 토글, 모바일에서는 항상 닫힘 */}
       <TerminalPanel
         isOpen={terminalOpen}
         height={terminalHeight}

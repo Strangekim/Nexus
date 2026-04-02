@@ -21,7 +21,7 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
   }, [children]);
 
   return (
-    <div className="relative my-3 rounded-lg overflow-hidden" style={{ backgroundColor: '#0D1117' }}>
+    <div className="relative my-3 rounded-lg overflow-hidden overflow-x-auto" style={{ backgroundColor: '#0D1117' }}>
       {/* 헤더: 언어 라벨 + 복사 버튼 */}
       <div
         className="flex items-center justify-between px-4 py-2 text-xs"
@@ -38,7 +38,7 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
         </button>
       </div>
 
-      {/* 코드 본문 */}
+      {/* 코드 본문 — 가로 스크롤 허용 */}
       <SyntaxHighlighter
         language={language || 'text'}
         style={oneDark}
@@ -47,6 +47,7 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
           padding: '1rem',
           background: '#0D1117',
           fontSize: '0.85rem',
+          overflowX: 'auto',
         }}
       >
         {children}

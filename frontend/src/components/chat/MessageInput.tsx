@@ -48,6 +48,7 @@ export function MessageInput({ onSend, onAbort, isStreaming, isLocked = false }:
   );
 
   return (
+    <div className="sticky bottom-0 w-full bg-[#F9F9F4] border-t border-[#E8E5DE] lg:static lg:border-none lg:bg-transparent">
     <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-2">
       <div
         className="flex items-end gap-2 rounded-xl border px-4 py-3"
@@ -97,6 +98,7 @@ export function MessageInput({ onSend, onAbort, isStreaming, isLocked = false }:
           다른 팀원이 작업 중입니다. 작업 권한을 요청하세요.
         </p>
       )}
+    </div>
     </div>
   );
 }

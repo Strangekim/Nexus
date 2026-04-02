@@ -30,7 +30,7 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-full bg-[#F5F5EF] p-8">
+    <div className="min-h-full bg-[#F5F5EF] p-4 lg:p-8">
       {/* 페이지 헤더 + 필터 */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-[#1A1A1A]">팀 대시보드</h1>
@@ -60,8 +60,8 @@ function DashboardContent() {
           <TeamQueryPanel projectId={projectId} />
 
           {/* 상단 그리드: 세션+피드(왼쪽), 통계 요약(오른쪽) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+            <div className="lg:col-span-2 flex flex-col gap-4 lg:gap-6">
               <RecentSessionsCard projectId={projectId} />
               <ActivityFeedCard projectId={projectId} />
             </div>
@@ -71,17 +71,17 @@ function DashboardContent() {
           </div>
 
           {/* 파일 변경 히트맵 + 사용량 테이블 */}
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="mt-4 lg:mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             <FileChangeMap projectId={projectId} />
             <UsageTableCard projectId={projectId} />
           </div>
 
           {/* 하단 Git 섹션 */}
-          <div className="mt-10 mb-4">
+          <div className="mt-8 lg:mt-10 mb-4">
             <h2 className="text-base font-semibold text-[#1A1A1A]">Git 현황</h2>
             <p className="mt-0.5 text-sm text-[#6B6B7B]">최근 커밋 내역과 브랜치 상태를 확인하세요.</p>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             <GitCommitsCard projectId={projectId} />
             <BranchStatusCard />
           </div>
