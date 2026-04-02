@@ -42,34 +42,40 @@ export function connectSse(
         });
       }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // try-finally로 reader 정리 보장 — 오류·abort 시에도 반드시 cancel 호출
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
 
-        for (const part of parts) {
-          let eventType = 'message';
-          let data = '';
+          for (const part of parts) {
+            let eventType = 'message';
+            let data = '';
 
-          for (const line of part.split('\n')) {
-            if (line.startsWith('event: ')) eventType = line.slice(7);
-            else if (line.startsWith('data: ')) data = line.slice(6);
-          }
+            for (const line of part.split('\n')) {
+              if (line.startsWith('event: ')) eventType = line.slice(7);
+              else if (line.startsWith('data: ')) data = line.slice(6);
+            }
 
-          if (data) {
-            try {
-              callbacks.onEvent(eventType, JSON.parse(data));
-            } catch {
-              /* 파싱 실패 무시 */
+            if (data) {
+              try {
+                callbacks.onEvent(eventType, JSON.parse(data));
+              } catch {
+                /* 파싱 실패 무시 */
+              }
             }
           }
         }
-      }
 
-      callbacks.onClose?.();
+        callbacks.onClose?.();
+      } finally {
+        // 스트림이 이미 닫혀 있어도 cancel은 안전하게 호출 가능
+        reader.cancel();
+      }
     })
     .catch((err: Error) => {
       if (err.name !== 'AbortError') {
