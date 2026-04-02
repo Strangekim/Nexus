@@ -11,6 +11,7 @@ import BranchStatusCard from './_components/BranchStatusCard';
 import FileChangeMap from './_components/FileChangeMap';
 import UsageTableCard from './_components/UsageTableCard';
 import DashboardHeader from './_components/DashboardHeader';
+import PMQueryPanel from '@/components/dashboard/PMQueryPanel';
 import type { DashboardPeriod } from '@/services/api/dashboard';
 
 /** 대시보드 본문 — searchParams 사용 */
@@ -55,6 +56,9 @@ function DashboardContent() {
 
       {projectId && (
         <>
+          {/* PM 자연어 질의 패널 */}
+          <PMQueryPanel projectId={projectId} />
+
           {/* 상단 그리드: 세션+피드(왼쪽), 통계 요약(오른쪽) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 flex flex-col gap-6">

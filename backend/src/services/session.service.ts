@@ -3,6 +3,9 @@ import prisma from '../lib/prisma.js';
 import path from 'path';
 import { createHttpError } from '../lib/errors.js';
 import { createWorktree, removeWorktree } from './worktree.service.js';
+import { mergeService } from './merge.service.js';
+import { socketService } from './socket.service.js';
+import { commitSyncService } from './commit-sync.service.js';
 
 /**
  * repoPath에 경로 트래버설 시도(`..`)가 포함되어 있는지 검증
@@ -106,13 +109,62 @@ async function create(dto: {
   });
 }
 
-/** 세션 수정 */
+/** 세션 수정 — status가 'archived'로 변경될 때 merge + worktree 정리 수행 */
 async function update(id: string, dto: { title?: string; status?: string }) {
-  return prisma.session.update({
+  // archived 전환이 아니면 단순 업데이트
+  if (dto.status !== 'archived') {
+    return prisma.session.update({
+      where: { id },
+      data: dto,
+      include: { creator: userSelect, locker: userSelect },
+    });
+  }
+
+  // 아카이브 처리: 세션 + 프로젝트 정보 조회
+  const session = await prisma.session.findUnique({
     where: { id },
-    data: dto,
+    include: { project: { select: { id: true, repoPath: true } } },
+  });
+  if (!session) throw createHttpError(404, '세션을 찾을 수 없습니다');
+
+  // merge 실행 (branchName 없는 세션은 merged 즉시 반환)
+  const mergeResult = await mergeService.mergeSessionToMain(session, session.project);
+
+  // merge 성공 시 worktree 제거
+  if (mergeResult.status === 'merged' && session.worktreePath) {
+    await removeWorktree(session.project.repoPath, session.worktreePath).catch((err) => {
+      console.error(`[session.update] worktree 제거 실패 (무시): ${err}`);
+    });
+
+    // merge 커밋 동기화 (main 브랜치 기준)
+    await commitSyncService.syncNewCommits(
+      session.project.id,
+      session.id,
+      session.project.repoPath,
+    ).catch((err) => {
+      console.error(`[session.update] merge 커밋 동기화 실패 (무시): ${err}`);
+    });
+  }
+
+  // DB 업데이트: status + mergeStatus
+  const updated = await prisma.session.update({
+    where: { id },
+    data: {
+      status: 'archived',
+      mergeStatus: mergeResult.status,
+      // merge 성공 시 worktreePath 초기화
+      ...(mergeResult.status === 'merged' ? { worktreePath: null } : {}),
+    },
     include: { creator: userSelect, locker: userSelect },
   });
+
+  // WebSocket 브로드캐스트
+  socketService.emitToProject(session.project.id, 'session:archived', {
+    sessionId: id,
+    mergeStatus: mergeResult.status,
+  });
+
+  return updated;
 }
 
 /** 세션 삭제 — worktree가 있으면 먼저 제거 후 DB 삭제 */

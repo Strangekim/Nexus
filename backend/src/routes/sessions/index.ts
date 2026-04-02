@@ -8,6 +8,7 @@ import chatRoute from './chat.js';
 import abortRoute from './abort.js';
 import messagesRoute from './messages.js';
 import lockRoutes from './lock.js';
+import mergeRoute from './merge.js';
 
 // 요청 타입 정의
 interface ListQuery { folderId?: string; projectId?: string; status?: string }
@@ -40,11 +41,12 @@ async function assertSessionAccess(sessionId: string, userId: string): Promise<v
 }
 
 const sessionRoutes: FastifyPluginAsync = async (fastify) => {
-  // 채팅, 중단, 메시지, 락 라우트 등록
+  // 채팅, 중단, 메시지, 락, merge 라우트 등록
   await fastify.register(chatRoute);
   await fastify.register(abortRoute);
   await fastify.register(messagesRoute);
   await fastify.register(lockRoutes);
+  await fastify.register(mergeRoute);
 
   // GET / — 세션 목록 (folderId 또는 projectId로 필터)
   fastify.get<{ Querystring: ListQuery }>('/', {
