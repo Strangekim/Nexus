@@ -1,7 +1,7 @@
 'use client';
 // 채팅 상태 관리 훅 — SSE 스트리밍 + 메시지 관리
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSse } from '@/lib/sse';
 import { useSseHandler } from './useSseHandler';
@@ -42,10 +42,17 @@ export function useChat(sessionId: string): UseChatReturn {
     }
   }, [flushText]);
 
+  // 언마운트 시 진행 중인 RAF 취소 — 메모리 누수 방지
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
   /** SSE 이벤트 핸들러 (별도 훅으로 분리) */
   const handleEvent = useSseHandler({
     sessionId, textRef, scheduleFlush,
-    setMessages, setStreamingText, setIsStreaming,
+    setStreamingText, setIsStreaming,
     setToolUses, setError, queryClient,
   });
 

@@ -1,6 +1,6 @@
 // API 요청 유틸리티 — credentials: include로 세션 쿠키 자동 전송
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { API_URL } from './constants';
 
 /** API 에러 클래스 */
 export class ApiError extends Error {

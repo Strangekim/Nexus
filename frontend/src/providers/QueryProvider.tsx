@@ -14,6 +14,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           queries: {
             refetchOnWindowFocus: false,
             retry: 1,
+            // 불필요한 refetch 방지 — 1분간 캐시 유효
+            staleTime: 60 * 1000,
           },
         },
       }),

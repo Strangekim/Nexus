@@ -69,18 +69,25 @@ const MOCK_TREE: TreeProject[] = [
   },
 ];
 
-/** 사이드바 트리 조회 훅 — API 응답이 비어있으면 목데이터 반환 */
+// 개발 환경에서만 목데이터 폴백 허용
+const useMock = process.env.NODE_ENV === 'development';
+
+/** 사이드바 트리 조회 훅 — 개발 환경에서만 빈 응답 시 목데이터 반환 */
 export function useTree() {
   return useQuery({
     queryKey: ['tree'],
     queryFn: async () => {
       try {
         const data = await fetchTree();
-        // API 결과가 비어있으면 목데이터로 fallback
-        return data && data.length > 0 ? data : MOCK_TREE;
-      } catch {
-        // API 호출 실패 시 목데이터로 fallback
-        return MOCK_TREE;
+        // 개발 환경에서만 빈 결과 시 목데이터로 fallback
+        if (useMock && (!data || data.length === 0)) {
+          return MOCK_TREE;
+        }
+        return data ?? [];
+      } catch (err) {
+        // 개발 환경에서만 API 실패 시 목데이터로 fallback
+        if (useMock) return MOCK_TREE;
+        throw err;
       }
     },
   });

@@ -4,7 +4,7 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction, MutableRefObject } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
-import type { Message, ActiveToolUse } from '@/types/message';
+import type { ActiveToolUse } from '@/types/message';
 import type {
   AssistantTextEvent,
   ToolUseBeginEvent,
@@ -17,7 +17,6 @@ interface SseHandlerDeps {
   sessionId: string;
   textRef: MutableRefObject<string>;
   scheduleFlush: () => void;
-  setMessages: Dispatch<SetStateAction<Message[]>>;
   setStreamingText: Dispatch<SetStateAction<string>>;
   setIsStreaming: Dispatch<SetStateAction<boolean>>;
   setToolUses: Dispatch<SetStateAction<ActiveToolUse[]>>;
@@ -29,7 +28,7 @@ interface SseHandlerDeps {
 export function useSseHandler(deps: SseHandlerDeps) {
   const {
     sessionId, textRef, scheduleFlush,
-    setMessages, setStreamingText, setIsStreaming,
+    setStreamingText, setIsStreaming,
     setToolUses, setError, queryClient,
   } = deps;
 
@@ -67,14 +66,7 @@ export function useSseHandler(deps: SseHandlerDeps) {
           break;
         }
         case 'done': {
-          if (textRef.current) {
-            setMessages((prev) => [...prev, {
-              id: crypto.randomUUID(), sessionId,
-              role: 'assistant', type: 'text',
-              content: textRef.current,
-              createdAt: new Date().toISOString(),
-            }]);
-          }
+          // 로컬 낙관적 업데이트 제거 — invalidateQueries로 서버 상태를 신뢰
           textRef.current = '';
           setStreamingText('');
           setIsStreaming(false);
@@ -84,6 +76,6 @@ export function useSseHandler(deps: SseHandlerDeps) {
         }
       }
     },
-    [sessionId, textRef, scheduleFlush, setMessages, setStreamingText, setIsStreaming, setToolUses, setError, queryClient],
+    [sessionId, textRef, scheduleFlush, setStreamingText, setIsStreaming, setToolUses, setError, queryClient],
   );
 }

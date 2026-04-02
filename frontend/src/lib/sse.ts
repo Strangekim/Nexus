@@ -1,6 +1,6 @@
 // SSE 파서 — fetch + ReadableStream 기반 (POST 지원)
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { API_URL } from './constants';
 
 export interface SseCallbacks {
   onEvent: (event: string, data: unknown) => void;
@@ -34,6 +34,13 @@ export function connectSse(
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+
+      // AbortSignal 수신 시 reader를 명시적으로 취소하여 스트림 즉시 종료
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          reader.cancel();
+        });
+      }
 
       while (true) {
         const { done, value } = await reader.read();

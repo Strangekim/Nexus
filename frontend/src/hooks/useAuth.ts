@@ -19,6 +19,8 @@ export function useAuth() {
   });
 
   useEffect(() => {
+    // 아직 로딩 중이면 무시 (isPending 상태 처리)
+    if (query.isPending) return;
     if (query.isSuccess) {
       setUser(query.data);
       setLoading(false);
@@ -27,7 +29,7 @@ export function useAuth() {
       setUser(null);
       setLoading(false);
     }
-  }, [query.isSuccess, query.isError, query.data, setUser, setLoading]);
+  }, [query.isPending, query.isSuccess, query.isError, query.data, setUser, setLoading]);
 
   return query;
 }
