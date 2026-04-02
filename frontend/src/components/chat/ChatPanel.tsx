@@ -28,6 +28,7 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
     toolUses,
     error,
     sendMessage,
+    retrySend,
     abort,
     setMessages,
   } = useChat(sessionId);
@@ -69,14 +70,21 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         onFileClick={onFileClick}
       />
 
-      {/* 에러 표시 */}
+      {/* 에러 표시 — SSE 연결 끊김 시 재시도 버튼 포함 */}
       {error && (
         <div className="max-w-3xl mx-auto w-full px-4 pb-2">
           <div
-            className="text-sm px-3 py-2 rounded-lg"
+            className="flex items-center justify-between text-sm px-3 py-2 rounded-lg gap-3"
             style={{ backgroundColor: 'rgba(224, 132, 94, 0.15)', color: '#E0845E' }}
           >
-            {error}
+            <span>{error}</span>
+            <button
+              onClick={retrySend}
+              className="shrink-0 text-xs underline underline-offset-2 hover:opacity-80"
+              title="마지막 메시지 재전송"
+            >
+              다시 시도
+            </button>
           </div>
         </div>
       )}

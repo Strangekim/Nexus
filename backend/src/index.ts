@@ -5,11 +5,15 @@ import cookie from '@fastify/cookie';
 import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env.js';
 import sessionPlugin from './plugins/session.js';
+import errorHandlerPlugin from './plugins/error-handler.js';
+import { registerRateLimit } from './middleware/rate-limit.js';
 import authRoutes from './routes/auth/index.js';
 import projectRoutes from './routes/projects/index.js';
 import sessionRoutes from './routes/sessions/index.js';
 import treeRoutes from './routes/tree/index.js';
 import notificationRoutes from './routes/notifications/index.js';
+import usersIndexRoute from './routes/users/index.js';
+import userIdRoute from './routes/users/[id].js';
 import { registerTerminalNamespace } from './plugins/terminal.js';
 import { registerSocketPlugin } from './plugins/socket.js';
 import { socketService } from './services/socket.service.js';
@@ -17,30 +21,11 @@ import { lockService } from './services/lock.service.js';
 
 const app = Fastify({ logger: true });
 
-// 전역 에러 핸들러 — statusCode가 있는 에러를 일관된 형식으로 응답
-app.setErrorHandler((err, _request, reply) => {
-  const error = err as Error & { statusCode?: number };
-  const statusCode = error.statusCode ?? 500;
-  const code =
-    statusCode === 404 ? 'NOT_FOUND' :
-    statusCode === 403 ? 'FORBIDDEN' :
-    statusCode === 409 ? 'CONFLICT' :
-    statusCode === 400 ? 'BAD_REQUEST' :
-    'INTERNAL_ERROR';
+// 전역 에러 핸들러 플러그인 — Prisma 에러 변환 + 일관된 응답 형식
+await app.register(errorHandlerPlugin);
 
-  // 500 에러는 원본 메시지를 클라이언트에 노출하지 않는다 — 로그에만 기록
-  if (statusCode >= 500) {
-    app.log.error({ err }, '서버 내부 오류 발생');
-    reply.code(statusCode).send({
-      error: { code, message: '서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' },
-    });
-    return;
-  }
-
-  reply.code(statusCode).send({
-    error: { code, message: error.message },
-  });
-});
+// Rate Limit 플러그인 — 전역 기본 100회/분
+await registerRateLimit(app);
 
 // CORS 설정
 await app.register(cors, {
@@ -67,6 +52,10 @@ await app.register(projectRoutes, { prefix: '/api/projects' });
 await app.register(sessionRoutes, { prefix: '/api/sessions' });
 await app.register(treeRoutes, { prefix: '/api/tree' });
 await app.register(notificationRoutes, { prefix: '/api/notifications' });
+
+// 사용자 관리 라우트 (관리자 전용)
+await app.register(usersIndexRoute, { prefix: '/api/users' });
+await app.register(userIdRoute, { prefix: '/api/users' });
 
 // 서버 시작
 const start = async () => {

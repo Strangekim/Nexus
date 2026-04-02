@@ -14,6 +14,7 @@ interface UseChatReturn {
   toolUses: ActiveToolUse[];
   error: string | null;
   sendMessage: (text: string) => void;
+  retrySend: () => void;
   abort: () => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
@@ -28,6 +29,8 @@ export function useChat(sessionId: string): UseChatReturn {
   const abortRef = useRef<AbortController | null>(null);
   const textRef = useRef('');
   const rafRef = useRef<number | null>(null);
+  // 마지막 전송 메시지 저장 — 에러 시 재시도에 사용
+  const lastMessageRef = useRef<string>('');
   const queryClient = useQueryClient();
 
   /** RAF 배치 업데이트 — 텍스트 렌더 최적화 */
@@ -61,6 +64,9 @@ export function useChat(sessionId: string): UseChatReturn {
     (text: string) => {
       if (!text.trim() || isStreaming) return;
 
+      // 마지막 전송 메시지 저장 (재시도 대비)
+      lastMessageRef.current = text;
+
       setMessages((prev) => [...prev, {
         id: crypto.randomUUID(), sessionId,
         role: 'user', type: 'text',
@@ -89,6 +95,13 @@ export function useChat(sessionId: string): UseChatReturn {
     [sessionId, isStreaming, handleEvent],
   );
 
+  /** 마지막 메시지 재시도 — SSE 에러 후 동일 내용 재전송 */
+  const retrySend = useCallback(() => {
+    if (lastMessageRef.current) {
+      sendMessage(lastMessageRef.current);
+    }
+  }, [sendMessage]);
+
   /** 스트리밍 중단 */
   const abort = useCallback(() => {
     abortRef.current?.abort();
@@ -97,6 +110,6 @@ export function useChat(sessionId: string): UseChatReturn {
 
   return {
     messages, streamingText, isStreaming,
-    toolUses, error, sendMessage, abort, setMessages,
+    toolUses, error, sendMessage, retrySend, abort, setMessages,
   };
 }

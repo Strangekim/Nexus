@@ -8,6 +8,7 @@ import { transformStreamEvent } from '../../services/sse-transformer.js';
 import { handleChatStream } from './chat-stream.js';
 import { lockService } from '../../services/lock.service.js';
 import prisma from '../../lib/prisma.js';
+import { chatRateLimit } from '../../middleware/rate-limit.js';
 
 /** 요청 타입 정의 */
 interface ChatParams { id: string }
@@ -15,6 +16,8 @@ interface ChatBody { message: string }
 
 const chatRoute: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: ChatParams; Body: ChatBody }>('/:id/chat', {
+    // 채팅 엔드포인트 Rate Limit: 10회/분
+    ...chatRateLimit,
     preHandler: [requireAuth],
     schema: {
       params: {

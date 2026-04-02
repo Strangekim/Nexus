@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineBanner } from "@/components/common/OfflineBanner";
 import "./globals.css";
 
 /** 기본 산세리프 폰트 */
@@ -34,6 +35,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* 네트워크 오프라인 감지 배너 — 최상단 고정 */}
+        <OfflineBanner />
         <QueryProvider>
           <ErrorBoundary>
             <AuthProvider>{children}</AuthProvider>
