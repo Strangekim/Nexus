@@ -16,8 +16,8 @@ export const NOTIFICATIONS_KEY = ['notifications'] as const;
 
 /** 서버에서 알림 목록 가져오기 */
 async function fetchNotifications(): Promise<Notification[]> {
-  const res = await apiFetch<NotificationsResponse>('/api/notifications');
-  return res.notifications;
+  // 백엔드가 배열을 직접 반환하므로 래핑 없이 사용
+  return apiFetch<Notification[]>('/api/notifications');
 }
 
 /** 알림 읽음 처리 */

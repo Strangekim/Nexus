@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/authStore';
+import { apiFetch } from '@/lib/api';
 import { requestNotificationPermission, getNotificationPermission } from '@/lib/browser-notification';
 import { playNotificationSound } from '@/lib/notification-sound';
 
@@ -33,15 +34,11 @@ async function patchSettings(data: {
   notifyBrowser?: boolean;
   notifySound?: boolean;
 }) {
-  const res = await fetch('/api/auth/settings', {
+  // apiFetch를 사용하여 백엔드(8080)로 요청 — API_URL 자동 적용 + credentials: include
+  return apiFetch<Record<string, unknown>>('/api/auth/settings', {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    // httpOnly 쿠키 세션 인증 — credentials 필수
-    credentials: 'include',
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('설정 저장 실패');
-  return res.json();
 }
 
 /**
@@ -77,15 +74,16 @@ function ToggleRow({
       </div>
       {/* ARIA 접근성: role="switch" + aria-checked로 스크린 리더 지원 */}
       <button
+        type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 rounded-full transition-colors ${
+        onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
+        className={`relative shrink-0 h-5 w-9 cursor-pointer rounded-full transition-colors ${
           checked ? 'bg-[#2D7D7B]' : 'bg-[#D1D1D1]'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          className={`pointer-events-none absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
             checked ? 'translate-x-4' : 'translate-x-0.5'
           }`}
         />

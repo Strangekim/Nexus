@@ -5,7 +5,8 @@ import type { TreeProject, Project, Folder, Session } from '@/types/project';
 
 /** 사이드바 트리 조회 */
 export async function fetchTree(): Promise<TreeProject[]> {
-  return apiFetch<TreeProject[]>('/api/projects/tree');
+  const res = await apiFetch<{ tree: TreeProject[] }>('/api/tree');
+  return res.tree;
 }
 
 /** 프로젝트 생성 */
