@@ -22,7 +22,7 @@ export function ToolUseCard({ toolUse }: ToolUseCardProps) {
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className="my-2 rounded-lg overflow-hidden border text-sm"
-        style={{ backgroundColor: '#16213E', borderColor: '#2A2A3E' }}
+        style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E5DE' }}
       >
         {/* 헤더 */}
         <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 cursor-pointer hover:opacity-80">
@@ -30,7 +30,7 @@ export function ToolUseCard({ toolUse }: ToolUseCardProps) {
             size={14}
             className="transition-transform"
             style={{
-              color: '#8B8B9E',
+              color: '#6B6B7B',
               transform: open ? 'rotate(90deg)' : undefined,
             }}
           />
@@ -42,9 +42,9 @@ export function ToolUseCard({ toolUse }: ToolUseCardProps) {
           ) : (
             <CheckCircle2 size={14} style={{ color: '#2D7D7B' }} />
           )}
-          <span style={{ color: '#E8E8ED' }}>{toolUse.tool}</span>
+          <span style={{ color: '#3D3D3D' }}>{toolUse.tool}</span>
           {isRunning && (
-            <span className="text-xs" style={{ color: '#8B8B9E' }}>
+            <span className="text-xs" style={{ color: '#6B6B7B' }}>
               실행 중...
             </span>
           )}
@@ -56,10 +56,10 @@ export function ToolUseCard({ toolUse }: ToolUseCardProps) {
             {/* 입력 */}
             {toolUse.input && (
               <div>
-                <p className="text-xs mb-1" style={{ color: '#8B8B9E' }}>입력</p>
+                <p className="text-xs mb-1" style={{ color: '#6B6B7B' }}>입력</p>
                 <pre
                   className="p-2 rounded text-xs overflow-x-auto"
-                  style={{ backgroundColor: '#0D1117', color: '#E8E8ED' }}
+                  style={{ backgroundColor: '#0D1117', color: '#3D3D3D' }}
                 >
                   {JSON.stringify(toolUse.input, null, 2)}
                 </pre>
@@ -68,10 +68,10 @@ export function ToolUseCard({ toolUse }: ToolUseCardProps) {
             {/* 출력 */}
             {toolUse.output && (
               <div>
-                <p className="text-xs mb-1" style={{ color: '#8B8B9E' }}>출력</p>
+                <p className="text-xs mb-1" style={{ color: '#6B6B7B' }}>출력</p>
                 <pre
                   className="p-2 rounded text-xs overflow-x-auto max-h-48"
-                  style={{ backgroundColor: '#0D1117', color: '#E8E8ED' }}
+                  style={{ backgroundColor: '#0D1117', color: '#3D3D3D' }}
                 >
                   {toolUse.output}
                 </pre>

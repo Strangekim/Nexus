@@ -21,9 +21,14 @@ class ClaudeService {
   ): EventEmitter {
     const emitter = new EventEmitter();
 
-    const args = ['-p', message, '--output-format', 'stream-json'];
-    if (claudeSessionId) {
-      args.push('--resume', claudeSessionId);
+    // -- 구분자로 message를 위치 인자로 고정하여 CLI 인자 인젝션 방지
+    // claudeSessionId에서 -- 시작 문자열 제거
+    const safeClaudeSessionId = claudeSessionId?.replace(/^--/, '') ?? null;
+
+    const args = ['--output-format', 'stream-json', '-p', '--', message];
+    if (safeClaudeSessionId) {
+      // --resume은 -- 구분자 앞에 위치해야 하므로 앞에 삽입
+      args.splice(0, 0, '--resume', safeClaudeSessionId);
     }
 
     const proc = spawn('claude', args, {

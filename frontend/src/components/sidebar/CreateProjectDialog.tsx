@@ -51,9 +51,9 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ backgroundColor: '#16213E', borderColor: '#2A2A3E' }}>
+      <DialogContent style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E5DE' }}>
         <DialogHeader>
-          <DialogTitle style={{ color: '#E8E8ED' }}>새 프로젝트</DialogTitle>
+          <DialogTitle style={{ color: '#3D3D3D' }}>새 프로젝트</DialogTitle>
           <DialogDescription>프로젝트 정보를 입력하세요.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -62,7 +62,7 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="프로젝트 이름"
-              style={{ backgroundColor: '#1E1E32', color: '#E8E8ED', borderColor: '#2A2A3E' }}
+              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </FormField>
           <FormField label="저장소 경로" required>
@@ -70,7 +70,7 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
               value={repoPath}
               onChange={(e) => setRepoPath(e.target.value)}
               placeholder="/home/ubuntu/projects/my-repo"
-              style={{ backgroundColor: '#1E1E32', color: '#E8E8ED', borderColor: '#2A2A3E' }}
+              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </FormField>
           <FormField label="설명">
@@ -78,7 +78,7 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="프로젝트 설명 (선택)"
-              style={{ backgroundColor: '#1E1E32', color: '#E8E8ED', borderColor: '#2A2A3E' }}
+              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </FormField>
           <DialogFooter>
@@ -104,7 +104,7 @@ function FormField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label style={{ color: '#E8E8ED' }}>
+      <Label style={{ color: '#3D3D3D' }}>
         {label}
         {required && <span style={{ color: '#E0845E' }}> *</span>}
       </Label>

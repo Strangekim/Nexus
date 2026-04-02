@@ -43,7 +43,7 @@ export function MessageList({
               className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1"
               style={{ backgroundColor: '#2D7D7B' }}
             >
-              <User size={14} style={{ color: '#E8E8ED' }} />
+              <User size={14} style={{ color: '#3D3D3D' }} />
             </div>
             <div className="flex-1 min-w-0">
               {/* 도구 사용 카드들 */}

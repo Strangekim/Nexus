@@ -23,7 +23,7 @@ const components: Components = {
       return (
         <code
           className="px-1.5 py-0.5 rounded text-sm"
-          style={{ backgroundColor: '#2A2A3E', color: '#E0845E' }}
+          style={{ backgroundColor: '#E8E5DE', color: '#E0845E' }}
           {...props}
         >
           {children}
@@ -44,7 +44,7 @@ export function StreamingMessage({
   return (
     <div
       className="prose prose-invert max-w-none text-sm leading-relaxed"
-      style={{ color: '#E8E8ED' }}
+      style={{ color: '#3D3D3D' }}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {sanitized}

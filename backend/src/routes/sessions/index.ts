@@ -2,6 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { sessionService } from '../../services/session.service.js';
+import prisma from '../../lib/prisma.js';
 import chatRoute from './chat.js';
 import abortRoute from './abort.js';
 import messagesRoute from './messages.js';
@@ -11,6 +12,33 @@ interface ListQuery { folderId: string; status?: string }
 interface IdParams { id: string }
 interface CreateBody { folderId: string; title: string }
 interface UpdateBody { title?: string; status?: string }
+
+/** params UUID 검증 스키마 */
+const idParamsSchema = {
+  type: 'object',
+  required: ['id'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+  },
+};
+
+/**
+ * 세션이 요청자(userId)의 프로젝트 소속인지 검증
+ * 세션 → 폴더 → 프로젝트 → 멤버 관계를 확인
+ */
+async function assertSessionAccess(sessionId: string, userId: string): Promise<void> {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: { folder: { include: { project: { include: { members: true } } } } },
+  });
+  if (!session) {
+    throw Object.assign(new Error('세션을 찾을 수 없습니다'), { statusCode: 404 });
+  }
+  const isMember = session.folder.project.members.some((m) => m.userId === userId);
+  if (!isMember) {
+    throw Object.assign(new Error('이 세션에 접근할 권한이 없습니다'), { statusCode: 403 });
+  }
+}
 
 const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // 채팅, 중단, 메시지 라우트 등록
@@ -31,8 +59,23 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-  }, async (request) => {
+  }, async (request, reply) => {
     const { folderId, status } = request.query;
+    const userId = request.session.get('userId') as string;
+
+    // 폴더의 프로젝트 멤버인지 확인
+    const folder = await prisma.folder.findUnique({
+      where: { id: folderId },
+      include: { project: { include: { members: true } } },
+    });
+    if (!folder) {
+      return reply.code(404).send({ error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' } });
+    }
+    const isMember = folder.project.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '이 폴더에 접근할 권한이 없습니다' } });
+    }
+
     return sessionService.findByFolder(folderId, status);
   });
 
@@ -51,6 +94,20 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
     },
   }, async (request, reply) => {
     const userId = request.session.get('userId') as string;
+
+    // 폴더의 프로젝트 멤버인지 확인
+    const folder = await prisma.folder.findUnique({
+      where: { id: request.body.folderId },
+      include: { project: { include: { members: true } } },
+    });
+    if (!folder) {
+      return reply.code(404).send({ error: { code: 'NOT_FOUND', message: '폴더를 찾을 수 없습니다' } });
+    }
+    const isMember = folder.project.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '이 프로젝트에 세션을 생성할 권한이 없습니다' } });
+    }
+
     try {
       const session = await sessionService.create({
         folderId: request.body.folderId,
@@ -72,7 +129,20 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /:id — 세션 상세 (관계 포함)
   fastify.get<{ Params: IdParams }>('/:id', {
     preHandler: [requireAuth],
+    schema: { params: idParamsSchema },
   }, async (request, reply) => {
+    const userId = request.session.get('userId') as string;
+
+    // 인가 검증: 해당 세션이 요청자의 프로젝트 소속인지 확인
+    try {
+      await assertSessionAccess(request.params.id, userId);
+    } catch (err: unknown) {
+      const error = err as Error & { statusCode?: number };
+      return reply.code(error.statusCode ?? 500).send({
+        error: { code: error.statusCode === 404 ? 'NOT_FOUND' : 'FORBIDDEN', message: error.message },
+      });
+    }
+
     const session = await sessionService.findById(request.params.id);
     if (!session) {
       return reply.code(404).send({
@@ -86,6 +156,7 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Params: IdParams; Body: UpdateBody }>('/:id', {
     preHandler: [requireAuth],
     schema: {
+      params: idParamsSchema,
       body: {
         type: 'object',
         properties: {
@@ -95,6 +166,18 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request, reply) => {
+    const userId = request.session.get('userId') as string;
+
+    // 인가 검증: 해당 세션이 요청자의 프로젝트 소속인지 확인
+    try {
+      await assertSessionAccess(request.params.id, userId);
+    } catch (err: unknown) {
+      const error = err as Error & { statusCode?: number };
+      return reply.code(error.statusCode ?? 500).send({
+        error: { code: error.statusCode === 404 ? 'NOT_FOUND' : 'FORBIDDEN', message: error.message },
+      });
+    }
+
     try {
       return await sessionService.update(request.params.id, request.body);
     } catch {
@@ -107,7 +190,20 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /:id — 세션 삭제
   fastify.delete<{ Params: IdParams }>('/:id', {
     preHandler: [requireAuth],
+    schema: { params: idParamsSchema },
   }, async (request, reply) => {
+    const userId = request.session.get('userId') as string;
+
+    // 인가 검증: 해당 세션이 요청자의 프로젝트 소속인지 확인
+    try {
+      await assertSessionAccess(request.params.id, userId);
+    } catch (err: unknown) {
+      const error = err as Error & { statusCode?: number };
+      return reply.code(error.statusCode ?? 500).send({
+        error: { code: error.statusCode === 404 ? 'NOT_FOUND' : 'FORBIDDEN', message: error.message },
+      });
+    }
+
     try {
       await sessionService.remove(request.params.id);
       return reply.code(204).send();

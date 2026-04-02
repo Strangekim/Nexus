@@ -11,6 +11,15 @@ interface IdParams { id: string }
 interface CreateBody { name: string; repoPath: string; description?: string }
 interface UpdateBody { name?: string; description?: string }
 
+/** id params UUID 검증 스키마 */
+const idParamsSchema = {
+  type: 'object',
+  required: ['id'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+  },
+};
+
 const projectRoutes: FastifyPluginAsync = async (fastify) => {
   // 폴더 라우트를 하위에 등록
   await fastify.register(folderRoutes, { prefix: '/:projectId/folders' });
@@ -56,6 +65,7 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /:id — 프로젝트 상세
   fastify.get<{ Params: IdParams }>('/:id', {
     preHandler: [requireAuth],
+    schema: { params: idParamsSchema },
   }, async (request, reply) => {
     const project = await projectService.findById(request.params.id);
     if (!project) {
@@ -70,6 +80,7 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Params: IdParams; Body: UpdateBody }>('/:id', {
     preHandler: [requireAuth],
     schema: {
+      params: idParamsSchema,
       body: {
         type: 'object',
         properties: {
@@ -91,6 +102,7 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /:id — 프로젝트 삭제 (관리자 전용)
   fastify.delete<{ Params: IdParams }>('/:id', {
     preHandler: [requireAdmin],
+    schema: { params: idParamsSchema },
   }, async (request, reply) => {
     try {
       await projectService.remove(request.params.id);

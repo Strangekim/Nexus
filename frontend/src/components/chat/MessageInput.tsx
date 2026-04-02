@@ -49,7 +49,7 @@ export function MessageInput({ onSend, onAbort, isStreaming }: MessageInputProps
     <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-2">
       <div
         className="flex items-end gap-2 rounded-xl border px-4 py-3"
-        style={{ backgroundColor: '#1E1E32', borderColor: '#2A2A3E' }}
+        style={{ backgroundColor: '#F9F9F4', borderColor: '#E8E5DE' }}
       >
         <textarea
           ref={textareaRef}
@@ -58,8 +58,8 @@ export function MessageInput({ onSend, onAbort, isStreaming }: MessageInputProps
           onKeyDown={handleKeyDown}
           placeholder="메시지를 입력하세요..."
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[#8B8B9E]"
-          style={{ color: '#E8E8ED', maxHeight: 200 }}
+          className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[#6B6B7B]"
+          style={{ color: '#3D3D3D', maxHeight: 200 }}
         />
 
         {isStreaming ? (

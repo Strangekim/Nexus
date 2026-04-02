@@ -48,12 +48,12 @@ export function TreeItem({
       <CollapsibleTrigger className="flex flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-sm hover:bg-white/5 cursor-pointer min-w-0">
         <ChevronRight
           className="size-3.5 shrink-0 transition-transform duration-200 [[data-open]>&]:rotate-90"
-          style={{ color: '#8B8B9E' }}
+          style={{ color: '#6B6B7B' }}
         />
         <span className="shrink-0">{icon}</span>
         <span
           className="truncate"
-          style={{ color: '#E8E8ED' }}
+          style={{ color: '#3D3D3D' }}
         >
           {label}
         </span>
@@ -74,7 +74,7 @@ function ItemMenu({ onDelete }: { onDelete: () => void }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon-xs" style={{ color: '#8B8B9E' }} />
+          <Button variant="ghost" size="icon-xs" style={{ color: '#6B6B7B' }} />
         }
       >
         <MoreHorizontal className="size-3" />

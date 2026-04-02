@@ -17,12 +17,14 @@ import { Button } from '@/components/ui/button';
 import { useCreateSession } from '@/hooks/useProjectMutations';
 
 interface Props {
-  folderId: string;
+  folderId?: string;
+  projectId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateSessionDialog({ folderId, open, onOpenChange }: Props) {
+/** 세션 생성 — folderId 또는 projectId 중 하나를 전달 */
+export function CreateSessionDialog({ folderId, projectId, open, onOpenChange }: Props) {
   const [title, setTitle] = useState('');
   const mutation = useCreateSession();
 
@@ -31,7 +33,7 @@ export function CreateSessionDialog({ folderId, open, onOpenChange }: Props) {
     e.preventDefault();
     if (!title.trim()) return;
     mutation.mutate(
-      { folderId, title: title.trim() },
+      { folderId, projectId, title: title.trim() },
       {
         onSuccess: () => {
           setTitle('');
@@ -43,21 +45,21 @@ export function CreateSessionDialog({ folderId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ backgroundColor: '#16213E', borderColor: '#2A2A3E' }}>
+      <DialogContent style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E5DE' }}>
         <DialogHeader>
-          <DialogTitle style={{ color: '#E8E8ED' }}>새 세션</DialogTitle>
+          <DialogTitle style={{ color: '#3D3D3D' }}>새 세션</DialogTitle>
           <DialogDescription>세션 제목을 입력하세요.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label style={{ color: '#E8E8ED' }}>
+            <Label style={{ color: '#3D3D3D' }}>
               제목<span style={{ color: '#E0845E' }}> *</span>
             </Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="세션 제목"
-              style={{ backgroundColor: '#1E1E32', color: '#E8E8ED', borderColor: '#2A2A3E' }}
+              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </div>
           <DialogFooter>

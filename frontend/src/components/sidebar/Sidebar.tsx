@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { PanelLeftClose, PanelLeft, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -62,14 +63,16 @@ export function Sidebar() {
 function SidebarHeader({ onCollapse }: { onCollapse: () => void }) {
   return (
     <div className="flex items-center justify-between border-b border-[#E8E5DE] px-3 py-3">
-      {/* 가로형 워드마크 로고 (2120×556 비율 → width 120px 고정) */}
-      <Image
-        src="/logo.png"
-        alt="Nexus"
-        width={120}
-        height={32}
-        style={{ height: 'auto' }}
-      />
+      {/* 로고 클릭 시 대시보드로 이동 */}
+      <Link href="/" className="transition-opacity hover:opacity-80">
+        <Image
+          src="/logo.png"
+          alt="Nexus"
+          width={120}
+          height={32}
+          style={{ height: 'auto' }}
+        />
+      </Link>
       <Button
         variant="ghost"
         size="icon-sm"

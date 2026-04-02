@@ -9,10 +9,30 @@ interface FolderParams extends ProjectParams { id: string }
 interface CreateBody { name: string; description?: string }
 interface UpdateBody { name?: string; description?: string }
 
+/** projectId params UUID 검증 스키마 */
+const projectParamsSchema = {
+  type: 'object',
+  required: ['projectId'],
+  properties: {
+    projectId: { type: 'string', format: 'uuid' },
+  },
+};
+
+/** projectId + id params UUID 검증 스키마 */
+const folderParamsSchema = {
+  type: 'object',
+  required: ['projectId', 'id'],
+  properties: {
+    projectId: { type: 'string', format: 'uuid' },
+    id: { type: 'string', format: 'uuid' },
+  },
+};
+
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   // GET / — 프로젝트 내 폴더 목록
   fastify.get<{ Params: ProjectParams }>('/', {
     preHandler: [requireAuth],
+    schema: { params: projectParamsSchema },
   }, async (request) => {
     return folderService.findByProject(request.params.projectId);
   });
@@ -21,6 +41,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: ProjectParams; Body: CreateBody }>('/', {
     preHandler: [requireAuth],
     schema: {
+      params: projectParamsSchema,
       body: {
         type: 'object',
         required: ['name'],
@@ -48,6 +69,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /:id — 폴더 상세
   fastify.get<{ Params: FolderParams }>('/:id', {
     preHandler: [requireAuth],
+    schema: { params: folderParamsSchema },
   }, async (request, reply) => {
     const folder = await folderService.findById(request.params.id);
     if (!folder) {
@@ -62,6 +84,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Params: FolderParams; Body: UpdateBody }>('/:id', {
     preHandler: [requireAuth],
     schema: {
+      params: folderParamsSchema,
       body: {
         type: 'object',
         properties: {
@@ -83,6 +106,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /:id — 폴더 삭제
   fastify.delete<{ Params: FolderParams }>('/:id', {
     preHandler: [requireAuth],
+    schema: { params: folderParamsSchema },
   }, async (request, reply) => {
     try {
       await folderService.remove(request.params.id);

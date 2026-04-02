@@ -1,5 +1,23 @@
 // 세션 서비스 레이어
 import prisma from '../lib/prisma.js';
+import path from 'path';
+
+/** worktree 기본 경로 — 이 경로 밖으로 벗어나는 경로 생성은 금지 */
+const WORKTREE_BASE_PATH = '/home/ubuntu/projects-wt';
+
+/**
+ * worktreePath가 허용된 base 경로 내에 있는지 검증
+ * 경로 트래버설 공격 방지
+ */
+function validateWorktreePath(worktreePath: string): void {
+  const resolved = path.resolve(worktreePath);
+  if (!resolved.startsWith(WORKTREE_BASE_PATH + '/') && resolved !== WORKTREE_BASE_PATH) {
+    throw Object.assign(
+      new Error('허용되지 않은 worktree 경로입니다'),
+      { statusCode: 400 },
+    );
+  }
+}
 
 /** 사용자 관계 select 옵션 */
 const userSelect = { select: { id: true, name: true } } as const;
@@ -37,7 +55,10 @@ async function create(dto: { folderId: string; title: string; createdBy: string 
     data: { folderId: dto.folderId, title: dto.title, createdBy: dto.createdBy },
   });
 
-  const worktreePath = folder.project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
+  const rawWorktreePath = folder.project.repoPath.replace('/projects/', '/projects-wt/') + `/${session.id}/`;
+  // 경로 트래버설 방어: 허용된 base 경로 내에 있는지 검증
+  validateWorktreePath(rawWorktreePath);
+  const worktreePath = path.resolve(rawWorktreePath);
   const branchName = `session/${session.id}`;
 
   return prisma.session.update({

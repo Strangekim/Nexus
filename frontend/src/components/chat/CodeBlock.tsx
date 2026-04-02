@@ -25,13 +25,13 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
       {/* 헤더: 언어 라벨 + 복사 버튼 */}
       <div
         className="flex items-center justify-between px-4 py-2 text-xs"
-        style={{ color: '#8B8B9E', borderBottom: '1px solid #2A2A3E' }}
+        style={{ color: '#6B6B7B', borderBottom: '1px solid #E8E5DE' }}
       >
         <span>{language || 'text'}</span>
         <button
           onClick={handleCopy}
           className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
-          style={{ color: '#8B8B9E' }}
+          style={{ color: '#6B6B7B' }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
           {copied ? '복사됨' : '복사'}

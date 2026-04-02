@@ -44,16 +44,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="w-full max-w-sm rounded-xl p-8 shadow-2xl"
-      style={{ backgroundColor: '#16213E' }}
-    >
+    <div className="w-full max-w-sm rounded-2xl border border-[#E8E5DE] bg-white p-8 shadow-lg">
       {/* 브랜드 그라데이션 상단 액센트 */}
       <div
         className="mx-auto mb-6 h-1 w-16 rounded-full"
         style={{
           background:
-            'linear-gradient(135deg, #1B605B 0%, #8A9A5E 40%, #DFA770 70%, #E0845E 100%)',
+            'linear-gradient(135deg, #2D7D7B 0%, #5A9A8A 40%, #DFA770 70%, #E0845E 100%)',
         }}
       />
 
@@ -70,10 +67,7 @@ export default function LoginPage() {
 
       {/* 에러 메시지 */}
       {error && (
-        <div
-          className="mb-4 rounded-lg px-3 py-2 text-sm"
-          style={{ backgroundColor: '#2A1525', color: '#E0845E' }}
-        >
+        <div className="mb-4 rounded-lg bg-[#FEF2EE] px-3 py-2 text-sm text-[#E0845E]">
           {error}
         </div>
       )}
@@ -83,8 +77,7 @@ export default function LoginPage() {
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="email"
-            className="text-sm font-medium"
-            style={{ color: '#E8E8ED' }}
+            className="text-sm font-medium text-[#3D3D3D]"
           >
             이메일
           </label>
@@ -96,20 +89,14 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={isSubmitting}
-            className="h-10"
-            style={{
-              backgroundColor: '#1E1E32',
-              borderColor: '#2A2A3E',
-              color: '#E8E8ED',
-            }}
+            className="h-10 border-[#E8E5DE] bg-[#F9F9F4] text-[#1A1A1A] placeholder:text-[#B0AFA8]"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="password"
-            className="text-sm font-medium"
-            style={{ color: '#E8E8ED' }}
+            className="text-sm font-medium text-[#3D3D3D]"
           >
             비밀번호
           </label>
@@ -121,23 +108,14 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={isSubmitting}
-            className="h-10"
-            style={{
-              backgroundColor: '#1E1E32',
-              borderColor: '#2A2A3E',
-              color: '#E8E8ED',
-            }}
+            className="h-10 border-[#E8E5DE] bg-[#F9F9F4] text-[#1A1A1A] placeholder:text-[#B0AFA8]"
           />
         </div>
 
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="mt-2 h-10 w-full text-sm font-medium"
-          style={{
-            backgroundColor: '#2D7D7B',
-            color: '#FFFFFF',
-          }}
+          className="mt-2 h-10 w-full cursor-pointer text-sm font-medium bg-[#2D7D7B] text-white hover:bg-[#256664]"
         >
           {isSubmitting ? (
             <Loader2 className="size-4 animate-spin" />

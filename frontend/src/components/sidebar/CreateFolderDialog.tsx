@@ -45,30 +45,30 @@ export function CreateFolderDialog({ projectId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ backgroundColor: '#16213E', borderColor: '#2A2A3E' }}>
+      <DialogContent style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E5DE' }}>
         <DialogHeader>
-          <DialogTitle style={{ color: '#E8E8ED' }}>새 폴더</DialogTitle>
+          <DialogTitle style={{ color: '#3D3D3D' }}>새 폴더</DialogTitle>
           <DialogDescription>폴더 정보를 입력하세요.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label style={{ color: '#E8E8ED' }}>
+            <Label style={{ color: '#3D3D3D' }}>
               이름<span style={{ color: '#E0845E' }}> *</span>
             </Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="폴더 이름"
-              style={{ backgroundColor: '#1E1E32', color: '#E8E8ED', borderColor: '#2A2A3E' }}
+              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </div>
           <div className="space-y-1.5">
-            <Label style={{ color: '#E8E8ED' }}>설명</Label>
+            <Label style={{ color: '#3D3D3D' }}>설명</Label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="폴더 설명 (선택)"
-              style={{ backgroundColor: '#1E1E32', color: '#E8E8ED', borderColor: '#2A2A3E' }}
+              style={{ backgroundColor: '#F9F9F4', color: '#3D3D3D', borderColor: '#E8E5DE' }}
             />
           </div>
           <DialogFooter>

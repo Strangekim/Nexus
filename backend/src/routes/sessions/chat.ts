@@ -24,7 +24,7 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['message'],
-        properties: { message: { type: 'string', minLength: 1 } },
+        properties: { message: { type: 'string', minLength: 1, maxLength: 10000 } },
       },
     },
   }, async (request, reply) => {

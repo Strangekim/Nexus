@@ -1,7 +1,7 @@
 // 프로젝트/폴더/세션 API 함수
 
 import { apiFetch } from '@/lib/api';
-import type { TreeProject } from '@/types/project';
+import type { TreeProject, Project, Folder, Session } from '@/types/project';
 
 /** 사이드바 트리 조회 */
 export async function fetchTree(): Promise<TreeProject[]> {
@@ -13,8 +13,8 @@ export async function createProject(data: {
   name: string;
   repoPath: string;
   description?: string;
-}) {
-  return apiFetch('/api/projects', {
+}): Promise<Project> {
+  return apiFetch<Project>('/api/projects', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -24,24 +24,24 @@ export async function createProject(data: {
 export async function updateProject(
   id: string,
   data: { name?: string; description?: string },
-) {
-  return apiFetch(`/api/projects/${id}`, {
+): Promise<Project> {
+  return apiFetch<Project>(`/api/projects/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
 
 /** 프로젝트 삭제 */
-export async function deleteProject(id: string) {
-  return apiFetch(`/api/projects/${id}`, { method: 'DELETE' });
+export async function deleteProject(id: string): Promise<void> {
+  return apiFetch<void>(`/api/projects/${id}`, { method: 'DELETE' });
 }
 
 /** 폴더 생성 */
 export async function createFolder(
   projectId: string,
   data: { name: string; description?: string },
-) {
-  return apiFetch(`/api/projects/${projectId}/folders`, {
+): Promise<Folder> {
+  return apiFetch<Folder>(`/api/projects/${projectId}/folders`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -52,26 +52,27 @@ export async function updateFolder(
   projectId: string,
   id: string,
   data: { name?: string; description?: string },
-) {
-  return apiFetch(`/api/projects/${projectId}/folders/${id}`, {
+): Promise<Folder> {
+  return apiFetch<Folder>(`/api/projects/${projectId}/folders/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
 
 /** 폴더 삭제 */
-export async function deleteFolder(projectId: string, id: string) {
-  return apiFetch(`/api/projects/${projectId}/folders/${id}`, {
+export async function deleteFolder(projectId: string, id: string): Promise<void> {
+  return apiFetch<void>(`/api/projects/${projectId}/folders/${id}`, {
     method: 'DELETE',
   });
 }
 
-/** 세션 생성 */
+/** 세션 생성 — folderId 또는 projectId 중 하나를 전달 */
 export async function createSession(data: {
-  folderId: string;
+  folderId?: string;
+  projectId?: string;
   title: string;
-}) {
-  return apiFetch('/api/sessions', {
+}): Promise<Session> {
+  return apiFetch<Session>('/api/sessions', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -81,14 +82,14 @@ export async function createSession(data: {
 export async function updateSession(
   id: string,
   data: { title?: string },
-) {
-  return apiFetch(`/api/sessions/${id}`, {
+): Promise<Session> {
+  return apiFetch<Session>(`/api/sessions/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
 
 /** 세션 삭제 */
-export async function deleteSession(id: string) {
-  return apiFetch(`/api/sessions/${id}`, { method: 'DELETE' });
+export async function deleteSession(id: string): Promise<void> {
+  return apiFetch<void>(`/api/sessions/${id}`, { method: 'DELETE' });
 }

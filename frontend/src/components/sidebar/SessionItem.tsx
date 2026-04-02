@@ -39,7 +39,7 @@ export function SessionItem({ session, projectId }: SessionItemProps) {
         className="flex flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm cursor-pointer min-w-0 text-left"
         style={{
           backgroundColor: isActive ? 'rgba(45,125,123,0.2)' : undefined,
-          color: '#E8E8ED',
+          color: '#3D3D3D',
         }}
         onMouseEnter={(e) => {
           if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
@@ -48,7 +48,7 @@ export function SessionItem({ session, projectId }: SessionItemProps) {
           if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
         }}
       >
-        <MessageSquare className="size-3.5 shrink-0" style={{ color: '#8B8B9E' }} />
+        <MessageSquare className="size-3.5 shrink-0" style={{ color: '#6B6B7B' }} />
         <span className="truncate">{session.title}</span>
         {session.lockedBy && (
           <Lock className="size-3 shrink-0" style={{ color: '#E0845E' }} />
@@ -60,7 +60,7 @@ export function SessionItem({ session, projectId }: SessionItemProps) {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button variant="ghost" size="icon-xs" style={{ color: '#8B8B9E' }} />
+              <Button variant="ghost" size="icon-xs" style={{ color: '#6B6B7B' }} />
             }
           >
             <MoreHorizontal className="size-3" />
