@@ -1,11 +1,15 @@
 'use client';
-// 채팅 전체 패널 — 메시지 목록 + 입력창
+// 채팅 전체 패널 — 메시지 목록 + 입력창 + 락 상태 표시
 
 import { useEffect } from 'react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { useChat } from '@/hooks/useChat';
 import { useMessages } from '@/hooks/useMessages';
+import { LockStatusBadge } from '@/components/session/LockStatusBadge';
+import { LockRequestButton } from '@/components/session/LockRequestButton';
+import { useRealtimeStore } from '@/stores/realtimeStore';
+import { useAuthStore } from '@/stores/authStore';
 
 interface ChatPanelProps {
   sessionId: string;
@@ -28,6 +32,11 @@ export function ChatPanel({ sessionId, onFileClick }: ChatPanelProps) {
   // 서버에서 기존 메시지 로드
   const { data } = useMessages(sessionId);
 
+  // 락 상태 조회 — 타인 락 여부 판단
+  const lock = useRealtimeStore((s) => s.sessionLocks.get(sessionId));
+  const currentUser = useAuthStore((s) => s.user);
+  const isLockedByOther = !!(lock && currentUser && lock.userId !== currentUser.id);
+
   useEffect(() => {
     if (data?.messages) {
       setMessages(data.messages);
@@ -36,6 +45,15 @@ export function ChatPanel({ sessionId, onFileClick }: ChatPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* 락 상태 헤더 바 */}
+      <div
+        className="flex items-center justify-between px-4 py-2 border-b"
+        style={{ borderColor: '#E8E5DE', backgroundColor: '#F9F9F4' }}
+      >
+        <LockStatusBadge sessionId={sessionId} />
+        <LockRequestButton sessionId={sessionId} />
+      </div>
+
       {/* 메시지 목록 */}
       <MessageList
         messages={messages}
@@ -57,11 +75,12 @@ export function ChatPanel({ sessionId, onFileClick }: ChatPanelProps) {
         </div>
       )}
 
-      {/* 입력창 */}
+      {/* 입력창 — 타인 락 시 비활성화 */}
       <MessageInput
         onSend={sendMessage}
         onAbort={abort}
         isStreaming={isStreaming}
+        isLocked={isLockedByOther}
       />
     </div>
   );
