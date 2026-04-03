@@ -41,6 +41,10 @@ export function transformStreamEvent(raw: Record<string, unknown>): SseEvent[] {
       events.push(...parseDeltaEvent(raw));
       break;
 
+    case 'user':
+      events.push(...parseUserEvent(raw));
+      break;
+
     case 'content_block_stop':
       if (raw.tool_id || raw.toolId) {
         events.push({
@@ -57,6 +61,9 @@ export function transformStreamEvent(raw: Record<string, unknown>): SseEvent[] {
           messageId: (raw.message_id ?? raw.messageId ?? '') as string,
           sessionId: (raw.session_id ?? raw.sessionId ?? '') as string,
           totalTokens: (raw.total_tokens ?? raw.totalTokens ?? 0) as number,
+          durationMs: (raw.duration_ms ?? raw.durationMs ?? null) as number | null,
+          numTurns: (raw.num_turns ?? raw.numTurns ?? null) as number | null,
+          totalCostUsd: (raw.total_cost_usd ?? raw.totalCostUsd ?? null) as number | null,
         },
       });
       break;
@@ -85,9 +92,15 @@ function parseAssistantEvent(raw: Record<string, unknown>): SseEvent[] {
         data: { content: block.text },
       });
     } else if (block.type === 'tool_use' && block.id) {
+      const toolName = block.name ?? '';
+      const summary = extractToolUseSummary(toolName, block.input);
       events.push({
         event: 'tool_use_begin',
-        data: { toolId: block.id, tool: block.name ?? '' },
+        data: {
+          toolId: block.id,
+          tool: toolName,
+          ...(summary ? { toolUseSummary: summary } : {}),
+        },
       });
       // 입력이 이미 포함되어 있으면 input 이벤트도 발행
       if (block.input && Object.keys(block.input).length > 0) {
@@ -109,6 +122,97 @@ function parseAssistantEvent(raw: Record<string, unknown>): SseEvent[] {
   }
 
   return events;
+}
+
+/** user 타입 이벤트 파싱 — tool_use_result 추출 */
+function parseUserEvent(raw: Record<string, unknown>): SseEvent[] {
+  const events: SseEvent[] = [];
+  const toolUseResult = raw.tool_use_result as Record<string, unknown> | undefined;
+
+  // tool_use_id를 message.content에서 추출
+  const message = raw.message as Record<string, unknown> | undefined;
+  const content = message?.content as ContentBlock[] | undefined;
+  const toolId = content?.[0]?.tool_use_id ?? '';
+
+  if (!toolUseResult) return events;
+
+  // 결과 메타 정보 구성
+  const resultMeta: Record<string, unknown> = {};
+  const resultType = toolUseResult.type as string | undefined;
+  if (resultType) resultMeta.type = resultType;
+
+  // 파일 읽기 결과 (file 객체 포함)
+  const file = toolUseResult.file as Record<string, unknown> | undefined;
+  if (file) {
+    resultMeta.filePath = file.filePath ?? '';
+    resultMeta.numLines = file.numLines ?? null;
+  }
+
+  // 파일 목록 결과 (filenames 배열 포함)
+  if (toolUseResult.filenames) {
+    resultMeta.filenames = toolUseResult.filenames;
+    resultMeta.numFiles = toolUseResult.numFiles ?? null;
+  }
+
+  // 실행 시간
+  if (toolUseResult.durationMs !== undefined) {
+    resultMeta.durationMs = toolUseResult.durationMs;
+  }
+
+  // 출력 요약 생성
+  const output = buildResultOutput(resultMeta);
+
+  events.push({
+    event: 'tool_result',
+    data: {
+      toolId,
+      output,
+      isError: false,
+      resultMeta,
+    },
+  });
+
+  return events;
+}
+
+/** tool_use_result 메타 정보로부터 사람이 읽기 쉬운 출력 요약 생성 */
+function buildResultOutput(meta: Record<string, unknown>): string {
+  if (meta.filePath && meta.numLines) {
+    return `${meta.filePath} (${meta.numLines} lines)`;
+  }
+  if (meta.filePath) {
+    return meta.filePath as string;
+  }
+  const filenames = meta.filenames as string[] | undefined;
+  if (filenames && filenames.length > 0) {
+    return filenames.length <= 3
+      ? filenames.join(', ')
+      : `${filenames.slice(0, 3).join(', ')} 외 ${filenames.length - 3}개`;
+  }
+  return '';
+}
+
+/** 도구 호출 시 입력에서 핵심 정보를 추출하여 요약 반환 */
+function extractToolUseSummary(
+  toolName: string,
+  input?: Record<string, unknown>,
+): string | null {
+  if (!input) return null;
+
+  switch (toolName) {
+    case 'Read':
+    case 'Edit':
+    case 'Write':
+      return input.file_path ? String(input.file_path) : null;
+    case 'Bash':
+      return input.command ? String(input.command) : null;
+    case 'Glob':
+      return input.pattern ? String(input.pattern) : null;
+    case 'Grep':
+      return input.pattern ? String(input.pattern) : null;
+    default:
+      return null;
+  }
 }
 
 /** content_block_delta 타입 이벤트 파싱 */

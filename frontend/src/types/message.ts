@@ -15,6 +15,16 @@ export interface Message {
   createdAt: string;
 }
 
+// 도구 결과 메타 정보
+export interface ToolResultMeta {
+  type?: string;
+  filePath?: string;
+  numLines?: number;
+  numFiles?: number;
+  filenames?: string[];
+  durationMs?: number;
+}
+
 // 스트리밍 중인 도구 사용 정보
 export interface ActiveToolUse {
   toolId: string;
@@ -23,4 +33,6 @@ export interface ActiveToolUse {
   output?: string;
   isError?: boolean;
   status: 'running' | 'completed';
+  summary?: string;
+  resultMeta?: ToolResultMeta;
 }

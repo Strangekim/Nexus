@@ -7,6 +7,7 @@ export interface AssistantTextEvent {
 export interface ToolUseBeginEvent {
   toolId: string;
   tool: string;
+  summary?: string;
 }
 
 export interface ToolUseInputEvent {
@@ -22,6 +23,14 @@ export interface ToolResultEvent {
   toolId: string;
   output: string;
   isError: boolean;
+  resultMeta?: {
+    type?: string;
+    filePath?: string;
+    numLines?: number;
+    numFiles?: number;
+    filenames?: string[];
+    durationMs?: number;
+  };
 }
 
 export interface SystemEvent {

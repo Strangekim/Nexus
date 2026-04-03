@@ -41,8 +41,8 @@ export function useSseHandler(deps: SseHandlerDeps) {
           break;
         }
         case 'tool_use_begin': {
-          const { toolId, tool } = data as ToolUseBeginEvent;
-          setToolUses((p) => [...p, { toolId, tool, status: 'running' }]);
+          const { toolId, tool, summary } = data as ToolUseBeginEvent;
+          setToolUses((p) => [...p, { toolId, tool, status: 'running', summary }]);
           break;
         }
         case 'tool_use_input': {
@@ -56,8 +56,8 @@ export function useSseHandler(deps: SseHandlerDeps) {
           break;
         }
         case 'tool_result': {
-          const { toolId, output, isError } = data as ToolResultEvent;
-          setToolUses((p) => p.map((t) => (t.toolId === toolId ? { ...t, output, isError, status: 'completed' as const } : t)));
+          const { toolId, output, isError, resultMeta } = data as ToolResultEvent;
+          setToolUses((p) => p.map((t) => (t.toolId === toolId ? { ...t, output, isError, resultMeta, status: 'completed' as const } : t)));
           break;
         }
         case 'system': {
