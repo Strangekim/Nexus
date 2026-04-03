@@ -100,7 +100,7 @@ async function spawnWithNodePty(
   return {
     pty: {
       write: (data: string) => ptyProc.write(data),
-      resize: (c: number, r: number) => ptyProc.resize(c, r),
+      resize: (c: number, r: number) => { try { ptyProc.resize(c, r); } catch { /* 이미 닫힌 PTY 무시 */ } },
       kill: () => { try { ptyProc.kill(); } catch { /* 무시 */ } },
     },
     onData: (cb) => { ptyProc.onData(cb); },

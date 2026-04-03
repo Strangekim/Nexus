@@ -120,10 +120,7 @@ export function StreamingMessage({
   const components = makeComponents(onFileClick);
 
   return (
-    <div
-      className="prose prose-invert max-w-none text-sm leading-relaxed"
-      style={{ color: '#3D3D3D' }}
-    >
+    <div className="chat-markdown max-w-none">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {sanitized}
       </ReactMarkdown>

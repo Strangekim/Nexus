@@ -159,8 +159,10 @@ function parseUserEvent(raw: Record<string, unknown>): SseEvent[] {
     resultMeta.durationMs = toolUseResult.durationMs;
   }
 
+  // 실제 도구 실행 결과 텍스트 추출 (파일 내용, bash 출력 등)
+  const contentText = content?.[0]?.text ?? '';
   // 출력 요약 생성
-  const output = buildResultOutput(resultMeta);
+  const output = contentText || buildResultOutput(resultMeta);
 
   events.push({
     event: 'tool_result',

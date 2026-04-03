@@ -23,6 +23,8 @@ interface SessionContext {
   sessionTitle?: string;
   /** 프로젝트 이름 — SMS/푸시 알림 메시지에 사용 */
   projectName?: string;
+  /** 현재 요청 사용자 ID — claude_session_id 저장 시 사용자별 구분 */
+  userId?: string;
 }
 
 /** 스트림 이벤트 수집 및 SSE 전달 처리 */
@@ -37,6 +39,8 @@ export function handleChatStream(
     let claudeSessionId: string | null = null;
     let totalTokens = 0;
     const toolsUsed: string[] = [];
+    // 도구 사용 상세 기록 — 메시지 metadata에 저장하여 이후 표시에 활용
+    const toolDetails: { toolId: string; tool: string; summary?: string; input?: Record<string, unknown>; output?: string; isError?: boolean }[] = [];
 
     emitter.on('event', (raw: StreamEvent) => {
       const sseEvents = transformStreamEvent(raw as Record<string, unknown>);
@@ -48,9 +52,27 @@ export function handleChatStream(
         if (evt.event === 'assistant_text') {
           fullText += evt.data.content as string;
         }
-        // 도구 이름 수집
+        // 도구 사용 시작 — 이름 + 요약 수집
         if (evt.event === 'tool_use_begin') {
           toolsUsed.push(evt.data.tool as string);
+          toolDetails.push({
+            toolId: evt.data.toolId as string,
+            tool: evt.data.tool as string,
+            summary: evt.data.toolUseSummary as string | undefined,
+          });
+        }
+        // 도구 입력 수집
+        if (evt.event === 'tool_use_input') {
+          const detail = toolDetails.find((t) => t.toolId === evt.data.toolId);
+          if (detail) detail.input = evt.data.input as Record<string, unknown>;
+        }
+        // 도구 결과 수집
+        if (evt.event === 'tool_result') {
+          const detail = toolDetails.find((t) => t.toolId === evt.data.toolId);
+          if (detail) {
+            detail.output = evt.data.output as string;
+            detail.isError = evt.data.isError as boolean;
+          }
         }
       }
 
@@ -78,7 +100,9 @@ export function handleChatStream(
       try {
         // AI 응답 메시지 저장
         if (fullText) {
-          const metadata = toolsUsed.length > 0 ? { toolsUsed } : undefined;
+          const metadata = toolsUsed.length > 0
+            ? { toolsUsed, toolDetails: toolDetails.length > 0 ? toolDetails : undefined }
+            : undefined;
           const saved = await messageService.saveAssistantMessage(
             sessionId, fullText, metadata, totalTokens || undefined,
           );
@@ -116,7 +140,10 @@ export function handleChatStream(
 
         // 세션 정보 업데이트 (claudeSessionId, lastActivityAt)
         const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
-        if (claudeSessionId) {
+        if (claudeSessionId && sessionCtx?.userId) {
+          // 사용자별 claude 세션 ID: "userId:claudeSessionId" 형태로 저장
+          updateData.claudeSessionId = `${sessionCtx.userId}:${claudeSessionId}`;
+        } else if (claudeSessionId) {
           updateData.claudeSessionId = claudeSessionId;
         }
         await prisma.session.update({

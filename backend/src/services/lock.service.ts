@@ -30,7 +30,12 @@ async function broadcastLockUpdate(sessionId: string): Promise<LockInfo> {
     lockerName: session?.locker?.name ?? null,
   };
 
-  socketService.emitToSession(sessionId, 'session:lock-updated', lockInfo);
+  // 프론트엔드 타입에 맞춘 페이로드: { sessionId, lock: { userId, userName, lockedAt } | null }
+  const lock = session?.lockedBy
+    ? { userId: session.lockedBy, userName: session.locker?.name ?? '', lockedAt: session.lockedAt?.toISOString() ?? '' }
+    : null;
+  socketService.emitToSession(sessionId, 'session:lock-updated', { sessionId, lock });
+
   return lockInfo;
 }
 

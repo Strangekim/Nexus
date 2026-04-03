@@ -22,7 +22,10 @@ async function fetchNotifications(): Promise<Notification[]> {
 
 /** 알림 읽음 처리 */
 async function markNotificationRead(id: string): Promise<void> {
-  await apiFetch(`/api/notifications/${id}`, { method: 'PATCH' });
+  await apiFetch(`/api/notifications/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isRead: true }),
+  });
 }
 
 /** 전체 알림 읽음 처리 */
@@ -38,7 +41,7 @@ async function deleteNotification(id: string): Promise<void> {
 /** 알림 목록 TanStack Query 훅 — realtimeStore와 동기화 */
 export function useNotifications() {
   const queryClient = useQueryClient();
-  const { addNotification, markAsRead, markAllAsRead, notifications: storeNotifs } = useRealtimeStore();
+  const { initNotifications, markAsRead, markAllAsRead } = useRealtimeStore();
 
   // 서버 알림 목록 조회
   const query = useQuery({
@@ -47,14 +50,10 @@ export function useNotifications() {
     staleTime: 30_000, // 30초 캐시
   });
 
-  // 초기 로드 시 realtimeStore 동기화
+  // 초기 로드 시 realtimeStore 동기화 (알림 목록 + 미읽음 수)
   useEffect(() => {
-    if (query.data && storeNotifs.length === 0) {
-      query.data.forEach((notif) => {
-        if (!notif.isRead) {
-          addNotification(notif);
-        }
-      });
+    if (query.data) {
+      initNotifications(query.data);
     }
   }, [query.data]); // eslint-disable-line react-hooks/exhaustive-deps
 

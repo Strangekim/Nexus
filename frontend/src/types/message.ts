@@ -10,6 +10,14 @@ export interface Message {
   metadata?: {
     toolsUsed?: string[];
     filesChanged?: string[];
+    toolDetails?: {
+      toolId: string;
+      tool: string;
+      summary?: string;
+      input?: Record<string, unknown>;
+      output?: string;
+      isError?: boolean;
+    }[];
   } | null;
   tokenCount?: number | null;
   createdAt: string;

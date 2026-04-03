@@ -22,7 +22,6 @@ class ClaudeService {
 
   /**
    * 세션/프로젝트 컨텍스트 기반 시스템 프롬프트 생성
-   * Claude CLI에 현재 작업 환경 정보와 merge 명령을 안내한다.
    */
   private buildSystemPrompt(
     sessionId: string,
@@ -49,16 +48,13 @@ class ClaudeService {
       `이 명령은 현재 브랜치의 변경사항을 main 브랜치에 merge합니다. 세션과 워크트리는 유지되므로 merge 후에도 계속 작업할 수 있습니다.`,
       `merge 전에 반드시 모든 변경사항을 git commit 하세요.`,
     ];
+
     return lines.join('\n');
   }
 
   /**
-   * CLI 실행 + stdout stream-json 파싱.
-   * userId를 받아 CLAUDE_CONFIG_DIR 환경변수를 주입하고,
-   * 실행 전 토큰 만료 여부를 확인하여 자동 갱신한다.
-   *
-   * @param userId 요청 사용자 ID — 사용자별 claude-configs 디렉토리 결정
-   * @param context 프로젝트 컨텍스트 — 시스템 프롬프트에 포함
+   * CLI 프로세스를 스폰하고 EventEmitter를 반환한다.
+   * resume 실패(다른 사용자의 세션) 시 자동으로 새 세션으로 재시도한다.
    */
   async executeChat(
     sessionId: string,
@@ -70,67 +66,102 @@ class ClaudeService {
   ): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
-    // claudeSessionId에서 -- 시작 문자열 제거 (인자 인젝션 방지)
-    const safeClaudeSessionId = claudeSessionId?.replace(/^--/, '') ?? null;
-
-    const args = ['--dangerously-skip-permissions', '--output-format', 'stream-json', '--verbose', '-p'];
-
-    // 프로젝트 컨텍스트가 있으면 시스템 프롬프트 주입
-    if (context) {
-      const prompt = this.buildSystemPrompt(sessionId, worktreePath, context);
-      args.unshift('--append-system-prompt', prompt);
-    }
-
-    if (safeClaudeSessionId) {
-      // --resume은 다른 플래그 앞에 위치
-      args.unshift('--resume', safeClaudeSessionId);
-    }
-
-    // userId가 있으면 CLAUDE_CONFIG_DIR을 사용자별 디렉토리로 주입
-    // 토큰 만료 시 자동 갱신 (ensureValidToken 내부에서 처리)
+    // userId가 있으면 CLAUDE_CONFIG_DIR 환경변수 준비
     const env: Record<string, string | undefined> = { ...process.env };
-
     if (userId) {
-      // 만료 토큰 자동 갱신 — 실패 시 null (이미 갱신 시도 완료)
       await claudeAuthService.ensureValidToken(userId);
-      // CLAUDE_CONFIG_DIR 환경변수로 사용자별 인증 분리
       env.CLAUDE_CONFIG_DIR = claudeAuthService.getConfigDir(userId);
     }
 
-    const proc = spawn('claude', args, {
-      cwd: worktreePath,
-      env,
-      // stdin을 pipe로 열어 message를 안전하게 전달
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    // claudeSessionId에서 인자 인젝션 방지
+    const safeClaudeSessionId = claudeSessionId?.replace(/^--/, '') ?? null;
 
-    // message를 stdin으로 쓰고 닫아 EOF 신호 전송 — stdin이 null이면 스킵
-    if (proc.stdin) {
-      proc.stdin.write(message, 'utf8');
-      proc.stdin.end();
-    } else {
-      console.warn('[ClaudeService] proc.stdin이 null — 메시지 전달 불가');
-    }
+    // 첫 시도: resume 포함
+    const proc = this.spawnClaude(sessionId, message, worktreePath, safeClaudeSessionId, env, context);
+    this.processes.set(sessionId, proc.process);
 
-    this.processes.set(sessionId, proc);
-
-    // 공통 stream-json 파서 사용
+    // resume 실패 감지 — error_during_execution + "No conversation found" 시 재시도
+    let retried = false;
     const { onData, flush } = createStreamHandler(emitter);
 
-    proc.stdout.on('data', onData);
+    const originalOnData = (chunk: Buffer) => {
+      const text = chunk.toString();
 
-    proc.stderr.on('data', (chunk: Buffer) => {
+      // resume 실패 감지 — 아직 재시도 안 했으면 새 세션으로 재시도
+      if (!retried && text.includes('error_during_execution') && text.includes('No conversation found')) {
+        retried = true;
+        console.warn('[ClaudeService] resume 실패 — 새 세션으로 재시도');
+
+        // 기존 프로세스 정리
+        proc.process.removeAllListeners();
+        proc.process.kill('SIGTERM');
+
+        // 새 프로세스 (resume 없이)
+        const retry = this.spawnClaude(sessionId, message, worktreePath, null, env, context);
+        this.processes.set(sessionId, retry.process);
+
+        retry.process.stdout.on('data', onData);
+        retry.process.stderr.on('data', (c: Buffer) => {
+          emitter.emit('error', c.toString());
+        });
+        retry.process.on('close', (code) => {
+          this.processes.delete(sessionId);
+          flush();
+          emitter.emit('close', code);
+        });
+        return;
+      }
+
+      onData(chunk);
+    };
+
+    proc.process.stdout.on('data', originalOnData);
+    proc.process.stderr.on('data', (chunk: Buffer) => {
       emitter.emit('error', chunk.toString());
     });
-
-    proc.on('close', (code) => {
+    proc.process.on('close', (code) => {
+      if (retried) return; // 재시도된 경우 이 핸들러 무시
       this.processes.delete(sessionId);
-      // 버퍼에 남은 데이터 처리
       flush();
       emitter.emit('close', code);
     });
 
     return emitter;
+  }
+
+  /** CLI 프로세스 스폰 헬퍼 */
+  private spawnClaude(
+    sessionId: string,
+    message: string,
+    worktreePath: string,
+    claudeSessionId: string | null,
+    env: Record<string, string | undefined>,
+    context?: ChatContext,
+  ): { process: ChildProcess } {
+    const args = ['--dangerously-skip-permissions', '--output-format', 'stream-json', '--verbose', '-p'];
+
+    if (context) {
+      const prompt = this.buildSystemPrompt(sessionId, worktreePath, context);
+      args.unshift('--append-system-prompt', prompt);
+    }
+
+    if (claudeSessionId) {
+      args.unshift('--resume', claudeSessionId);
+    }
+
+    const proc = spawn('claude', args, {
+      cwd: worktreePath,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    // stdin으로 메시지 전달
+    if (proc.stdin) {
+      proc.stdin.write(message, 'utf8');
+      proc.stdin.end();
+    }
+
+    return { process: proc };
   }
 
   /** CLI 프로세스 중단 */

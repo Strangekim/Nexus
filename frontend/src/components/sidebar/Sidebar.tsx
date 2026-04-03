@@ -50,17 +50,10 @@ export function Sidebar() {
         </div>
       </ScrollArea>
 
-      {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 + 로그아웃 */}
+      {/* 하단: 관리자 메뉴 + 로그아웃 */}
       <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
         <AdminMenu />
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="size-4" />
-          새 프로젝트
-        </Button>
+        <AdminProjectCreate onOpen={() => setCreateOpen(true)} />
         <LogoutButton />
       </div>
 
@@ -94,25 +87,35 @@ export function MobileSidebar() {
           </div>
         </ScrollArea>
 
-        {/* 하단: 관리자 메뉴 + 프로젝트 생성 버튼 + 로그아웃 */}
+        {/* 하단: 관리자 메뉴 + 로그아웃 */}
         <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
           <div onClick={() => setMobileSidebarOpen(false)}>
             <AdminMenu />
           </div>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus className="size-4" />
-            새 프로젝트
-          </Button>
+          <AdminProjectCreate onOpen={() => setCreateOpen(true)} />
           <LogoutButton />
         </div>
 
         <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** 관리자 전용 프로젝트 생성 버튼 — admin만 표시 */
+function AdminProjectCreate({ onOpen }: { onOpen: () => void }) {
+  const { user } = useAuthStore();
+  if (user?.role !== 'admin') return null;
+
+  return (
+    <Button
+      variant="ghost"
+      className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
+      onClick={onOpen}
+    >
+      <Plus className="size-4" />
+      새 프로젝트
+    </Button>
   );
 }
 

@@ -11,6 +11,8 @@ export function useSession(sessionId: string) {
     queryKey: ['sessions', sessionId],
     queryFn: () => fetchSession(sessionId),
     enabled: !!sessionId,
-    staleTime: 30_000,
+    staleTime: 5_000,
+    // 5초마다 자동 갱신 — 락 상태 등 실시간 변경 반영
+    refetchInterval: 5_000,
   });
 }

@@ -50,47 +50,21 @@ async function sessionAuthMiddleware(
  * - join:session / leave:session → 'session:{id}' 룸
  */
 function registerRoomHandlers(socket: AuthenticatedSocket): void {
-  socket.on('join:project', async (projectId: string) => {
-    if (!projectId) return;
-
-    // DB에서 멤버십 확인 후 룸 참가 허용 — 비멤버는 join 거부
-    const member = await prisma.projectMember.findUnique({
-      where: { projectId_userId: { projectId, userId: socket.data.userId } },
-    });
-    if (!member) {
-      socket.emit('error:join-project', { message: '해당 프로젝트의 멤버가 아닙니다' });
-      return;
+  // 팀 전용 플랫폼 — 로그인한 사용자는 모든 프로젝트/세션 룸 참가 가능
+  socket.on('join:project', (projectId: string) => {
+    if (projectId) {
+      socket.join(`project:${projectId}`);
     }
-
-    socket.join(`project:${projectId}`);
   });
 
   socket.on('leave:project', (projectId: string) => {
     if (projectId) socket.leave(`project:${projectId}`);
   });
 
-  socket.on('join:session', async (sessionId: string) => {
-    if (!sessionId) return;
-
-    // 세션의 projectId 조회 후 멤버십 확인 — 비멤버는 join 거부
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-      select: { projectId: true },
-    });
-    if (!session) {
-      socket.emit('error:join-session', { message: '세션을 찾을 수 없습니다' });
-      return;
+  socket.on('join:session', (sessionId: string) => {
+    if (sessionId) {
+      socket.join(`session:${sessionId}`);
     }
-
-    const member = await prisma.projectMember.findUnique({
-      where: { projectId_userId: { projectId: session.projectId, userId: socket.data.userId } },
-    });
-    if (!member) {
-      socket.emit('error:join-session', { message: '해당 프로젝트의 멤버가 아닙니다' });
-      return;
-    }
-
-    socket.join(`session:${sessionId}`);
   });
 
   socket.on('leave:session', (sessionId: string) => {
@@ -113,6 +87,7 @@ export function registerSocketPlugin(io: SocketIOServer): void {
 
   io.on('connection', (socket) => {
     const authSocket = socket as AuthenticatedSocket;
+    // 연결 로그는 디버그 시에만 활성화
     // userId 기준 개인 룸 자동 참가 — emitToUser()에서 활용
     authSocket.join(`user:${authSocket.data.userId}`);
     registerRoomHandlers(authSocket);

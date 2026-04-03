@@ -1,5 +1,5 @@
 'use client';
-// 도구 사용 카드 — 도구별 아이콘·요약·결과 메타를 한 줄로 표시, 접기로 상세 확인
+// 도구 사용 카드 — Claude Code CLI와 유사한 진행상황 표시
 
 import { useState } from 'react';
 import {
@@ -7,18 +7,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import {
-  ChevronRight,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  Pencil,
-  FilePlus,
-  Terminal,
-  Search,
-  Wrench,
-} from 'lucide-react';
+import { ChevronRight, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import type { ActiveToolUse } from '@/types/message';
 import { getToolDisplay, formatResultSummary } from './toolUseHelpers';
 
@@ -30,94 +19,134 @@ export function ToolUseCard({ toolUse }: ToolUseCardProps) {
   const [open, setOpen] = useState(false);
   const isRunning = toolUse.status === 'running';
   const display = getToolDisplay(toolUse);
+  const hasContent = !!(toolUse.output || toolUse.input);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className="my-1.5 rounded-lg overflow-hidden border text-sm"
-        style={{ backgroundColor: '#FFFFFF', borderColor: '#E8E5DE' }}
+        style={{ backgroundColor: '#FAFAF8', borderColor: '#E8E5DE' }}
       >
-        {/* 헤더: 아이콘 + 라벨 + 요약 + 결과 */}
-        <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 cursor-pointer hover:opacity-80">
-          <ChevronRight
-            size={14}
-            className="shrink-0 transition-transform"
-            style={{
-              color: '#6B6B7B',
-              transform: open ? 'rotate(90deg)' : undefined,
-            }}
-          />
-          {/* 도구 아이콘 */}
+        {/* 헤더 */}
+        <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 cursor-pointer hover:bg-[#F5F5EF] transition-colors">
+          {hasContent && (
+            <ChevronRight
+              size={12}
+              className="shrink-0 transition-transform"
+              style={{ color: '#9CA3AF', transform: open ? 'rotate(90deg)' : undefined }}
+            />
+          )}
           <display.Icon
             size={14}
             className="shrink-0"
-            style={{ color: isRunning ? '#2D7D7B' : toolUse.isError ? '#E0845E' : '#2D7D7B' }}
+            style={{ color: toolUse.isError ? '#E0845E' : '#2D7D7B' }}
           />
-          {/* 도구 라벨 */}
-          <span className="shrink-0 font-medium" style={{ color: '#3D3D3D' }}>
+          <span className="shrink-0 text-xs font-medium" style={{ color: '#3D3D3D' }}>
             {display.label}
           </span>
-          {/* 인라인 요약 (파일 경로, 명령어 등) */}
           {display.inline && (
             <span
               className={`truncate text-xs ${display.isCode ? 'font-mono px-1 py-0.5 rounded' : ''}`}
               style={{
                 color: '#6B6B7B',
-                ...(display.isCode ? { backgroundColor: '#F3F3F0' } : {}),
+                ...(display.isCode ? { backgroundColor: '#F0F0EC' } : {}),
               }}
               title={display.inlineFull}
             >
               {display.inline}
             </span>
           )}
-          {/* 스페이서 */}
           <span className="flex-1" />
-          {/* 상태 표시 */}
           {isRunning ? (
-            <Loader2 size={14} className="shrink-0 animate-spin" style={{ color: '#2D7D7B' }} />
+            <Loader2 size={12} className="shrink-0 animate-spin" style={{ color: '#2D7D7B' }} />
           ) : toolUse.isError ? (
-            <span className="flex items-center gap-1 shrink-0">
-              <XCircle size={14} style={{ color: '#E0845E' }} />
-              <span className="text-xs" style={{ color: '#E0845E' }}>오류</span>
-            </span>
+            <XCircle size={12} className="shrink-0" style={{ color: '#E0845E' }} />
           ) : (
             <span className="flex items-center gap-1 shrink-0">
-              <CheckCircle2 size={14} style={{ color: '#2D7D7B' }} />
-              <span className="text-xs" style={{ color: '#6B6B7B' }}>
+              <CheckCircle2 size={12} style={{ color: '#2D7D7B' }} />
+              <span className="text-[11px]" style={{ color: '#9CA3AF' }}>
                 {formatResultSummary(toolUse)}
               </span>
             </span>
           )}
         </CollapsibleTrigger>
 
-        {/* 접기 내용: 입력·출력 JSON */}
+        {/* 접기 내용 — 실제 도구 결과 표시 */}
         <CollapsibleContent>
-          <div className="px-3 pb-3 space-y-2">
+          <div className="border-t" style={{ borderColor: '#E8E5DE' }}>
+            {/* 도구 입력 — Edit의 경우 old/new string, Bash의 경우 command */}
             {toolUse.input && (
-              <div>
-                <p className="text-xs mb-1" style={{ color: '#6B6B7B' }}>입력</p>
-                <pre
-                  className="p-2 rounded text-xs overflow-x-auto"
-                  style={{ backgroundColor: '#F3F3F0', color: '#3D3D3D' }}
-                >
-                  {JSON.stringify(toolUse.input, null, 2)}
-                </pre>
-              </div>
+              <ToolInput tool={toolUse.tool} input={toolUse.input} />
             )}
+            {/* 도구 출력 — 파일 내용, bash 출력 등 */}
             {toolUse.output && (
-              <div>
-                <p className="text-xs mb-1" style={{ color: '#6B6B7B' }}>출력</p>
-                <pre
-                  className="p-2 rounded text-xs overflow-x-auto max-h-48"
-                  style={{ backgroundColor: '#F3F3F0', color: '#3D3D3D' }}
-                >
-                  {toolUse.output}
-                </pre>
-              </div>
+              <ToolOutput tool={toolUse.tool} output={toolUse.output} isError={toolUse.isError} />
             )}
           </div>
         </CollapsibleContent>
       </div>
     </Collapsible>
+  );
+}
+
+/** 도구 입력 표시 — 도구별로 다르게 포맷 */
+function ToolInput({ tool, input }: { tool: string; input: Record<string, unknown> }) {
+  const t = tool.toLowerCase();
+
+  // Edit: old_string → new_string diff 스타일
+  if (t === 'edit' && (input.old_string || input.new_string)) {
+    return (
+      <div className="px-3 py-2 space-y-1">
+        {input.old_string && (
+          <pre className="text-xs font-mono p-2 rounded overflow-x-auto max-h-40 leading-relaxed"
+            style={{ backgroundColor: '#FEF2F2', color: '#991B1B' }}>
+            {String(input.old_string).split('\n').map((l, i) => `- ${l}`).join('\n')}
+          </pre>
+        )}
+        {input.new_string && (
+          <pre className="text-xs font-mono p-2 rounded overflow-x-auto max-h-40 leading-relaxed"
+            style={{ backgroundColor: '#F0FDF4', color: '#166534' }}>
+            {String(input.new_string).split('\n').map((l, i) => `+ ${l}`).join('\n')}
+          </pre>
+        )}
+      </div>
+    );
+  }
+
+  // Write: content 표시
+  if (t === 'write' && input.content) {
+    return (
+      <div className="px-3 py-2">
+        <pre className="text-xs font-mono p-2 rounded overflow-x-auto max-h-60 leading-relaxed"
+          style={{ backgroundColor: '#F0FDF4', color: '#166534' }}>
+          {String(input.content)}
+        </pre>
+      </div>
+    );
+  }
+
+  // 기타: JSON 표시 (간결하게)
+  return null;
+}
+
+/** 도구 출력 표시 — 파일 내용, bash 출력 등 */
+function ToolOutput({ tool, output, isError }: { tool: string; output: string; isError?: boolean }) {
+  if (!output) return null;
+
+  // 출력이 짧은 경우 (경로만 표시된 경우 등) 표시 안 함
+  if (output.length < 5 && !isError) return null;
+
+  return (
+    <div className="px-3 py-2">
+      <pre
+        className="text-xs font-mono p-2 rounded overflow-x-auto max-h-60 leading-relaxed whitespace-pre-wrap"
+        style={{
+          backgroundColor: isError ? '#FEF2F2' : '#1A1A2E',
+          color: isError ? '#991B1B' : '#E2E8F0',
+        }}
+      >
+        {output}
+      </pre>
+    </div>
   );
 }

@@ -53,19 +53,13 @@ async function remove(projectId: string, userId: string) {
 }
 
 /**
- * 프로젝트 멤버십 검증 — 멤버가 아니면 403 에러를 throw
- * 시스템 admin(role='admin')은 모든 프로젝트에 접근 가능 (bypass)
+ * 프로젝트 접근 검증 — 로그인한 사용자면 모든 프로젝트에 접근 가능
+ * 팀 전용 플랫폼이므로 별도 멤버십 체크 없이 인증만 확인한다.
  */
-async function assertProjectMember(projectId: string, userId: string): Promise<void> {
-  // 시스템 관리자는 모든 프로젝트에 접근 가능
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  if (user?.role === 'admin') return;
-
-  const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-  });
-  if (!member) {
-    throw createHttpError(403, '해당 프로젝트의 멤버가 아닙니다');
+async function assertProjectMember(_projectId: string, userId: string): Promise<void> {
+  // 로그인한 사용자인지만 확인
+  if (!userId) {
+    throw createHttpError(401, '로그인이 필요합니다');
   }
 }
 

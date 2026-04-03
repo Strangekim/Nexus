@@ -66,7 +66,7 @@ async function create(dto: {
 
   // 프로젝트 직속 세션은 worktree 없이 DB 생성만 수행
   if (!dto.folderId) {
-    return prisma.session.create({
+    const created = await prisma.session.create({
       data: {
         projectId: dto.projectId,
         folderId: null,
@@ -75,6 +75,14 @@ async function create(dto: {
       },
       include: { creator: userSelect, locker: userSelect },
     });
+
+    // 세션 생성 WebSocket 이벤트 전파
+    socketService.emitToProject(dto.projectId, 'session:created', {
+      sessionId: created.id,
+      title: created.title,
+    });
+
+    return created;
   }
 
   // repoPath 경로 트래버설 방지 검증
@@ -114,11 +122,19 @@ async function create(dto: {
   }
 
   // worktree 경로와 브랜치명을 DB에 업데이트
-  return prisma.session.update({
+  const updated = await prisma.session.update({
     where: { id: session.id },
     data: { worktreePath, branchName },
     include: { creator: userSelect, locker: userSelect },
   });
+
+  // 세션 생성 WebSocket 이벤트 전파
+  socketService.emitToProject(dto.projectId, 'session:created', {
+    sessionId: updated.id,
+    title: updated.title,
+  });
+
+  return updated;
 }
 
 /** 세션 수정 — status가 'archived'로 변경될 때 merge + worktree 정리 수행 */
@@ -183,7 +199,7 @@ async function update(id: string, dto: { title?: string; status?: string }) {
 async function remove(id: string) {
   const session = await prisma.session.findUnique({
     where: { id },
-    select: { worktreePath: true, project: { select: { repoPath: true } } },
+    select: { projectId: true, worktreePath: true, project: { select: { repoPath: true } } },
   });
 
   if (session?.worktreePath && session.project.repoPath) {
@@ -193,7 +209,16 @@ async function remove(id: string) {
     });
   }
 
-  return prisma.session.delete({ where: { id } });
+  const deleted = await prisma.session.delete({ where: { id } });
+
+  // 세션 삭제 WebSocket 이벤트 전파
+  if (session) {
+    socketService.emitToProject(session.projectId, 'session:deleted', {
+      sessionId: id,
+    });
+  }
+
+  return deleted;
 }
 
 /** 프로젝트 직속 세션 목록 조회 (folderId가 null인 세션) */

@@ -63,7 +63,7 @@ export function MessageInput({
     <div className="sticky bottom-0 z-10 w-full bg-[#F9F9F4] border-t border-[#E8E5DE] lg:static lg:z-auto lg:border-none lg:bg-transparent">
     <div className="w-full max-w-3xl mx-auto px-4 pb-4 pt-2">
       <div
-        className="flex items-end gap-2 rounded-xl border px-4 py-3"
+        className="relative flex rounded-xl border px-4 py-3"
         style={{
           backgroundColor: isDisabled ? '#F5F5F0' : '#F9F9F4',
           borderColor: isDisabled ? '#E0D8D0' : '#E8E5DE',
@@ -84,30 +84,33 @@ export function MessageInput({
                 : '메시지를 입력하세요...'
           }
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-[#6B6B7B] disabled:cursor-not-allowed"
+          className="flex-1 resize-none bg-transparent text-sm leading-[1.375rem] outline-none placeholder:text-[#6B6B7B] disabled:cursor-not-allowed pr-10"
           style={{ color: '#3D3D3D', maxHeight: 200 }}
         />
 
-        {isStreaming ? (
-          <button
-            onClick={onAbort}
-            className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: '#E0845E' }}
-            aria-label="중지"
-          >
-            <Square size={14} fill="#fff" style={{ color: '#fff' }} />
-          </button>
-        ) : (
-          <button
-            onClick={handleSend}
-            disabled={!text.trim() || isDisabled}
-            className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-opacity disabled:opacity-30"
-            style={{ backgroundColor: '#2D7D7B' }}
-            aria-label="전송"
-          >
-            <Send size={14} style={{ color: '#fff' }} />
-          </button>
-        )}
+        {/* 전송/중지 버튼 — 우하단 고정 배치로 textarea 높이 변화와 무관하게 정렬 유지 */}
+        <div className="absolute right-3 bottom-2.5 flex items-center">
+          {isStreaming ? (
+            <button
+              onClick={onAbort}
+              className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: '#E0845E' }}
+              aria-label="중지"
+            >
+              <Square size={14} fill="#fff" style={{ color: '#fff' }} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!text.trim() || isDisabled}
+              className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-opacity disabled:opacity-30"
+              style={{ backgroundColor: '#2D7D7B' }}
+              aria-label="전송"
+            >
+              <Send size={14} style={{ color: '#fff' }} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Claude 미연동 안내 */}

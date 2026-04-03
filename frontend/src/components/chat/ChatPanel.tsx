@@ -46,8 +46,23 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
   const noClaudeAuth =
     currentUser?.authMode === 'subscription' && !(currentUser?.claudeConnected ?? false);
 
-  // 세션 상태 조회 — 아카이브 버튼용
+  // 세션 상태 조회 — 아카이브 버튼용 + 초기 락 상태 동기화
   const { data: sessionData } = useSession(sessionId);
+  const setLock = useRealtimeStore((s) => s.setLock);
+
+  // API 응답에서 초기 락 상태를 store에 동기화 (소켓 이벤트 수신 전에도 표시)
+  useEffect(() => {
+    if (!sessionData) return;
+    if (sessionData.locker) {
+      setLock(sessionId, {
+        userId: sessionData.locker.id,
+        userName: sessionData.locker.name,
+        lockedAt: sessionData.lockedAt ?? new Date().toISOString(),
+      });
+    } else {
+      setLock(sessionId, null);
+    }
+  }, [sessionData, sessionId, setLock]);
 
   useEffect(() => {
     if (data?.messages) {

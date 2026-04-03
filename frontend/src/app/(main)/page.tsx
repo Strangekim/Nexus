@@ -2,7 +2,8 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { useTree } from '@/hooks/useTree';
 import RecentSessionsCard from './_components/RecentSessionsCard';
 import ProjectSummaryCard from './_components/ProjectSummaryCard';
 import ActivityFeedCard from './_components/ActivityFeedCard';
@@ -19,8 +20,18 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const { data: projects = [] } = useTree();
   const projectId = searchParams.get('projectId') ?? '';
   const period = (searchParams.get('period') as DashboardPeriod) ?? 'week';
+
+  // 프로젝트가 로드되었는데 선택된 것이 없으면 첫 번째를 자동 선택
+  useEffect(() => {
+    if (!projectId && projects.length > 0) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('projectId', projects[0].id);
+      router.replace(`/?${params.toString()}`);
+    }
+  }, [projectId, projects, searchParams, router]);
 
   /** URL query 업데이트 핸들러 */
   const updateParams = (key: string, value: string) => {

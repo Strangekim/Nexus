@@ -17,6 +17,8 @@ interface RealtimeState {
   // 액션
   setLock: (sessionId: string, lock: LockInfo | null) => void;
   setOnlineUsers: (projectId: string, users: OnlineUser[]) => void;
+  /** 서버에서 가져온 알림 목록으로 초기화 (최초 로드 시) */
+  initNotifications: (notifs: Notification[]) => void;
   addNotification: (notif: Notification) => void;
   markAsRead: (notifId: string) => void;
   markAllAsRead: () => void;
@@ -48,6 +50,13 @@ export const useRealtimeStore = create<RealtimeState>((set) => ({
       next.set(projectId, users);
       return { onlineUsers: next };
     }),
+
+  /** 서버에서 가져온 알림 목록으로 스토어 초기화 */
+  initNotifications: (notifs) =>
+    set(() => ({
+      notifications: notifs,
+      unreadCount: notifs.filter((n) => !n.isRead).length,
+    })),
 
   /** 새 알림 추가 — 최신순으로 앞에 삽입 */
   addNotification: (notif) =>

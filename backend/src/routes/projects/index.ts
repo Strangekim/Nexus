@@ -60,9 +60,9 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
     return projectService.findAll(page, limit);
   });
 
-  // POST / — 프로젝트 생성
+  // POST / — 프로젝트 생성 (관리자 전용)
   fastify.post<{ Body: CreateBody }>('/', {
-    preHandler: [requireAuth],
+    preHandler: [requireAdmin],
     schema: {
       body: {
         type: 'object',

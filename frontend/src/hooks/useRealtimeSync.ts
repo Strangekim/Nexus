@@ -19,6 +19,15 @@ interface UseRealtimeSyncOptions {
   sessionId?: string;
 }
 
+/** session:lock-request WebSocket 이벤트 페이로드 */
+interface LockRequestPayload {
+  sessionId: string;
+  sessionTitle: string;
+  requesterId: string;
+  requesterName: string;
+  message: string;
+}
+
 /** task-complete WebSocket 이벤트 페이로드 */
 interface TaskCompletePayload {
   sessionId: string;
@@ -52,6 +61,21 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
   const handleNewNotification = useCallback(
     (payload: SocketPayload<Notification>) => {
       addNotification(payload.data);
+    },
+    [addNotification],
+  );
+
+  // 세션 락 요청 이벤트 → 알림으로 변환하여 스토어에 추가
+  const handleLockRequest = useCallback(
+    (payload: SocketPayload<LockRequestPayload>) => {
+      const notif: Notification = {
+        id: `lr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        type: 'lock_request',
+        payload: payload.data as unknown as Record<string, unknown>,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+      addNotification(notif);
     },
     [addNotification],
   );
@@ -94,6 +118,7 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
     const socket = getSocket();
 
     socket.on('session:lock-updated', handleLockUpdated);
+    socket.on('session:lock-request', handleLockRequest);
     socket.on('project:online-users', handleOnlineUsers);
     socket.on('notification:new', handleNewNotification);
     socket.on('session:created', handleSessionCreated);
@@ -102,34 +127,50 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
 
     return () => {
       socket.off('session:lock-updated', handleLockUpdated);
+      socket.off('session:lock-request', handleLockRequest);
       socket.off('project:online-users', handleOnlineUsers);
       socket.off('notification:new', handleNewNotification);
       socket.off('session:created', handleSessionCreated);
       socket.off('session:deleted', handleSessionDeleted);
       socket.off('session:task-complete', handleTaskComplete);
     };
-  }, [handleLockUpdated, handleOnlineUsers, handleNewNotification, handleSessionCreated, handleSessionDeleted, handleTaskComplete]);
+  }, [handleLockUpdated, handleLockRequest, handleOnlineUsers, handleNewNotification, handleSessionCreated, handleSessionDeleted, handleTaskComplete]);
 
-  // 프로젝트 룸 자동 join/leave
+  // 프로젝트 룸 자동 join/leave — 소켓 연결 상태 확인 후 emit
   useEffect(() => {
     if (!projectId) return;
 
     const socket = getSocket();
-    socket.emit('join:project', projectId);
+
+    const joinProject = () => socket.emit('join:project', projectId);
+
+    if (socket.connected) {
+      joinProject();
+    }
+    socket.on('connect', joinProject);
 
     return () => {
+      socket.off('connect', joinProject);
       socket.emit('leave:project', projectId);
     };
   }, [projectId]);
 
-  // 세션 룸 자동 join/leave
+  // 세션 룸 자동 join/leave — 소켓 연결 상태 확인 후 emit
   useEffect(() => {
     if (!sessionId) return;
 
     const socket = getSocket();
-    socket.emit('join:session', sessionId);
+
+    const joinSession = () => socket.emit('join:session', sessionId);
+
+    // 이미 연결된 상태면 즉시 join, 아니면 연결 후 join
+    if (socket.connected) {
+      joinSession();
+    }
+    socket.on('connect', joinSession);
 
     return () => {
+      socket.off('connect', joinSession);
       socket.emit('leave:session', sessionId);
     };
   }, [sessionId]);

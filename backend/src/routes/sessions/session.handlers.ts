@@ -16,20 +16,9 @@ export interface UpdateBody { title?: string; status?: string }
  * 폴더 소속 / 프로젝트 직속 모두 지원
  */
 export async function assertSessionAccess(sessionId: string, userId: string): Promise<void> {
-  // 시스템 admin은 모든 세션 접근 가능
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  if (user?.role === 'admin') return;
-
-  const session = await prisma.session.findUnique({
-    where: { id: sessionId },
-    include: { project: { include: { projectMembers: true } } },
-  });
-  if (!session) {
-    throw createHttpError(404, '세션을 찾을 수 없습니다');
-  }
-  const isMember = session.project.projectMembers.some((m) => m.userId === userId);
-  if (!isMember) {
-    throw createHttpError(403, '이 세션에 접근할 권한이 없습니다');
+  // 로그인한 사용자면 모든 세션 접근 가능 (팀 전용 플랫폼)
+  if (!userId) {
+    throw createHttpError(401, '로그인이 필요합니다');
   }
 }
 

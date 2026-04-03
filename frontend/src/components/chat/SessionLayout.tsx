@@ -8,6 +8,7 @@ import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { CodeViewerPanel } from '@/components/code-viewer/CodeViewerPanel';
 import { useCodeViewer } from '@/hooks/useCodeViewer';
 import { useSession } from '@/hooks/useSession';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 interface SessionLayoutProps {
   sessionId: string;
@@ -21,6 +22,9 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
   const [terminalHeight, setTerminalHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
 
   const codeViewer = useCodeViewer();
+
+  // 세션/프로젝트 룸 자동 join — 락 변경 등 실시간 이벤트 수신
+  useRealtimeSync({ sessionId, projectId });
 
   // 세션 데이터 조회 — 생성자 정보를 ChatPanel에 전달하기 위해 사용
   const { data: session } = useSession(sessionId);

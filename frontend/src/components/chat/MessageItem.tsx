@@ -1,5 +1,5 @@
 'use client';
-// 개별 메시지 컴포넌트 — 유저/어시스턴트 구분 렌더링
+// 개별 메시지 컴포넌트 — 유저/어시스턴트 구분 렌더링 + 도구 사용 이력 표시
 
 import { memo } from 'react';
 import { StreamingMessage } from './StreamingMessage';
@@ -9,32 +9,7 @@ import type { Message, ActiveToolUse } from '@/types/message';
 
 interface MessageItemProps {
   message: Message;
-  /** 파일 경로 클릭 콜백 */
   onFileClick?: (path: string) => void;
-}
-
-/** tool_use 타입 메시지의 content(JSON)를 ActiveToolUse 형태로 파싱 */
-function parseToolUse(content: string): ActiveToolUse | null {
-  try {
-    const parsed = JSON.parse(content) as {
-      tool?: string;
-      status?: string;
-      input?: Record<string, unknown>;
-      output?: string;
-      isError?: boolean;
-    };
-    if (!parsed.tool) return null;
-    return {
-      toolId: crypto.randomUUID(),
-      tool: parsed.tool,
-      status: parsed.status === 'running' ? 'running' : 'completed',
-      input: parsed.input,
-      output: parsed.output,
-      isError: parsed.isError ?? false,
-    };
-  } catch {
-    return null;
-  }
 }
 
 function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
@@ -57,22 +32,9 @@ function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
     );
   }
 
-  // tool_use 타입 메시지 — ToolUseCard로 렌더링
-  if (message.type === 'tool_use') {
-    const toolUse = parseToolUse(message.content);
-    if (!toolUse) return null;
-    return (
-      <div className="flex gap-3 mb-2">
-        {/* 아바타 자리 확보 (정렬 유지) */}
-        <div className="flex-shrink-0 w-7" />
-        <div className="flex-1 min-w-0">
-          <ToolUseCard toolUse={toolUse} />
-        </div>
-      </div>
-    );
-  }
+  // 어시스턴트 메시지 — 도구 사용 이력 + 텍스트
+  const toolDetails = message.metadata?.toolDetails;
 
-  // 어시스턴트 텍스트 메시지
   return (
     <div className="flex gap-3 mb-4">
       {/* 어시스턴트 아바타 */}
@@ -80,10 +42,29 @@ function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
         className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1"
         style={{ backgroundColor: '#2D7D7B' }}
       >
-        <User size={14} style={{ color: '#3D3D3D' }} />
+        <User size={14} style={{ color: '#FFFFFF' }} />
       </div>
-      {/* 어시스턴트 메시지 본문 */}
       <div className="flex-1 min-w-0">
+        {/* 도구 사용 이력 카드 — metadata에 저장된 상세 정보 */}
+        {toolDetails && toolDetails.length > 0 && (
+          <div className="mb-2">
+            {toolDetails.map((td) => (
+              <ToolUseCard
+                key={td.toolId}
+                toolUse={{
+                  toolId: td.toolId,
+                  tool: td.tool,
+                  summary: td.summary,
+                  input: td.input,
+                  output: td.output,
+                  isError: td.isError,
+                  status: 'completed',
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {/* 텍스트 본문 */}
         <StreamingMessage content={message.content} onFileClick={onFileClick} />
       </div>
     </div>
