@@ -75,7 +75,10 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request, reply) => {
-    const project = await projectService.create(request.body);
+    const project = await projectService.create({
+      ...request.body,
+      createdBy: request.userId,
+    });
     return reply.code(201).send(project);
   });
 

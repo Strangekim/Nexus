@@ -1,6 +1,7 @@
 // 세션 서비스 레이어
 import prisma from '../lib/prisma.js';
 import path from 'path';
+import fs from 'fs/promises';
 import { createHttpError } from '../lib/errors.js';
 import { createWorktree, removeWorktree } from './worktree.service.js';
 import { mergeService } from './merge.service.js';
@@ -99,6 +100,17 @@ async function create(dto: {
     // worktree 생성 실패 시 DB 롤백 (세션 삭제)
     await prisma.session.delete({ where: { id: session.id } }).catch(() => null);
     throw err;
+  }
+
+  // 폴더 소속 세션이면 worktree 내 폴더 디렉토리 보장
+  if (dto.folderId) {
+    const folder = await prisma.folder.findUnique({
+      where: { id: dto.folderId },
+      select: { dirName: true },
+    });
+    if (folder?.dirName) {
+      await fs.mkdir(path.join(worktreePath, folder.dirName), { recursive: true });
+    }
   }
 
   // worktree 경로와 브랜치명을 DB에 업데이트

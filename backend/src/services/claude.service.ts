@@ -10,9 +10,40 @@ export interface StreamEvent {
   [key: string]: unknown;
 }
 
+/** executeChat에 전달할 프로젝트 컨텍스트 */
+export interface ChatContext {
+  projectName: string;
+  branchName?: string | null;
+}
+
 class ClaudeService {
   /** 실행 중인 프로세스 관리 (세션ID → 프로세스) */
   private processes = new Map<string, ChildProcess>();
+
+  /**
+   * 세션/프로젝트 컨텍스트 기반 시스템 프롬프트 생성
+   * Claude CLI에 현재 작업 환경 정보와 merge 명령을 안내한다.
+   */
+  private buildSystemPrompt(
+    sessionId: string,
+    worktreePath: string,
+    ctx: ChatContext,
+  ): string {
+    const lines = [
+      `[Nexus 플랫폼 컨텍스트]`,
+      `- 프로젝트: ${ctx.projectName}`,
+      `- 작업 브랜치: ${ctx.branchName ?? 'unknown'}`,
+      `- 작업 디렉토리: ${worktreePath}`,
+      `- 세션 ID: ${sessionId}`,
+      ``,
+      `[사용 가능한 명령]`,
+      `사용자가 "merge해줘", "main에 반영해줘" 등 merge를 요청하면, 아래 명령을 Bash로 실행하세요:`,
+      `curl -s -X POST http://localhost:8080/api/internal/sessions/${sessionId}/merge`,
+      `이 명령은 현재 브랜치의 변경사항을 main 브랜치에 merge합니다. 세션과 워크트리는 유지되므로 merge 후에도 계속 작업할 수 있습니다.`,
+      `merge 전에 반드시 모든 변경사항을 git commit 하세요.`,
+    ];
+    return lines.join('\n');
+  }
 
   /**
    * CLI 실행 + stdout stream-json 파싱.
@@ -20,6 +51,7 @@ class ClaudeService {
    * 실행 전 토큰 만료 여부를 확인하여 자동 갱신한다.
    *
    * @param userId 요청 사용자 ID — 사용자별 claude-configs 디렉토리 결정
+   * @param context 프로젝트 컨텍스트 — 시스템 프롬프트에 포함
    */
   async executeChat(
     sessionId: string,
@@ -27,13 +59,21 @@ class ClaudeService {
     worktreePath: string,
     claudeSessionId?: string | null,
     userId?: string | null,
+    context?: ChatContext,
   ): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
     // claudeSessionId에서 -- 시작 문자열 제거 (인자 인젝션 방지)
     const safeClaudeSessionId = claudeSessionId?.replace(/^--/, '') ?? null;
 
-    const args = ['--output-format', 'stream-json', '-p'];
+    const args = ['--dangerously-skip-permissions', '--output-format', 'stream-json', '--verbose', '-p'];
+
+    // 프로젝트 컨텍스트가 있으면 시스템 프롬프트 주입
+    if (context) {
+      const prompt = this.buildSystemPrompt(sessionId, worktreePath, context);
+      args.unshift('--append-system-prompt', prompt);
+    }
+
     if (safeClaudeSessionId) {
       // --resume은 다른 플래그 앞에 위치
       args.unshift('--resume', safeClaudeSessionId);

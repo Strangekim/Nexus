@@ -14,6 +14,7 @@ import treeRoutes from './routes/tree/index.js';
 import notificationRoutes from './routes/notifications/index.js';
 import usersIndexRoute from './routes/users/index.js';
 import userIdRoute from './routes/users/[id].js';
+import internalRoutes from './routes/internal/index.js';
 import { registerTerminalNamespace } from './plugins/terminal.js';
 import { registerSocketPlugin } from './plugins/socket.js';
 import { socketService } from './services/socket.service.js';
@@ -58,6 +59,9 @@ await app.register(notificationRoutes, { prefix: '/api/notifications' });
 // 사용자 관리 라우트 (관리자 전용)
 await app.register(usersIndexRoute, { prefix: '/api/users' });
 await app.register(userIdRoute, { prefix: '/api/users' });
+
+// 내부 전용 라우트 (localhost 전용 — Claude CLI 등 서버 내부 호출)
+await app.register(internalRoutes, { prefix: '/api/internal/sessions' });
 
 // 서버 시작
 const start = async () => {

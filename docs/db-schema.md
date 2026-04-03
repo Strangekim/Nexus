@@ -22,7 +22,7 @@ Git 레포지토리와 1:1 매핑되는 프로젝트. `repo_path`는 EC2 내 실
 프로젝트와 사용자 간 N:M 관계를 매핑하는 조인 테이블. 프로젝트 내 역할(`admin` | `member`)을 관리한다.
 
 ### folders
-프로젝트 하위의 기능/모듈 단위 폴더. 세션을 논리적으로 그룹화한다.
+프로젝트 하위의 기능/모듈 단위 폴더. 세션을 논리적으로 그룹화하며, Git 레포지토리 내 실제 디렉토리와 매핑된다. `dir_name` 컬럼에 파일시스템 안전 디렉토리명을 저장하고, 폴더 생성 시 프로젝트 Git 레포에 해당 디렉토리가 자동 생성된다. 폴더 소속 세션의 worktree 작업 디렉토리는 해당 폴더 디렉토리로 스코핑된다.
 
 ### sessions
 Claude Code 세션과 매핑되는 작업 단위. 세션 락(`locked_by`, `locked_at`)으로 동시 편집을 방지하며, `last_activity_at`으로 무입력 자동 해제를 지원한다. `worktree_path`와 `branch_name`으로 Git worktree를 관리하고, `merge_status`로 main 브랜치 병합 상태를 추적한다. 세션 생성 시 worktree_path와 branch_name이 자동 생성되며, 작업 완료(세션 아카이브) 시 main에 merge 후 merge_status가 업데이트된다.
@@ -141,6 +141,7 @@ model Folder {
   id          String   @id @default(uuid()) @db.Uuid
   projectId   String   @map("project_id") @db.Uuid
   name        String   @db.VarChar(200)
+  dirName     String   @map("dir_name") @db.VarChar(200) // Git 레포 내 실제 디렉토리명 (파일시스템 안전 문자열, 생성 시 자동 결정)
   description String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -149,6 +150,7 @@ model Folder {
   sessions Session[]
 
   @@unique([projectId, name])
+  @@unique([projectId, dirName])
   @@index([projectId])
   @@map("folders")
 }
@@ -405,6 +407,7 @@ commits 테이블 주요 컬럼:
 | `projects` | `repo_path` | 동일 레포 경로 중복 등록 방지 |
 | `commits` | `(project_id, hash)` | 같은 프로젝트 내 커밋 해시 중복 방지 |
 | `folders` | `(project_id, name)` | 같은 프로젝트 내 폴더명 중복 방지 |
+| `folders` | `(project_id, dir_name)` | 같은 프로젝트 내 디렉토리명 중복 방지 |
 | `project_members` | `(project_id, user_id)` | 동일 프로젝트-사용자 매핑 중복 방지 |
 
 ---

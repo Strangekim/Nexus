@@ -81,7 +81,7 @@ export async function createSession(data: {
 /** 세션 수정 */
 export async function updateSession(
   id: string,
-  data: { title?: string },
+  data: { title?: string; status?: string },
 ): Promise<Session> {
   return apiFetch<Session>(`/api/sessions/${id}`, {
     method: 'PATCH',

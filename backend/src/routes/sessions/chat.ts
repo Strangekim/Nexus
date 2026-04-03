@@ -1,5 +1,6 @@
 // 채팅 SSE 스트리밍 라우트 — POST /api/sessions/:id/chat
 import { FastifyPluginAsync } from 'fastify';
+import path from 'path';
 import { requireAuth } from '../../plugins/auth.js';
 import { sessionService } from '../../services/session.service.js';
 import { messageService } from '../../services/message.service.js';
@@ -9,6 +10,7 @@ import { handleChatStream } from './chat-stream.js';
 import { lockService } from '../../services/lock.service.js';
 import prisma from '../../lib/prisma.js';
 import { chatRateLimit } from '../../middleware/rate-limit.js';
+import { env } from '../../config/env.js';
 
 /** 요청 타입 정의 */
 interface ChatParams { id: string }
@@ -75,28 +77,46 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     // 사용자 메시지 저장
     await messageService.saveUserMessage(sessionId, userId, message);
 
-    // SSE 헤더 설정
+    // SSE 헤더 설정 — raw.writeHead 사용 시 Fastify CORS 플러그인 우회되므로 수동 추가
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': env.FRONTEND_URL,
+      'Access-Control-Allow-Credentials': 'true',
     });
+
+    // 프로젝트 정보 조회 — 시스템 프롬프트 + 알림용
+    const project = await prisma.project.findUnique({
+      where: { id: session.projectId },
+      select: { name: true },
+    }).catch(() => null);
+
+    // 폴더 소속 세션이면 폴더 디렉토리를 cwd로 사용
+    let effectiveCwd = session.worktreePath;
+    if (session.folderId) {
+      const folder = await prisma.folder.findUnique({
+        where: { id: session.folderId },
+        select: { dirName: true },
+      });
+      if (folder?.dirName) {
+        effectiveCwd = path.join(session.worktreePath, folder.dirName);
+      }
+    }
 
     // Claude CLI 실행 — userId로 CLAUDE_CONFIG_DIR 결정 (OAuth 인증 사용)
     const emitter = await claudeService.executeChat(
       sessionId,
       message,
-      session.worktreePath,
+      effectiveCwd,
       session.claudeSessionId,
       userId,
+      {
+        projectName: project?.name ?? '알 수 없음',
+        branchName: (session as { branchName?: string }).branchName,
+      },
     );
-
-    // 외부 알림용 프로젝트 이름 조회
-    const project = await prisma.project.findUnique({
-      where: { id: session.projectId },
-      select: { name: true },
-    }).catch(() => null);
 
     await handleChatStream(emitter, reply, sessionId, {
       projectId: session.projectId,

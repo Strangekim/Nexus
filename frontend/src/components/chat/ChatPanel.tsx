@@ -9,8 +9,10 @@ import { useChat } from '@/hooks/useChat';
 import { useMessages } from '@/hooks/useMessages';
 import { LockStatusBadge } from '@/components/session/LockStatusBadge';
 import { LockRequestButton } from '@/components/session/LockRequestButton';
+import { ArchiveButton } from '@/components/session/ArchiveButton';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSession } from '@/hooks/useSession';
 
 interface ChatPanelProps {
   sessionId: string;
@@ -44,6 +46,9 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
   const noClaudeAuth =
     currentUser?.authMode === 'subscription' && !(currentUser?.claudeConnected ?? false);
 
+  // 세션 상태 조회 — 아카이브 버튼용
+  const { data: sessionData } = useSession(sessionId);
+
   useEffect(() => {
     if (data?.messages) {
       setMessages(data.messages);
@@ -61,7 +66,16 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         style={{ borderColor: '#E8E5DE', backgroundColor: '#F9F9F4' }}
       >
         <LockStatusBadge sessionId={sessionId} />
-        <LockRequestButton sessionId={sessionId} />
+        <div className="flex items-center gap-2">
+          {sessionData && (
+            <ArchiveButton
+              sessionId={sessionId}
+              status={sessionData.status}
+              mergeStatus={sessionData.mergeStatus}
+            />
+          )}
+          <LockRequestButton sessionId={sessionId} />
+        </div>
       </div>
 
       {/* 메시지 목록 */}

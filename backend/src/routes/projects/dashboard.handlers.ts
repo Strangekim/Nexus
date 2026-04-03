@@ -29,7 +29,7 @@ export async function assertProjectMember(projectId: string, userId: string) {
   return proj;
 }
 
-/** GET /:id/dashboard/activity 핸들러 — 현재 락 보유 세션 + 온라인 사용자 */
+/** GET /:id/dashboard/activity 핸들러 — 현재 락 보유 세션 + 온라인 사용자 + 세션 현황 */
 export async function handleActivity(
   request: FastifyRequest<{ Params: IdParams }>,
 ) {
@@ -50,6 +50,23 @@ export async function handleActivity(
     orderBy: { lockedAt: 'desc' },
   });
 
+  // 전체 세션 현황 (최근 20개, merge 상태 포함)
+  const allSessions = await prisma.session.findMany({
+    where: { projectId: id },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      mergeStatus: true,
+      branchName: true,
+      updatedAt: true,
+      creator: { select: { id: true, name: true } },
+      folder: { select: { id: true, name: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 20,
+  });
+
   // 최근 1시간 이내 활동한 사용자 (메시지 기준)
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const recentMessages = await prisma.message.findMany({
@@ -63,7 +80,7 @@ export async function handleActivity(
   });
   const onlineUsers = recentMessages.map((m) => m.user).filter(Boolean);
 
-  return { lockedSessions, onlineUsers };
+  return { lockedSessions, allSessions, onlineUsers };
 }
 
 /** GET /:id/dashboard/stats 핸들러 — 기간별 커밋/세션/메시지 집계 */

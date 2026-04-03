@@ -9,6 +9,7 @@ import ProjectSummaryCard from './ProjectSummaryCard';
 import ActivityFeedCard from './ActivityFeedCard';
 import GitCommitsCard from './GitCommitsCard';
 import BranchStatusCard from './BranchStatusCard';
+import SessionStatusCard from './SessionStatusCard';
 import type { DashboardPeriod } from '@/services/api/dashboard';
 
 /** 기간 필터 버튼 레이블 */
@@ -76,12 +77,13 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      {/* 하단 Git 섹션 */}
+      {/* 세션 & Git 현황 섹션 */}
       <div className="mt-10 mb-4">
-        <h2 className="text-base font-semibold text-[#1A1A1A]">Git 현황</h2>
-        <p className="mt-0.5 text-sm text-[#6B6B7B]">최근 커밋 내역과 브랜치 상태를 확인하세요.</p>
+        <h2 className="text-base font-semibold text-[#1A1A1A]">세션 & Git 현황</h2>
+        <p className="mt-0.5 text-sm text-[#6B6B7B]">세션 머지 상태, 커밋 내역, 브랜치 상태를 확인하세요.</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <SessionStatusCard projectId={effectiveProjectId} />
         <GitCommitsCard projectId={effectiveProjectId} />
         <BranchStatusCard projectId={effectiveProjectId} />
       </div>

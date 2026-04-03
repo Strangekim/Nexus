@@ -28,7 +28,7 @@ async function findById(id: string) {
  * 2. git init + 초기 커밋
  * 3. DB에 프로젝트 + repoPath 저장
  */
-async function create(dto: { name: string; description?: string }) {
+async function create(dto: { name: string; description?: string; createdBy?: string }) {
   // 프로젝트명에서 안전한 디렉토리명 생성 (특수문자 제거)
   const safeName = dto.name
     .replace(/[^a-zA-Z0-9가-힣\s-_]/g, '')
@@ -44,9 +44,16 @@ async function create(dto: { name: string; description?: string }) {
   await git.init();
   await git.raw(['commit', '--allow-empty', '-m', `프로젝트 "${dto.name}" 초기화`]);
 
-  // DB 저장
+  // DB 저장 + 생성자를 프로젝트 멤버로 자동 등록
   return prisma.project.create({
-    data: { name: dto.name, repoPath, description: dto.description },
+    data: {
+      name: dto.name,
+      repoPath,
+      description: dto.description,
+      ...(dto.createdBy ? {
+        projectMembers: { create: { userId: dto.createdBy, role: 'owner' } },
+      } : {}),
+    },
   });
 }
 

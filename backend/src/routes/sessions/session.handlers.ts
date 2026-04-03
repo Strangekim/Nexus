@@ -16,6 +16,10 @@ export interface UpdateBody { title?: string; status?: string }
  * 폴더 소속 / 프로젝트 직속 모두 지원
  */
 export async function assertSessionAccess(sessionId: string, userId: string): Promise<void> {
+  // 시스템 admin은 모든 세션 접근 가능
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (user?.role === 'admin') return;
+
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
     include: { project: { include: { projectMembers: true } } },

@@ -1,10 +1,9 @@
-// POST /api/sessions/:id/merge — conflict 상태 세션 merge 재시도
+// POST /api/sessions/:id/merge — 세션 브랜치를 main에 merge (세션/worktree 유지)
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { mergeService } from '../../services/merge.service.js';
 import { commitSyncService } from '../../services/commit-sync.service.js';
-import { socketService } from '../../services/socket.service.js';
-import { removeWorktree } from '../../services/worktree.service.js';
+import { assertSessionAccess } from './session.handlers.js';
 import { createHttpError } from '../../lib/errors.js';
 import prisma from '../../lib/prisma.js';
 
@@ -23,61 +22,45 @@ const mergeRoute: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params;
     const userId = request.userId;
 
+    // 세션 접근 권한 검증
+    await assertSessionAccess(id, userId);
+
     // 세션 + 프로젝트 조회
     const session = await prisma.session.findUnique({
       where: { id },
-      include: {
-        project: {
-          include: { projectMembers: true },
-          select: { id: true, repoPath: true, projectMembers: true },
-        },
-      },
+      include: { project: { select: { id: true, repoPath: true } } },
     });
     if (!session) throw createHttpError(404, '세션을 찾을 수 없습니다');
+    if (!session.branchName) throw createHttpError(400, '브랜치 정보가 없는 세션입니다');
 
-    // 프로젝트 멤버 검증
-    const isMember = session.project.projectMembers.some((m) => m.userId === userId);
-    if (!isMember) throw createHttpError(403, '이 세션에 접근할 권한이 없습니다');
+    // main에 merge (세션 상태는 변경하지 않음 — worktree 유지)
+    const result = await mergeService.mergeSessionToMain(session, session.project);
 
-    // conflict 상태인 세션만 재시도 허용
-    if (session.mergeStatus !== 'conflict') {
-      throw createHttpError(400, 'conflict 상태인 세션만 merge를 재시도할 수 있습니다');
-    }
-
-    // merge 재시도
-    const mergeResult = await mergeService.mergeSessionToMain(session, session.project);
-
-    // merge 성공 시 worktree 제거 + 커밋 동기화
-    if (mergeResult.status === 'merged' && session.worktreePath) {
-      await removeWorktree(session.project.repoPath, session.worktreePath).catch((err) => {
-        console.error(`[merge.route] worktree 제거 실패 (무시): ${err}`);
+    // merge 성공 시 DB 상태 업데이트 + 커밋 동기화
+    if (result.status === 'merged') {
+      await prisma.session.update({
+        where: { id },
+        data: { mergeStatus: 'merged' },
       });
 
       await commitSyncService.syncNewCommits(
         session.project.id,
         session.id,
         session.project.repoPath,
-      ).catch((err) => {
-        console.error(`[merge.route] merge 커밋 동기화 실패 (무시): ${err}`);
+      ).catch(() => null);
+    } else {
+      await prisma.session.update({
+        where: { id },
+        data: { mergeStatus: 'conflict' },
       });
     }
 
-    // DB 업데이트
-    const updated = await prisma.session.update({
-      where: { id },
-      data: {
-        mergeStatus: mergeResult.status,
-        ...(mergeResult.status === 'merged' ? { worktreePath: null } : {}),
-      },
-    });
-
-    // WebSocket 브로드캐스트
-    socketService.emitToProject(session.project.id, 'session:archived', {
-      sessionId: id,
-      mergeStatus: mergeResult.status,
-    });
-
-    return { mergeStatus: updated.mergeStatus };
+    return {
+      mergeStatus: result.status,
+      message: result.status === 'merged'
+        ? 'main 브랜치에 성공적으로 merge되었습니다'
+        : 'merge 충돌이 발생했습니다. 수동 해결이 필요합니다',
+    };
   });
 };
 

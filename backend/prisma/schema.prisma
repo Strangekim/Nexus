@@ -75,6 +75,7 @@ model Folder {
   id          String   @id @default(uuid()) @db.Uuid
   projectId   String   @map("project_id") @db.Uuid
   name        String   @db.VarChar(200)
+  dirName     String?  @map("dir_name") @db.VarChar(200)
   description String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
 
