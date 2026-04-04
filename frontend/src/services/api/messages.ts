@@ -14,17 +14,19 @@ interface MessagesApiResponse {
   };
 }
 
-/** 세션 메시지 목록 조회 — 백엔드 { data, pagination } 형식을 { messages, total } 로 정규화 */
+/** 세션 메시지 목록 조회 — 백엔드 응답 형식 정규화 */
 export async function fetchMessages(
   sessionId: string,
   page = 1,
   limit = 50,
 ): Promise<{ messages: Message[]; total: number }> {
-  const res = await apiFetch<MessagesApiResponse>(
+  const res = await apiFetch<MessagesApiResponse & { messages?: Message[] }>(
     `/api/sessions/${sessionId}/messages?page=${page}&limit=${limit}`,
   );
+  // JSONL 응답: { messages, pagination }, DB 응답: { data, pagination }
+  const messages = res.messages ?? res.data ?? [];
   return {
-    messages: res.data,
+    messages,
     total: res.pagination.total,
   };
 }
