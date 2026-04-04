@@ -2,6 +2,8 @@
 
 > 최종 수정: 2026-04-02
 
+> **배포**: Docker Compose를 통한 컨테이너 배포를 지원한다. 상세 내용은 `docs/docker-deployment.md`를 참조.
+
 ## 공통 규칙
 
 ### URL 규칙

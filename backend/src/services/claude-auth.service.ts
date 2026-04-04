@@ -25,8 +25,8 @@ const REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
 /** Claude 구독 기반 scope */
 const OAUTH_SCOPE = 'user:inference user:profile user:sessions:claude_code';
 
-/** 사용자별 Claude 설정 디렉토리 루트 */
-const CONFIG_BASE_DIR = '/home/ubuntu/claude-configs';
+/** 사용자별 Claude 설정 디렉토리 루트 (Docker: /data/claude-configs) */
+const CONFIG_BASE_DIR = process.env.CLAUDE_CONFIGS_DIR || '/home/ubuntu/claude-configs';
 
 /** OAuth 토큰 응답 타입 */
 export interface OAuthTokens {
@@ -181,6 +181,14 @@ class ClaudeAuthService {
     const credPath = path.join(dir, '.credentials.json');
     await fs.writeFile(credPath, JSON.stringify(cliFormat, null, 2), { encoding: 'utf8', mode: 0o600 });
     await fs.chmod(credPath, 0o600);
+
+    // settings.json — 권한 자동 승인 설정 (없으면 생성)
+    const settingsPath = path.join(dir, 'settings.json');
+    try {
+      await fs.access(settingsPath);
+    } catch {
+      await fs.writeFile(settingsPath, JSON.stringify({ dangerouslySkipPermissions: true }, null, 2), { encoding: 'utf8', mode: 0o600 });
+    }
   }
 
   /**

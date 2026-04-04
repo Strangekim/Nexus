@@ -2,19 +2,18 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback, type RefObject } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationDropdown } from './NotificationDropdown';
 
-/** 드롭다운 위치 정보 */
 interface DropdownPosition {
   top: number;
   left: number;
 }
 
-/** 알림 벨 컴포넌트 — fixed 포지셔닝으로 드롭다운을 뷰포트 기준 배치 */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<DropdownPosition>({ top: 0, left: 0 });
@@ -22,46 +21,40 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const unreadCount = useRealtimeStore((s) => s.unreadCount);
 
-  /** 버튼 위치 기반으로 드롭다운 좌표 계산 */
+  // 벨 마운트 시 알림 목록을 서버에서 가져와 store 초기화
+  useNotifications();
+
   const calcPosition = useCallback(() => {
     if (!buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
-    const dropdownWidth = 320; // w-80 = 20rem = 320px
-    const gap = 6; // 버튼 아래 여백
-
-    // 뷰포트 오른쪽 경계를 벗어나지 않도록 left 값 보정
+    const dropdownWidth = 320;
+    const gap = 6;
     const rawLeft = rect.right - dropdownWidth;
-    const clampedLeft = Math.max(8, rawLeft);
-
     setDropdownPos({
       top: rect.bottom + gap,
-      left: clampedLeft,
+      left: Math.max(8, rawLeft),
     });
   }, []);
 
-  /** 드롭다운 열릴 때 위치 계산 */
   const handleToggle = () => {
     if (!open) calcPosition();
     setOpen((prev) => !prev);
   };
 
-  /** 드롭다운 외부 클릭 시 닫기 */
+  // 외부 클릭 시 닫기
   useEffect(() => {
     if (!open) return;
-
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as Node;
-      // 벨 버튼 또는 드롭다운 내부 클릭이면 무시
       if (buttonRef.current?.contains(target)) return;
       if (dropdownRef.current?.contains(target)) return;
       setOpen(false);
     };
-
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [open]);
 
-  /** 스크롤·리사이즈 시 드롭다운 위치 재계산 */
+  // 스크롤·리사이즈 시 위치 재계산
   useEffect(() => {
     if (!open) return;
     const handleReposition = () => calcPosition();
@@ -75,7 +68,6 @@ export function NotificationBell() {
 
   return (
     <>
-      {/* 벨 버튼 */}
       <Button
         ref={buttonRef}
         variant="ghost"
@@ -85,8 +77,6 @@ export function NotificationBell() {
         aria-label="알림"
       >
         <Bell className="size-4" />
-
-        {/* 미읽음 카운트 뱃지 */}
         {unreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -94,7 +84,6 @@ export function NotificationBell() {
         )}
       </Button>
 
-      {/* 드롭다운 패널 — 뷰포트 기준 fixed 포지셔닝 */}
       {open && (
         <NotificationDropdown
           ref={dropdownRef}

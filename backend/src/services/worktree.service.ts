@@ -4,11 +4,11 @@ import path from 'path';
 import fs from 'fs/promises';
 import { createHttpError } from '../lib/errors.js';
 
-/** worktree가 생성될 기본 경로 */
-const WORKTREE_BASE = '/home/ubuntu/projects-wt';
+/** worktree가 생성될 기본 경로 (Docker: /data/projects-wt) */
+const WORKTREE_BASE = process.env.PROJECTS_WT_DIR || '/home/ubuntu/projects-wt';
 
-/** 프로젝트 레포 기본 경로 */
-const REPO_BASE = '/home/ubuntu/projects';
+/** 프로젝트 레포 기본 경로 (Docker: /data/projects) */
+const REPO_BASE = process.env.PROJECTS_DIR || '/home/ubuntu/projects';
 
 /**
  * worktreePath가 허용된 base 경로 내에 있는지 검증

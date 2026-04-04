@@ -4,8 +4,8 @@ import simpleGit from 'simple-git';
 import fs from 'fs/promises';
 import path from 'path';
 
-/** 프로젝트 git 저장소 루트 경로 */
-const PROJECTS_BASE = '/home/ubuntu/projects';
+/** 프로젝트 git 저장소 루트 경로 (Docker: /data/projects) */
+const PROJECTS_BASE = process.env.PROJECTS_DIR || '/home/ubuntu/projects';
 
 /** 프로젝트 목록 조회 (페이지네이션) */
 async function findAll(page: number, limit: number) {

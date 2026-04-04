@@ -108,9 +108,8 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       return reply.code(404).send({ error: { code: 'NOT_FOUND', message: '세션을 찾을 수 없습니다' } });
     }
 
-    if (!session.worktreePath) {
-      return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: '워크트리 경로가 설정되지 않았습니다' } });
-    }
+    // 프로젝트 직속 세션(질의용)은 worktree 없이 프로젝트 repoPath를 사용
+    const isQuerySession = !session.folderId && !session.worktreePath;
 
     // 채팅 시 자동 락 획득
     try {
@@ -141,19 +140,24 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     // 프로젝트 정보 조회
     const project = await prisma.project.findUnique({
       where: { id: session.projectId },
-      select: { name: true },
+      select: { name: true, repoPath: true },
     }).catch(() => null);
 
-    // 폴더 소속 세션이면 폴더 디렉토리를 cwd로 사용
-    let effectiveCwd = session.worktreePath;
-    if (session.folderId) {
+    // cwd 결정: 폴더 세션 → worktree/dirName, 프로젝트 직속(질의) → repoPath
+    let effectiveCwd: string;
+    if (isQuerySession) {
+      // 질의 세션 — 프로젝트 repo 루트에서 읽기 전용으로 동작
+      effectiveCwd = project?.repoPath ?? '/tmp';
+    } else if (session.folderId && session.worktreePath) {
       const folder = await prisma.folder.findUnique({
         where: { id: session.folderId },
         select: { dirName: true },
       });
-      if (folder?.dirName) {
-        effectiveCwd = path.join(session.worktreePath, folder.dirName);
-      }
+      effectiveCwd = folder?.dirName
+        ? path.join(session.worktreePath, folder.dirName)
+        : session.worktreePath;
+    } else {
+      effectiveCwd = session.worktreePath!;
     }
 
     // 사용자별 claude 세션 ID 파싱
@@ -167,14 +171,14 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       await copyClaudeSession(resumeId, prevUserId, userId, effectiveCwd);
     }
 
-    // Claude CLI 실행 — resume 가능하면 이전 대화 이어가기
+    // Claude CLI 실행 — 질의 세션은 컨텍스트(merge/디렉토리 제한) 제외
     const emitter = await claudeService.executeChat(
       sessionId,
       message,
       effectiveCwd,
       resumeId,
       userId,
-      {
+      isQuerySession ? undefined : {
         projectName: project?.name ?? '알 수 없음',
         branchName: (session as { branchName?: string }).branchName,
       },

@@ -82,7 +82,8 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
       >
         <LockStatusBadge sessionId={sessionId} />
         <div className="flex items-center gap-2">
-          {sessionData && (
+          {/* 폴더 소속 세션만 merge/archive 버튼 표시 (프로젝트 직속 질의 세션은 제외) */}
+          {sessionData && sessionData.folderId && (
             <ArchiveButton
               sessionId={sessionId}
               status={sessionData.status}

@@ -3,7 +3,6 @@
 
 import { useState } from 'react';
 import { useTree } from '@/hooks/useTree';
-import TeamQueryPanel from '@/components/dashboard/TeamQueryPanel';
 import RecentSessionsCard from './RecentSessionsCard';
 import ProjectSummaryCard from './ProjectSummaryCard';
 import ActivityFeedCard from './ActivityFeedCard';
@@ -29,9 +28,6 @@ export default function DashboardClient() {
 
   return (
     <>
-      {/* 팀 질의 패널 — 대시보드 상단 */}
-      <TeamQueryPanel projectId={effectiveProjectId} />
-
       {/* 프로젝트 + 기간 필터 바 */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-2">

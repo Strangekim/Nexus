@@ -1,0 +1,7 @@
+# Frontend dockerignore
+node_modules
+.next
+.env.local
+.env
+.env.*
+*.log

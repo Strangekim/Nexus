@@ -273,6 +273,21 @@ frontend/src/
 
 ---
 
+## 4.6 Docker 컨테이너 패키징 ✅ 완료
+
+### 목표
+Docker Compose로 프론트엔드, 백엔드, PostgreSQL을 일괄 배포
+
+### 완료 항목
+- [x] `Dockerfile` (frontend, backend) 작성
+- [x] `docker-compose.yml` 작성
+- [x] `.env.docker.example` 환경변수 템플릿
+- [x] 볼륨 구성: claude-configs, projects, projects-wt, postgres-data
+- [x] 백엔드 시작 시 Prisma 마이그레이션 자동 실행
+- [x] Docker 배포 가이드 문서 (`docs/docker-deployment.md`)
+
+---
+
 ## Phase 4 작업 순서 · 의존성 · 병렬 가능 여부
 
 ### 의존성 그래프

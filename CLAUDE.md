@@ -76,6 +76,19 @@ Claude Code CLI를 내부적으로 래핑하여, 웹에서 자연어로 AI에게
 - `cd frontend && npm run build` — 프론트 빌드
 - `cd frontend && npm run lint` — 프론트 린트
 
+## Docker 배포
+- `docker compose up -d` — 전체 서비스 백그라운드 실행 (frontend, backend, postgres)
+- `docker compose down` — 전체 서비스 중지 및 컨테이너 제거
+- `docker compose logs -f` — 전체 서비스 로그 실시간 확인
+- 환경변수 설정: `.env.docker.example`을 `.env`로 복사 후 값 설정
+- 볼륨:
+  - `claude-configs` — 사용자별 Claude CLI 인증 정보 저장
+  - `projects` — 프로젝트 Git 저장소 원본
+  - `projects-wt` — 세션별 Git worktree 디렉토리
+  - `postgres-data` — PostgreSQL 데이터 영속 저장
+- 백엔드 컨테이너는 시작 시 Prisma 마이그레이션을 자동 실행한다
+- 상세 가이드: `@docs/docker-deployment.md`
+
 ## Git 규칙
 - 매 작업 완료 시 반드시 커밋
 - 커밋 메시지 형식: `[기능명] 작업 내용 요약`
