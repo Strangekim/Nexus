@@ -25,6 +25,8 @@ interface SessionContext {
   projectName?: string;
   /** 현재 요청 사용자 ID — claude_session_id 저장 시 사용자별 구분 */
   userId?: string;
+  /** 글로벌 config 모드 — admin-only 프로젝트에서 claudeSessionId를 prefix 없이 저장 */
+  useGlobalConfig?: boolean;
 }
 
 /** 스트림 이벤트 수집 및 SSE 전달 처리 */
@@ -140,11 +142,16 @@ export function handleChatStream(
 
         // 세션 정보 업데이트 (claudeSessionId, lastActivityAt)
         const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
-        if (claudeSessionId && sessionCtx?.userId) {
-          // 사용자별 claude 세션 ID: "userId:claudeSessionId" 형태로 저장
-          updateData.claudeSessionId = `${sessionCtx.userId}:${claudeSessionId}`;
-        } else if (claudeSessionId) {
-          updateData.claudeSessionId = claudeSessionId;
+        if (claudeSessionId) {
+          // admin-only(글로벌 config): prefix 없이 저장 — CLI와 동일한 세션 ID
+          // 일반 프로젝트: "userId:claudeSessionId" 형태로 사용자별 구분
+          if (sessionCtx?.useGlobalConfig) {
+            updateData.claudeSessionId = claudeSessionId;
+          } else if (sessionCtx?.userId) {
+            updateData.claudeSessionId = `${sessionCtx.userId}:${claudeSessionId}`;
+          } else {
+            updateData.claudeSessionId = claudeSessionId;
+          }
         }
         await prisma.session.update({
           where: { id: sessionId },

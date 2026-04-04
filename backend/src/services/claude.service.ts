@@ -63,14 +63,20 @@ class ClaudeService {
     claudeSessionId?: string | null,
     userId?: string | null,
     context?: ChatContext,
+    /** true이면 CLAUDE_CONFIG_DIR을 설정하지 않음 — CLI와 같은 ~/.claude/ 사용 */
+    useGlobalConfig?: boolean,
   ): Promise<EventEmitter> {
     const emitter = new EventEmitter();
 
-    // userId가 있으면 CLAUDE_CONFIG_DIR 환경변수 준비
+    // 글로벌 config 모드가 아닐 때만 유저별 CLAUDE_CONFIG_DIR 설정
     const env: Record<string, string | undefined> = { ...process.env };
-    if (userId) {
+    if (userId && !useGlobalConfig) {
       await claudeAuthService.ensureValidToken(userId);
       env.CLAUDE_CONFIG_DIR = claudeAuthService.getConfigDir(userId);
+    }
+    // 글로벌 config 모드일 때는 CLAUDE_CONFIG_DIR을 명시적으로 제거 (기본 ~/.claude 사용)
+    if (useGlobalConfig) {
+      delete env.CLAUDE_CONFIG_DIR;
     }
 
     // claudeSessionId에서 인자 인젝션 방지

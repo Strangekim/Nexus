@@ -137,11 +137,14 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       'Access-Control-Allow-Credentials': 'true',
     });
 
-    // 프로젝트 정보 조회
+    // 프로젝트 정보 조회 (admin-only 여부 포함)
     const project = await prisma.project.findUnique({
       where: { id: session.projectId },
-      select: { name: true, repoPath: true },
+      select: { name: true, repoPath: true, isAdminOnly: true },
     }).catch(() => null);
+
+    // admin-only 프로젝트는 글로벌 ~/.claude/ 사용 (CLI 세션 공유)
+    const useGlobalConfig = project?.isAdminOnly ?? false;
 
     // cwd 결정: 폴더 세션 → worktree/dirName, 프로젝트 직속(질의) → repoPath
     let effectiveCwd: string;
@@ -160,18 +163,23 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       effectiveCwd = session.worktreePath!;
     }
 
-    // 사용자별 claude 세션 ID 파싱
-    const { claudeId: resumeId, prevUserId } = parseClaudeSessionId(
-      session.claudeSessionId ?? null,
-      userId,
-    );
-
-    // 사용자 전환 시 이전 사용자의 세션 파일을 현재 사용자의 config에 복사
-    if (prevUserId && resumeId) {
-      await copyClaudeSession(resumeId, prevUserId, userId, effectiveCwd);
+    // admin-only 프로젝트: claudeSessionId를 그대로 사용 (userId prefix 없음)
+    // 일반 프로젝트: userId:sessionId 형태로 파싱
+    let resumeId: string | null;
+    if (useGlobalConfig) {
+      // admin-only — claudeSessionId에서 userId prefix가 있으면 제거
+      const raw = session.claudeSessionId ?? null;
+      resumeId = raw ? (raw.includes(':') ? raw.split(':')[1] : raw) : null;
+    } else {
+      const parsed = parseClaudeSessionId(session.claudeSessionId ?? null, userId);
+      resumeId = parsed.claudeId;
+      // 사용자 전환 시 이전 사용자의 세션 파일을 현재 사용자의 config에 복사
+      if (parsed.prevUserId && resumeId) {
+        await copyClaudeSession(resumeId, parsed.prevUserId, userId, effectiveCwd);
+      }
     }
 
-    // Claude CLI 실행 — 질의 세션은 컨텍스트(merge/디렉토리 제한) 제외
+    // Claude CLI 실행
     const emitter = await claudeService.executeChat(
       sessionId,
       message,
@@ -182,6 +190,7 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
         projectName: project?.name ?? '알 수 없음',
         branchName: (session as { branchName?: string }).branchName,
       },
+      useGlobalConfig,
     );
 
     await handleChatStream(emitter, reply, sessionId, {
@@ -191,6 +200,7 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       sessionTitle: session.title,
       projectName: project?.name ?? '',
       userId,
+      useGlobalConfig,
     });
   });
 };
