@@ -6,6 +6,8 @@ export interface Project {
   name: string;
   repoPath: string;
   description?: string;
+  /** 관리자 전용 프로젝트 여부 */
+  isAdminOnly?: boolean;
   createdAt: string;
 }
 
@@ -44,6 +46,8 @@ export interface TreeProject {
   id: string;
   name: string;
   type: 'project';
+  /** 관리자 전용 프로젝트 여부 */
+  isAdminOnly?: boolean;
   folders: TreeFolder[];
   /** 폴더에 속하지 않는 프로젝트 직속 세션 */
   sessions: TreeSession[];

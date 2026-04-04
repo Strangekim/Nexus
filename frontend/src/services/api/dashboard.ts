@@ -13,6 +13,16 @@ export interface ActivityResponse {
     locker: { id: string; name: string } | null;
     folder: { id: string; name: string } | null;
   }[];
+  allSessions: {
+    id: string;
+    title: string;
+    status: string;
+    mergeStatus: string;
+    branchName: string | null;
+    updatedAt: string;
+    creator: { id: string; name: string } | null;
+    folder: { id: string; name: string } | null;
+  }[];
   onlineUsers: ({ id: string; name: string } | null)[];
 }
 

@@ -50,7 +50,7 @@ function buildMessage(type: NotificationType, payload: Record<string, unknown> |
         ? `${requester}님이 회원님을 멘션했습니다`
         : '멘션 알림';
     default:
-      return (p.message as string) ?? type.replace(/_/g, ' ');
+      return (p.message as string | undefined) ?? (type as string).replace(/_/g, ' ');
   }
 }
 

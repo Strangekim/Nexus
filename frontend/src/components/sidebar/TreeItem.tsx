@@ -16,7 +16,7 @@ import { useDeleteProject, useDeleteFolder } from '@/hooks/useProjectMutations';
 
 interface TreeItemProps {
   icon: ReactNode;
-  label: string;
+  label: ReactNode;
   itemType: 'project' | 'folder';
   itemId: string;
   projectId?: string;

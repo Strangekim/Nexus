@@ -94,19 +94,21 @@ function ToolInput({ tool, input }: { tool: string; input: Record<string, unknow
   const t = tool.toLowerCase();
 
   // Edit: old_string → new_string diff 스타일
-  if (t === 'edit' && (input.old_string || input.new_string)) {
+  const oldStr = input.old_string != null ? String(input.old_string) : null;
+  const newStr = input.new_string != null ? String(input.new_string) : null;
+  if (t === 'edit' && (oldStr || newStr)) {
     return (
       <div className="px-3 py-2 space-y-1">
-        {input.old_string && (
+        {oldStr && (
           <pre className="text-xs font-mono p-2 rounded overflow-x-auto max-h-40 leading-relaxed"
             style={{ backgroundColor: '#FEF2F2', color: '#991B1B' }}>
-            {String(input.old_string).split('\n').map((l, i) => `- ${l}`).join('\n')}
+            {oldStr.split('\n').map((l) => `- ${l}`).join('\n')}
           </pre>
         )}
-        {input.new_string && (
+        {newStr && (
           <pre className="text-xs font-mono p-2 rounded overflow-x-auto max-h-40 leading-relaxed"
             style={{ backgroundColor: '#F0FDF4', color: '#166534' }}>
-            {String(input.new_string).split('\n').map((l, i) => `+ ${l}`).join('\n')}
+            {newStr.split('\n').map((l) => `+ ${l}`).join('\n')}
           </pre>
         )}
       </div>
@@ -114,7 +116,7 @@ function ToolInput({ tool, input }: { tool: string; input: Record<string, unknow
   }
 
   // Write: content 표시
-  if (t === 'write' && input.content) {
+  if (t === 'write' && input.content != null) {
     return (
       <div className="px-3 py-2">
         <pre className="text-xs font-mono p-2 rounded overflow-x-auto max-h-60 leading-relaxed"

@@ -51,7 +51,11 @@ function ProjectNode({ project }: { project: TreeProject }) {
     <Collapsible defaultOpen>
       <TreeItem
         icon={<FolderKanban className="size-4" style={{ color: '#2D7D7B' }} />}
-        label={project.name}
+        label={
+          project.isAdminOnly
+            ? <span className="flex items-center gap-1">{project.name}<span className="text-[10px] px-1 py-0.5 rounded bg-[#2D7D7B]/15 text-[#2D7D7B] leading-none">관리자</span></span>
+            : project.name
+        }
         itemType="project"
         itemId={project.id}
         actions={

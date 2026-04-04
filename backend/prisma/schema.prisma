@@ -47,6 +47,7 @@ model Project {
   name        String   @db.VarChar(200)
   repoPath    String   @unique @map("repo_path") @db.VarChar(500)
   description String?  @db.Text
+  isAdminOnly Boolean  @default(false) @map("is_admin_only")
   createdAt   DateTime @default(now()) @map("created_at")
 
   folders        Folder[]

@@ -22,7 +22,8 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (request) => {
-    const tree = await treeService.getTree(request.query.projectId);
+    // 비관리자에게 관리자 전용 프로젝트를 숨기기 위해 userId 전달
+    const tree = await treeService.getTree(request.query.projectId, request.userId);
     return { tree };
   });
 

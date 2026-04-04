@@ -5,5 +5,6 @@
     "commit-commands@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true
-  }
+  },
+  "dangerouslySkipPermissions": true
 }

@@ -38,7 +38,9 @@ export default function DashboardClient() {
             className="text-sm border border-[#E8E5DE] rounded-lg px-2.5 py-1.5 bg-white text-[#1A1A1A] outline-none focus:ring-1 focus:ring-[#2D7D7B]"
           >
             {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>
+                {p.name}{p.isAdminOnly ? ' (관리자)' : ''}
+              </option>
             ))}
             {projects.length === 0 && <option value="">프로젝트 없음</option>}
           </select>
