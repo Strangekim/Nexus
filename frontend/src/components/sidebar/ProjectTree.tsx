@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { FolderKanban, Folder, Plus, FolderPlus, MessageSquarePlus, GitCommit, Settings } from 'lucide-react';
+import { FolderKanban, Folder, Plus, FolderPlus, MessageSquarePlus, GitCommit, Settings, RefreshCw } from 'lucide-react';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { useTree } from '@/hooks/useTree';
@@ -12,6 +12,7 @@ import { TreeItem } from './TreeItem';
 import { SessionItem } from './SessionItem';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { CreateSessionDialog } from './CreateSessionDialog';
+import { useSyncCliSessions } from '@/hooks/useSyncCliSessions';
 import type { TreeProject, TreeFolder } from '@/types/project';
 
 export function ProjectTree() {
@@ -46,6 +47,7 @@ export function ProjectTree() {
 function ProjectNode({ project }: { project: TreeProject }) {
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const { mutate: syncCli, isPending: isSyncing } = useSyncCliSessions(project.id);
 
   return (
     <Collapsible defaultOpen>
@@ -60,6 +62,19 @@ function ProjectNode({ project }: { project: TreeProject }) {
         itemId={project.id}
         actions={
           <div className="flex gap-0.5">
+            {/* CLI 세션 동기화 버튼 — 관리자 전용 프로젝트만 표시 */}
+            {project.isAdminOnly && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                title="CLI 세션 동기화"
+                disabled={isSyncing}
+                onClick={(e) => { e.stopPropagation(); syncCli(); }}
+                style={{ color: '#6B6B7B' }}
+              >
+                <RefreshCw className={`size-3 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
             {/* 커밋 타임라인 링크 */}
             <Link
               href={`/projects/${project.id}/commits`}

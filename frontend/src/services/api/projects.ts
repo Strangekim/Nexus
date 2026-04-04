@@ -98,3 +98,20 @@ export async function deleteSession(id: string): Promise<void> {
 export async function fetchSession(id: string): Promise<Session> {
   return apiFetch<Session>(`/api/sessions/${id}`);
 }
+
+/** CLI 세션 동기화 응답 타입 */
+export interface SyncCliSessionsResponse {
+  discovered: number;
+  synced: number;
+  sessions: { id: string; title: string; claudeSessionId: string | null }[];
+}
+
+/** CLI 세션 동기화 — 관리자 전용 프로젝트의 CLI 세션을 DB에 가져옴 */
+export async function syncCliSessions(
+  projectId: string,
+): Promise<SyncCliSessionsResponse> {
+  return apiFetch<SyncCliSessionsResponse>(
+    `/api/projects/${projectId}/sync-cli-sessions`,
+    { method: 'POST' },
+  );
+}
