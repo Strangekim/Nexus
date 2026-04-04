@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { MessageItem } from './MessageItem';
 import { StreamingMessage } from './StreamingMessage';
 import { ToolUseCard } from './ToolUseCard';
-import { User } from 'lucide-react';
+import { ClaudeLogo } from './ClaudeLogo';
 import type { Message, ActiveToolUse } from '@/types/message';
 
 interface MessageListProps {
@@ -42,11 +42,9 @@ export function MessageList({
         {/* 스트리밍 중인 어시스턴트 응답 */}
         {isStreaming && (
           <div className="flex gap-3 mb-4">
-            <div
-              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1"
-              style={{ backgroundColor: '#2D7D7B' }}
-            >
-              <User size={14} style={{ color: '#3D3D3D' }} />
+            {/* Claude 로고 — 스트리밍 중 펄스 애니메이션 */}
+            <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center mt-1">
+              <ClaudeLogo size={24} isAnimating />
             </div>
             <div className="flex-1 min-w-0">
               {/* 도구 사용 카드들 */}

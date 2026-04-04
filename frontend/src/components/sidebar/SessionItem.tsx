@@ -66,31 +66,34 @@ export function SessionItem({ session, projectId, isProjectDirect = false }: Ses
         )}
       </button>
 
-      {/* 호버 시 메뉴 */}
-      <div className="hidden group-hover:flex items-center shrink-0">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" size="icon-xs" style={{ color: '#6B6B7B' }} />
-            }
+      {/* 드롭다운 메뉴 — 호버 시 트리거 버튼만 표시, 메뉴는 포탈로 렌더링 */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              style={{ color: '#6B6B7B' }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            />
+          }
+        >
+          <MoreHorizontal className="size-3" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" align="end" sideOffset={4}>
+          <DropdownMenuItem disabled>
+            <Pencil className="size-3.5" />
+            이름 변경
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => deleteSession.mutate(session.id)}
           >
-            <MoreHorizontal className="size-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="start">
-            <DropdownMenuItem disabled>
-              <Pencil className="size-3.5" />
-              이름 변경
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => deleteSession.mutate(session.id)}
-            >
-              <Trash2 className="size-3.5" />
-              삭제
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            <Trash2 className="size-3.5" />
+            삭제
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

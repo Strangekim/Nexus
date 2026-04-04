@@ -4,8 +4,8 @@
 import { memo } from 'react';
 import { StreamingMessage } from './StreamingMessage';
 import { ToolUseCard } from './ToolUseCard';
-import { User } from 'lucide-react';
-import type { Message, ActiveToolUse } from '@/types/message';
+import { ClaudeLogo } from './ClaudeLogo';
+import type { Message } from '@/types/message';
 
 interface MessageItemProps {
   message: Message;
@@ -37,12 +37,9 @@ function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
 
   return (
     <div className="flex gap-3 mb-4">
-      {/* 어시스턴트 아바타 */}
-      <div
-        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1"
-        style={{ backgroundColor: '#2D7D7B' }}
-      >
-        <User size={14} style={{ color: '#FFFFFF' }} />
+      {/* Claude 로고 — 저장된 메시지는 정적 표시 */}
+      <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center mt-1">
+        <ClaudeLogo size={24} isAnimating={false} />
       </div>
       <div className="flex-1 min-w-0">
         {/* 도구 사용 이력 카드 — metadata에 저장된 상세 정보 */}

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useDeleteProject, useDeleteFolder } from '@/hooks/useProjectMutations';
+import { useAuthStore } from '@/stores/authStore';
 
 interface TreeItemProps {
   icon: ReactNode;
@@ -33,6 +34,8 @@ export function TreeItem({
 }: TreeItemProps) {
   const deleteProject = useDeleteProject();
   const deleteFolder = useDeleteFolder();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === 'admin';
 
   /** 삭제 핸들러 */
   const handleDelete = () => {
@@ -59,27 +62,32 @@ export function TreeItem({
         </span>
       </CollapsibleTrigger>
 
-      {/* 호버 시 표시되는 액션 버튼 */}
+      {/* 호버 시 표시되는 액션 버튼 — 관리자만 메뉴 노출 */}
       <div className="hidden group-hover:flex items-center shrink-0">
         {actions}
-        <ItemMenu onDelete={handleDelete} />
       </div>
+      {isAdmin && <ItemMenu onDelete={handleDelete} />}
     </div>
   );
 }
 
-/** 아이템 컨텍스트 메뉴 */
+/** 아이템 컨텍스트 메뉴 (관리자 전용) */
 function ItemMenu({ onDelete }: { onDelete: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon-xs" style={{ color: '#6B6B7B' }} />
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            style={{ color: '#6B6B7B' }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
         }
       >
         <MoreHorizontal className="size-3" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="start">
+      <DropdownMenuContent side="bottom" align="end" sideOffset={4}>
         <DropdownMenuItem disabled>
           <Pencil className="size-3.5" />
           이름 변경
