@@ -1,5 +1,6 @@
 // 대시보드 페이지 — 프로젝트 선택 + 기간 필터 + 실제 API 연동
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect } from 'react';

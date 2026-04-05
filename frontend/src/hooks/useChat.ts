@@ -4,6 +4,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSse } from '@/lib/sse';
+import { abortChat } from '@/services/api/messages';
 import { useSseHandler } from './useSseHandler';
 import type { Message, ActiveToolUse } from '@/types/message';
 
@@ -86,13 +87,24 @@ export function useChat(sessionId: string): UseChatReturn {
         { message: text },
         {
           onEvent: handleEvent,
-          onError: (err) => { setError(err.message); setIsStreaming(false); },
-          onClose: () => { setIsStreaming(false); },
+          onError: () => {
+            setError('연결이 끊겼습니다. 응답이 이미 완료되었을 수 있습니다.');
+            setIsStreaming(false);
+            // 연결 끊김 시에도 백엔드는 응답을 DB에 저장하므로 쿼리 재요청
+            queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
+            // 5초 후 에러 메시지 자동 제거 — 메시지가 정상 로드되면 에러가 남아있을 필요 없음
+            setTimeout(() => setError(null), 5000);
+          },
+          onClose: () => {
+            setIsStreaming(false);
+            // done 이벤트 미수신 대비 안전장치 — 쿼리 갱신
+            queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
+          },
         },
         controller.signal,
       );
     },
-    [sessionId, isStreaming, handleEvent],
+    [sessionId, isStreaming, handleEvent, queryClient],
   );
 
   /** 마지막 메시지 재시도 — SSE 에러 후 동일 내용 재전송 */
@@ -102,11 +114,15 @@ export function useChat(sessionId: string): UseChatReturn {
     }
   }, [sendMessage]);
 
-  /** 스트리밍 중단 */
+  /** 스트리밍 중단 — 클라이언트 fetch 취소 + 백엔드 CLI 프로세스 종료 */
   const abort = useCallback(() => {
     abortRef.current?.abort();
     setIsStreaming(false);
-  }, []);
+    // 백엔드에 CLI 프로세스 종료 요청 — 실패해도 무시 (이미 종료됐을 수 있음)
+    abortChat(sessionId).catch(() => {});
+    // 중단 후 DB에 저장된 부분 응답 반영
+    queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
+  }, [sessionId, queryClient]);
 
   return {
     messages, streamingText, isStreaming,

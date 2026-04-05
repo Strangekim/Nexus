@@ -6,12 +6,8 @@ import { transformStreamEvent, SseEvent } from '../../services/sse-transformer.j
 import { messageService } from '../../services/message.service.js';
 import { commitSyncService } from '../../services/commit-sync.service.js';
 import { externalNotifyService } from '../../services/external-notify.service.js';
+import { lockService } from '../../services/lock.service.js';
 import prisma from '../../lib/prisma.js';
-
-/** SSE 이벤트를 클라이언트로 전송 */
-function sendSseEvent(reply: FastifyReply, event: string, data: object) {
-  reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-}
 
 /** 커밋 동기화 및 외부 알림에 필요한 세션 컨텍스트 */
 interface SessionContext {
@@ -29,12 +25,25 @@ interface SessionContext {
   useGlobalConfig?: boolean;
 }
 
+/** SSE 스트림 최대 유지 시간 (30분) — CLI hang 방지 */
+const STREAM_TIMEOUT_MS = 30 * 60 * 1000;
+
+/** SSE 전송 — 클라이언트 연결 끊김 시 안전하게 스킵 */
+function safeSend(reply: FastifyReply, disconnected: boolean, event: string, data: object) {
+  if (disconnected) return;
+  try {
+    reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  } catch { /* 연결 끊김 — 무시 */ }
+}
+
 /** 스트림 이벤트 수집 및 SSE 전달 처리 */
 export function handleChatStream(
   emitter: EventEmitter,
   reply: FastifyReply,
   sessionId: string,
   sessionCtx?: SessionContext,
+  /** 클라이언트 중단 시 CLI 프로세스 종료 콜백 */
+  onAbort?: () => void,
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     let fullText = '';
@@ -44,11 +53,28 @@ export function handleChatStream(
     // 도구 사용 상세 기록 — 메시지 metadata에 저장하여 이후 표시에 활용
     const toolDetails: { toolId: string; tool: string; summary?: string; input?: Record<string, unknown>; output?: string; isError?: boolean }[] = [];
 
+    // 클라이언트 연결 끊김 플래그 — SSE 전송만 중단, 이벤트 수집은 계속
+    let clientDisconnected = false;
+    // 스트림 종료 플래그 — timeout/close 중복 실행 방지
+    let streamEnded = false;
+
+    // 스트림 타임아웃 — 30분 초과 시 close 이벤트를 발생시켜 DB 저장 후 종료
+    const streamTimeout = setTimeout(() => {
+      if (streamEnded) return;
+      safeSend(reply, clientDisconnected, 'system', { subtype: 'error', message: '스트림 타임아웃 (30분 초과)' });
+      // close 핸들러가 DB 저장/알림/커밋동기화를 수행하도록 close 이벤트 발생
+      emitter.emit('close');
+    }, STREAM_TIMEOUT_MS);
+
     emitter.on('event', (raw: StreamEvent) => {
       const sseEvents = transformStreamEvent(raw as Record<string, unknown>);
 
       for (const evt of sseEvents) {
-        sendSseEvent(reply, evt.event, evt.data);
+        // result(done) 이벤트는 클라이언트로 전달하지 않음 — close 핸들러에서 DB 저장 후 전송
+        if (evt.event === 'done') continue;
+
+        // 클라이언트 연결 중일 때만 SSE 전송 — 끊겨도 이벤트 수집은 계속
+        safeSend(reply, clientDisconnected, evt.event, evt.data);
 
         // 텍스트 누적
         if (evt.event === 'assistant_text') {
@@ -79,7 +105,6 @@ export function handleChatStream(
       }
 
       // session_id 추출 — system(init), result 두 이벤트 모두에서 시도
-      // Claude CLI는 첫 system 이벤트에서 session_id를 포함하기도 함
       const extractedId = (raw.session_id ?? raw.sessionId ?? null) as string | null;
       if (extractedId && !claudeSessionId) {
         claudeSessionId = extractedId;
@@ -92,15 +117,19 @@ export function handleChatStream(
     });
 
     emitter.on('error', (errMsg: string) => {
-      // emitter 에러 발생 시 클라이언트에 에러 이벤트 전송
-      sendSseEvent(reply, 'system', { subtype: 'error', message: errMsg });
-      reply.raw.end();
+      streamEnded = true;
+      clearTimeout(streamTimeout);
+      safeSend(reply, clientDisconnected, 'system', { subtype: 'error', message: errMsg });
+      if (!clientDisconnected) reply.raw.end();
       resolve();
     });
 
     emitter.on('close', async () => {
+      streamEnded = true;
+      clearTimeout(streamTimeout);
       try {
-        // AI 응답 메시지 저장
+        // AI 응답 메시지 저장 — 모든 세션 공통으로 DB에 저장 (DB가 source of truth)
+        let messageId: string | null = null;
         if (fullText) {
           const metadata = toolsUsed.length > 0
             ? { toolsUsed, toolDetails: toolDetails.length > 0 ? toolDetails : undefined }
@@ -108,16 +137,17 @@ export function handleChatStream(
           const saved = await messageService.saveAssistantMessage(
             sessionId, fullText, metadata, totalTokens || undefined,
           );
-
-          // done 이벤트 전송
-          sendSseEvent(reply, 'done', {
-            messageId: saved.id,
-            sessionId,
-            totalTokens,
-          });
+          messageId = saved.id;
         }
 
-        // done 이후 외부 알림 발송 (SMS + 브라우저 푸시 + 알림음)
+        // done 이벤트 — 클라이언트 연결 중일 때만 전송
+        safeSend(reply, clientDisconnected, 'done', {
+          messageId: messageId ?? '',
+          sessionId,
+          totalTokens,
+        });
+
+        // 외부 알림 발송 (SMS + 브라우저 푸시 + 알림음) — 연결 끊김과 무관하게 실행
         if (sessionCtx?.createdBy && sessionCtx.sessionTitle && sessionCtx.projectName) {
           externalNotifyService.notifyTaskComplete(
             sessionCtx.createdBy,
@@ -129,7 +159,7 @@ export function handleChatStream(
           });
         }
 
-        // done 이후 새 커밋 자동 동기화
+        // 새 커밋 자동 동기화 — 연결 끊김과 무관하게 실행
         if (sessionCtx?.worktreePath) {
           commitSyncService.syncNewCommits(
             sessionCtx.projectId,
@@ -141,12 +171,19 @@ export function handleChatStream(
         }
 
         // 세션 정보 업데이트 (claudeSessionId, lastActivityAt)
+        // admin-only: 최초 claudeSessionId는 체인 추적의 앵커이므로 보존
+        // 새 세션 ID는 체인 탐색으로 자동 발견됨
         const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
         if (claudeSessionId) {
-          // admin-only(글로벌 config): prefix 없이 저장 — CLI와 동일한 세션 ID
-          // 일반 프로젝트: "userId:claudeSessionId" 형태로 사용자별 구분
           if (sessionCtx?.useGlobalConfig) {
-            updateData.claudeSessionId = claudeSessionId;
+            // admin-only — 기존 ID가 없을 때만 저장 (체인 앵커 보존)
+            const current = await prisma.session.findUnique({
+              where: { id: sessionId },
+              select: { claudeSessionId: true },
+            });
+            if (!current?.claudeSessionId) {
+              updateData.claudeSessionId = claudeSessionId;
+            }
           } else if (sessionCtx?.userId) {
             updateData.claudeSessionId = `${sessionCtx.userId}:${claudeSessionId}`;
           } else {
@@ -157,19 +194,30 @@ export function handleChatStream(
           where: { id: sessionId },
           data: updateData,
         });
+
+        // 스트림 완료 후 락 자동 해제 — 작업 끝나면 다른 팀원이 바로 사용 가능
+        if (sessionCtx?.userId) {
+          await lockService.releaseLock(sessionId, sessionCtx.userId).catch((err) => {
+            console.warn('[chat-stream] 락 해제 실패 (무시):', err);
+          });
+        }
       } catch (err) {
-        // DB 저장 실패해도 SSE는 정상 종료 — unhandled rejection 방지
         console.error('메시지 저장 실패:', err);
       } finally {
-        // 항상 SSE 스트림 종료 및 Promise 해결
-        reply.raw.end();
+        // 클라이언트 연결 중일 때만 스트림 종료 — 이미 끊긴 경우 스킵
+        if (!clientDisconnected) {
+          try { reply.raw.end(); } catch { /* 이미 닫힘 */ }
+        }
         resolve();
       }
     });
 
-    // 클라이언트 연결 끊김 처리
+    // 클라이언트 연결 끊김 — CLI 프로세스 종료하여 빠르게 정리
+    // 프로세스 kill → emitter 'close' 이벤트 → DB에 부분 응답 저장
     reply.raw.on('close', () => {
-      emitter.removeAllListeners();
+      clientDisconnected = true;
+      clearTimeout(streamTimeout);
+      onAbort?.();
     });
   });
 }

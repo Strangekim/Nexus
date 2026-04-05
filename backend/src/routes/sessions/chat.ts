@@ -17,6 +17,9 @@ import { env } from '../../config/env.js';
 interface ChatParams { id: string }
 interface ChatBody { message: string }
 
+/** 현재 스트리밍 중인 세션 추적 — 동일 세션 동시 스트리밍 방지 */
+const activeStreams = new Set<string>();
+
 /**
  * claudeSessionId를 사용자별로 관리: "userId:claudeSessionId" 형태로 저장
  */
@@ -86,6 +89,7 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['message'],
+        additionalProperties: false,
         properties: { message: { type: 'string', minLength: 1, maxLength: 10000 } },
       },
     },
@@ -110,6 +114,13 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
 
     // 프로젝트 직속 세션(질의용)은 worktree 없이 프로젝트 repoPath를 사용
     const isQuerySession = !session.folderId && !session.worktreePath;
+
+    // 동일 세션 동시 스트리밍 방지 — AI가 응답 중이면 새 요청 거부
+    if (activeStreams.has(sessionId)) {
+      return reply.code(409).send({
+        error: { code: 'STREAM_IN_PROGRESS', message: '이 세션에서 AI가 응답 중입니다. 완료 후 다시 시도해주세요.' },
+      });
+    }
 
     // 채팅 시 자동 락 획득
     try {
@@ -179,6 +190,9 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       }
     }
 
+    // 스트리밍 세션 등록 — 완료 시 해제
+    activeStreams.add(sessionId);
+
     // Claude CLI 실행
     const emitter = await claudeService.executeChat(
       sessionId,
@@ -193,15 +207,22 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
       useGlobalConfig,
     );
 
-    await handleChatStream(emitter, reply, sessionId, {
-      projectId: session.projectId,
-      worktreePath: session.worktreePath,
-      createdBy: session.createdBy,
-      sessionTitle: session.title,
-      projectName: project?.name ?? '',
-      userId,
-      useGlobalConfig,
-    });
+    try {
+      await handleChatStream(emitter, reply, sessionId, {
+        projectId: session.projectId,
+        worktreePath: session.worktreePath,
+        createdBy: session.createdBy,
+        sessionTitle: session.title,
+        projectName: project?.name ?? '',
+        userId,
+        useGlobalConfig,
+      }, () => {
+        // 클라이언트 중단 시 CLI 프로세스 종료
+        claudeService.abort(sessionId);
+      });
+    } finally {
+      activeStreams.delete(sessionId);
+    }
   });
 };
 

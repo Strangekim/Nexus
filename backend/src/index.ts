@@ -20,6 +20,7 @@ import { registerSocketPlugin } from './plugins/socket.js';
 import { socketService } from './services/socket.service.js';
 import { lockService } from './services/lock.service.js';
 import { pruneExpiredPkce } from './lib/oauth-pkce-store.js';
+import { terminalService } from './services/terminal.service.js';
 
 const app = Fastify({ logger: true });
 
@@ -29,9 +30,9 @@ await app.register(errorHandlerPlugin);
 // Rate Limit 플러그인 — 전역 기본 100회/분
 await registerRateLimit(app);
 
-// CORS 설정
+// CORS 설정 — FRONTEND_URL + localhost 모두 허용
 await app.register(cors, {
-  origin: env.FRONTEND_URL,
+  origin: [env.FRONTEND_URL, 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 });
@@ -62,6 +63,15 @@ await app.register(userIdRoute, { prefix: '/api/users' });
 
 // 내부 전용 라우트 (localhost 전용 — Claude CLI 등 서버 내부 호출)
 await app.register(internalRoutes, { prefix: '/api/internal/sessions' });
+
+// 서버 종료 시 인터벌 및 터미널 세션 정리 — ready() 호출 전에 등록
+let lockCheckInterval: ReturnType<typeof setInterval>;
+let pkceCleanupInterval: ReturnType<typeof setInterval>;
+app.addHook('onClose', async () => {
+  clearInterval(lockCheckInterval);
+  clearInterval(pkceCleanupInterval);
+  terminalService.destroyAll();
+});
 
 // 서버 시작
 const start = async () => {
@@ -96,14 +106,14 @@ const start = async () => {
     app.log.info('기존 세션 락 초기화 완료');
 
     // 만료 락 자동 해제 타이머 — 60초마다 15분 초과 락 점검
-    setInterval(() => {
+    lockCheckInterval = setInterval(() => {
       lockService.checkExpiredLocks().catch((err) => {
         app.log.error({ err }, '만료 락 해제 중 오류 발생');
       });
     }, 60_000);
 
     // 만료된 OAuth PKCE 항목 정리 타이머 — 5분마다 실행
-    setInterval(() => {
+    pkceCleanupInterval = setInterval(() => {
       pruneExpiredPkce();
     }, 5 * 60_000);
   } catch (err) {
