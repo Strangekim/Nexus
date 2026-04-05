@@ -6,9 +6,11 @@ import { X, Save, Loader2 } from 'lucide-react';
 import type { OpenFile } from '@/hooks/useCodeViewer';
 import { EditorTabBar } from './EditorTabBar';
 import { MonacoEditorWrapper } from './MonacoEditorWrapper';
+import { FileBrowser } from './FileBrowser';
 
 interface CodeViewerPanelProps {
   isOpen: boolean;
+  projectId: string;
   files: OpenFile[];
   activeIndex: number;
   activeFile: OpenFile | null;
@@ -18,10 +20,12 @@ interface CodeViewerPanelProps {
   onSetActiveFile: (path: string) => void;
   onUpdateContent: (path: string, content: string) => void;
   onSaveFile: (path: string) => void;
+  onBrowserSelect: (path: string) => void;
 }
 
 export function CodeViewerPanel({
   isOpen,
+  projectId,
   files,
   activeIndex,
   activeFile,
@@ -31,6 +35,7 @@ export function CodeViewerPanel({
   onSetActiveFile,
   onUpdateContent,
   onSaveFile,
+  onBrowserSelect,
 }: CodeViewerPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -69,8 +74,8 @@ export function CodeViewerPanel({
         ref={panelRef}
         className="fixed top-0 right-0 h-full z-50 flex flex-col shadow-2xl"
         style={{
-          width: 'min(900px, 55vw)',
-          minWidth: '40vw',
+          width: 'min(1200px, 75vw)',
+          minWidth: '60vw',
           backgroundColor: '#1E1E1E',
           borderLeft: '1px solid #333',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -84,7 +89,7 @@ export function CodeViewerPanel({
         >
           <div className="flex-1 min-w-0">
             <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>
-              {activeFile?.path ?? '파일 에디터'}
+              {activeFile?.path ?? '코드 에디터'}
             </p>
           </div>
 
@@ -123,45 +128,56 @@ export function CodeViewerPanel({
           </button>
         </div>
 
-        {/* 탭 바 */}
-        {files.length > 0 && (
-          <EditorTabBar
-            files={files}
-            activeIndex={activeIndex}
-            onSetActiveFile={onSetActiveFile}
-            onCloseFile={onCloseFile}
-          />
-        )}
+        {/* 본문 — 좌측 파일 탐색기 + 우측 에디터 */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* 좌측 파일 탐색기 */}
+          <div style={{ width: '240px' }} className="shrink-0">
+            <FileBrowser projectId={projectId} onFileSelect={onBrowserSelect} />
+          </div>
 
-        {/* 에디터 본문 */}
-        <div className="flex-1 overflow-hidden">
-          {activeFile?.isLoading && (
-            <div className="flex items-center justify-center h-full gap-2" style={{ color: '#9CA3AF' }}>
-              <Loader2 size={20} className="animate-spin" />
-              <span className="text-sm">불러오는 중...</span>
+          {/* 우측 에디터 영역 */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* 탭 바 */}
+            {files.length > 0 && (
+              <EditorTabBar
+                files={files}
+                activeIndex={activeIndex}
+                onSetActiveFile={onSetActiveFile}
+                onCloseFile={onCloseFile}
+              />
+            )}
+
+            {/* 에디터 본문 */}
+            <div className="flex-1 overflow-hidden">
+              {activeFile?.isLoading && (
+                <div className="flex items-center justify-center h-full gap-2" style={{ color: '#9CA3AF' }}>
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-sm">불러오는 중...</span>
+                </div>
+              )}
+
+              {activeFile?.error && !activeFile.isLoading && (
+                <div className="p-4">
+                  <p className="text-sm" style={{ color: '#E0845E' }}>{activeFile.error}</p>
+                </div>
+              )}
+
+              {activeFile && !activeFile.isLoading && !activeFile.error && (
+                <MonacoEditorWrapper
+                  path={activeFile.path}
+                  content={activeFile.content}
+                  language={activeFile.language}
+                  onChange={(value) => onUpdateContent(activeFile.path, value)}
+                />
+              )}
+
+              {!activeFile && files.length === 0 && (
+                <div className="flex items-center justify-center h-full" style={{ color: '#6B7280' }}>
+                  <p className="text-sm">좌측 탐색기에서 파일을 선택하세요</p>
+                </div>
+              )}
             </div>
-          )}
-
-          {activeFile?.error && !activeFile.isLoading && (
-            <div className="p-4">
-              <p className="text-sm" style={{ color: '#E0845E' }}>{activeFile.error}</p>
-            </div>
-          )}
-
-          {activeFile && !activeFile.isLoading && !activeFile.error && (
-            <MonacoEditorWrapper
-              path={activeFile.path}
-              content={activeFile.content}
-              language={activeFile.language}
-              onChange={(value) => onUpdateContent(activeFile.path, value)}
-            />
-          )}
-
-          {!activeFile && files.length === 0 && (
-            <div className="flex items-center justify-center h-full" style={{ color: '#6B7280' }}>
-              <p className="text-sm">열린 파일이 없습니다</p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </>

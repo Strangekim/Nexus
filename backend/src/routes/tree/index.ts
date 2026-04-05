@@ -9,6 +9,7 @@ import prisma from '../../lib/prisma.js';
 interface TreeQuery { projectId?: string }
 interface FileQuery { path: string; projectId: string }
 interface FileSaveBody { path: string; content: string; projectId: string }
+interface BrowseQuery { path?: string; projectId: string }
 
 const treeRoutes: FastifyPluginAsync = async (fastify) => {
   // GET / — 프로젝트 > 폴더 > 세션 중첩 트리
@@ -64,6 +65,43 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(statusCode).send({ error: { code, message } });
     }
   });
+  // GET /browse — 디렉토리 내용 목록 조회 (파일 탐색기용)
+  fastify.get<{ Querystring: BrowseQuery }>('/browse', {
+    preHandler: [requireAuth],
+    schema: {
+      querystring: {
+        type: 'object',
+        required: ['projectId'],
+        properties: {
+          path: { type: 'string' },
+          projectId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { path: dirPath = '', projectId } = request.query;
+      const userId = request.userId;
+
+      // 프로젝트 멤버십 확인
+      const member = await prisma.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId } },
+      });
+      if (!member) {
+        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '프로젝트 접근 권한이 없습니다' } });
+      }
+
+      const result = await fileService.browseDirectory(projectId, dirPath);
+      return result;
+    } catch (err: unknown) {
+      const error = err as { code?: string; statusCode?: number; message?: string };
+      const statusCode = error.statusCode ?? 500;
+      const code = error.code ?? 'INTERNAL_ERROR';
+      const message = error.message ?? '디렉토리를 조회하는 중 오류가 발생했습니다';
+      return reply.code(statusCode).send({ error: { code, message } });
+    }
+  });
+
   // PUT /file — 파일 내용 저장 (코드 에디터용)
   fastify.put<{ Body: FileSaveBody }>('/file', {
     preHandler: [requireAuth],

@@ -201,9 +201,15 @@ export function useCodeViewer() {
     }
   }, [state.files]);
 
-  /** 전체 패널 닫기 */
+  /** 파일 없이 패널만 열기 — 탐색기에서 파일 선택 전 상태 */
+  const openPanel = useCallback((projectId: string) => {
+    projectIdRef.current = projectId;
+    setState((prev) => ({ ...prev, isOpen: true }));
+  }, []);
+
+  /** 전체 패널 닫기 — 열린 파일은 유지, 패널만 숨김 */
   const closePanel = useCallback(() => {
-    setState({ isOpen: false, files: [], activeIndex: -1 });
+    setState((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
   /** 모든 탭 닫기 */
@@ -222,6 +228,7 @@ export function useCodeViewer() {
     isSaving,
     projectId: projectIdRef.current,
     openFile,
+    openPanel,
     closeFile,
     setActiveFile,
     updateContent,

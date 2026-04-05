@@ -177,4 +177,61 @@ async function saveFile(projectId: string, relativePath: string, content: string
   return { path: normalizedPath, language, size: stat.size };
 }
 
-export const fileService = { readFile, saveFile };
+/** 디렉토리 내용 브라우징 — 파일/폴더 목록 반환 */
+async function browseDirectory(projectId: string, relativePath: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { repoPath: true },
+  });
+
+  if (!project) {
+    throw createHttpError(404, '프로젝트를 찾을 수 없습니다', { code: 'PROJECT_NOT_FOUND' });
+  }
+
+  const repoPath = path.resolve(project.repoPath);
+  const absolutePath = path.resolve(repoPath, relativePath || '.');
+
+  // 경로 트래버설 방어
+  if (!absolutePath.startsWith(repoPath + path.sep) && absolutePath !== repoPath) {
+    throw createHttpError(403, '허용되지 않는 경로입니다', { code: 'FORBIDDEN_PATH' });
+  }
+
+  let stat;
+  try {
+    stat = await fs.stat(absolutePath);
+  } catch {
+    throw createHttpError(404, '디렉토리를 찾을 수 없습니다', { code: 'NOT_FOUND' });
+  }
+
+  if (!stat.isDirectory()) {
+    throw createHttpError(400, '디렉토리가 아닙니다', { code: 'NOT_DIRECTORY' });
+  }
+
+  const entries = await fs.readdir(absolutePath, { withFileTypes: true });
+
+  // 숨김 파일/민감 디렉토리 필터링 + 정렬 (폴더 먼저, 알파벳 순)
+  const filtered = entries.filter((e) => {
+    // node_modules, .git 등 숨기기
+    if (e.name === 'node_modules' || e.name === '.git' || e.name === '.next' || e.name === 'dist') return false;
+    return true;
+  });
+
+  const items = filtered.map((e) => {
+    const childPath = path.relative(repoPath, path.join(absolutePath, e.name));
+    return {
+      name: e.name,
+      path: childPath,
+      type: e.isDirectory() ? 'directory' as const : 'file' as const,
+    };
+  });
+
+  items.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const currentPath = path.relative(repoPath, absolutePath);
+  return { path: currentPath, items };
+}
+
+export const fileService = { readFile, saveFile, browseDirectory };

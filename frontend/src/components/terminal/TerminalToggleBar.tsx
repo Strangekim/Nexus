@@ -1,14 +1,22 @@
 'use client';
-// 터미널 토글 바 — 채팅 하단에 항상 표시되는 얇은 바
+// 터미널 + 에디터 토글 바 — 채팅 하단에 항상 표시되는 얇은 바
 
-import { Terminal } from 'lucide-react';
+import { Terminal, Code2 } from 'lucide-react';
 
 interface TerminalToggleBarProps {
   isOpen: boolean;
   onToggle: () => void;
+  /** 코드 에디터 토글 상태 및 콜백 */
+  editorOpen?: boolean;
+  onEditorToggle?: () => void;
 }
 
-export function TerminalToggleBar({ isOpen, onToggle }: TerminalToggleBarProps) {
+export function TerminalToggleBar({
+  isOpen,
+  onToggle,
+  editorOpen = false,
+  onEditorToggle,
+}: TerminalToggleBarProps) {
   return (
     <div
       className="flex items-center shrink-0"
@@ -41,6 +49,30 @@ export function TerminalToggleBar({ isOpen, onToggle }: TerminalToggleBarProps) 
         <Terminal size={13} />
         <span>&gt;_ 터미널</span>
       </button>
+
+      {/* 코드 에디터 토글 버튼 */}
+      {onEditorToggle && (
+        <button
+          onClick={onEditorToggle}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all"
+          style={{
+            color: editorOpen ? '#2D7D7B' : '#6B7280',
+            backgroundColor: editorOpen ? 'rgba(45,125,123,0.1)' : 'transparent',
+            border: editorOpen ? '1px solid rgba(45,125,123,0.3)' : '1px solid transparent',
+          }}
+          onMouseEnter={(e) => {
+            if (!editorOpen) e.currentTarget.style.backgroundColor = '#E8E5DE';
+          }}
+          onMouseLeave={(e) => {
+            if (!editorOpen) e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+          aria-label="코드 에디터 토글"
+          aria-expanded={editorOpen}
+        >
+          <Code2 size={13} />
+          <span>에디터</span>
+        </button>
+      )}
     </div>
   );
 }

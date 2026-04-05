@@ -32,6 +32,15 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
   const handleTerminalToggle = () => setTerminalOpen((prev) => !prev);
   const handleTerminalClose = () => setTerminalOpen(false);
 
+  // 코드 에디터 패널 토글 — 파일 탐색기 표시/숨김
+  const handleEditorToggle = () => {
+    if (codeViewer.isOpen) {
+      codeViewer.closePanel();
+    } else {
+      codeViewer.openPanel(projectId);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full relative">
       {/* 채팅 영역 — 남은 공간 차지 */}
@@ -43,9 +52,14 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
         />
       </div>
 
-      {/* 터미널 토글 바 — PC에서만 표시 (모바일 숨김) */}
+      {/* 터미널 + 에디터 토글 바 — PC에서만 표시 (모바일 숨김) */}
       <div className="hidden lg:block">
-        <TerminalToggleBar isOpen={terminalOpen} onToggle={handleTerminalToggle} />
+        <TerminalToggleBar
+          isOpen={terminalOpen}
+          onToggle={handleTerminalToggle}
+          editorOpen={codeViewer.isOpen}
+          onEditorToggle={handleEditorToggle}
+        />
       </div>
 
       {/* 터미널 패널 — PC에서만 토글, 모바일에서는 항상 닫힘 */}
@@ -58,9 +72,10 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
         projectId={projectId}
       />
 
-      {/* 코드 에디터 패널 — 파일 선택 시 Monaco 에디터 표시 */}
+      {/* 코드 에디터 패널 — 파일 탐색기 + Monaco 에디터 */}
       <CodeViewerPanel
         isOpen={codeViewer.isOpen}
+        projectId={projectId}
         files={codeViewer.files}
         activeIndex={codeViewer.activeIndex}
         activeFile={codeViewer.activeFile}
@@ -70,6 +85,7 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
         onSetActiveFile={codeViewer.setActiveFile}
         onUpdateContent={codeViewer.updateContent}
         onSaveFile={(path) => codeViewer.saveFile(path)}
+        onBrowserSelect={(path) => codeViewer.openFile(path, projectId)}
       />
     </div>
   );
