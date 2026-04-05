@@ -137,4 +137,44 @@ async function readFile(projectId: string, relativePath: string) {
   return { content, path: normalizedPath, language };
 }
 
-export const fileService = { readFile };
+/** 파일 내용 저장 — readFile과 동일한 보안 검증 수행 */
+async function saveFile(projectId: string, relativePath: string, content: string) {
+  // 프로젝트 조회
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { repoPath: true },
+  });
+
+  if (!project) {
+    throw createHttpError(404, '프로젝트를 찾을 수 없습니다', { code: 'PROJECT_NOT_FOUND' });
+  }
+
+  const repoPath = path.resolve(project.repoPath);
+  // 경로 트래버설 방어: resolve 후 repoPath 하위인지 확인
+  const absolutePath = path.resolve(repoPath, relativePath);
+
+  if (!absolutePath.startsWith(repoPath + path.sep) && absolutePath !== repoPath) {
+    throw createHttpError(403, '허용되지 않는 파일 경로입니다', { code: 'FORBIDDEN_PATH' });
+  }
+
+  // 민감 파일 차단: 상대 경로 및 파일명 기준으로 패턴 검사
+  const normalizedRelative = relativePath.replace(/\\/g, '/');
+  const isSensitive = BLOCKED_PATTERNS.some((pattern) => pattern.test(normalizedRelative));
+  if (isSensitive) {
+    throw createHttpError(403, '접근이 차단된 파일입니다', { code: 'FORBIDDEN_PATH' });
+  }
+
+  // 파일 쓰기 (디렉토리가 존재하지 않으면 재귀 생성)
+  const dir = path.dirname(absolutePath);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(absolutePath, content, 'utf-8');
+
+  // 저장된 파일 정보 반환
+  const stat = await fs.stat(absolutePath);
+  const language = detectLanguage(absolutePath);
+  const normalizedPath = path.relative(repoPath, absolutePath);
+
+  return { path: normalizedPath, language, size: stat.size };
+}
+
+export const fileService = { readFile, saveFile };

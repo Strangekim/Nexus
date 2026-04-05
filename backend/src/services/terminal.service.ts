@@ -21,10 +21,10 @@ interface TerminalEntry {
 }
 
 /** 전체 동시 터미널 세션 최대 수 */
-const MAX_TOTAL_SESSIONS = 10;
+const MAX_TOTAL_SESSIONS = 40;
 
-/** 사용자 1인당 최대 터미널 세션 수 */
-const MAX_USER_SESSIONS = 1;
+/** 사용자 1인당 최대 터미널 세션 수 — 멀티탭 지원 */
+const MAX_USER_SESSIONS = 4;
 
 /** 유휴 세션 자동 종료 시간 — 15분 */
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -170,7 +170,7 @@ async function startTerminal(
   rows = 24,
   runAsUser?: string,
 ): Promise<void> {
-  // 기존 세션이 있으면 먼저 정리
+  // 같은 socket의 기존 세션만 정리 (다른 socket은 별도 탭이므로 유지)
   killTerminal(socket.id);
 
   // 전체 세션 수 제한 확인
@@ -178,12 +178,16 @@ async function startTerminal(
     throw new Error(`전체 터미널 세션 한도(${MAX_TOTAL_SESSIONS}개)를 초과했습니다`);
   }
 
-  // 사용자별 기존 세션 자동 종료 (1인 1세션 정책)
-  for (const [socketId, entry] of ptyMap.entries()) {
-    if (entry.userId === userId) {
-      entry.pty.kill();
-      ptyMap.delete(socketId);
-    }
+  // 사용자별 세션 수 확인 — 초과 시 가장 오래된 세션 종료 (FIFO)
+  const userSessions = Array.from(ptyMap.entries()).filter(
+    ([, entry]) => entry.userId === userId,
+  );
+  if (userSessions.length >= MAX_USER_SESSIONS) {
+    // 가장 오래된 활동 세션부터 제거 (lastActivity 오름차순)
+    userSessions.sort((a, b) => a[1].lastActivity - b[1].lastActivity);
+    const [oldestSocketId, oldestEntry] = userSessions[0];
+    oldestEntry.pty.kill();
+    ptyMap.delete(oldestSocketId);
   }
 
   let session = await spawnWithNodePty(cwd, cols, rows, runAsUser);

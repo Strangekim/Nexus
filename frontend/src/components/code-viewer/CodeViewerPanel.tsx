@@ -1,31 +1,57 @@
 'use client';
-// 코드 뷰어 패널 — 오른쪽에서 슬라이드 인하는 패널, 구문 강조 표시
+// 코드 에디터 패널 — Monaco 기반 멀티 탭 에디터, 오른쪽 슬라이드 패널
 
-import { X, FileCode, Loader2 } from 'lucide-react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useCallback, useEffect, useRef } from 'react';
+import { X, Save, Loader2 } from 'lucide-react';
+import type { OpenFile } from '@/hooks/useCodeViewer';
+import { EditorTabBar } from './EditorTabBar';
+import { MonacoEditorWrapper } from './MonacoEditorWrapper';
 
 interface CodeViewerPanelProps {
   isOpen: boolean;
-  filePath: string | null;
-  content: string | null;
-  language: string | null;
-  isLoading: boolean;
-  error: string | null;
-  onClose: () => void;
+  files: OpenFile[];
+  activeIndex: number;
+  activeFile: OpenFile | null;
+  isSaving: boolean;
+  onClosePanel: () => void;
+  onCloseFile: (path: string) => void;
+  onSetActiveFile: (path: string) => void;
+  onUpdateContent: (path: string, content: string) => void;
+  onSaveFile: (path: string) => void;
 }
 
 export function CodeViewerPanel({
   isOpen,
-  filePath,
-  content,
-  language,
-  isLoading,
-  error,
-  onClose,
+  files,
+  activeIndex,
+  activeFile,
+  isSaving,
+  onClosePanel,
+  onCloseFile,
+  onSetActiveFile,
+  onUpdateContent,
+  onSaveFile,
 }: CodeViewerPanelProps) {
-  /** 파일명만 추출 */
-  const fileName = filePath?.split('/').pop() ?? '';
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  /** Ctrl+S 키보드 단축키 처리 */
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (activeFile?.isDirty) {
+          onSaveFile(activeFile.path);
+        }
+      }
+    },
+    [activeFile, onSaveFile],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleKeyDown]);
 
   return (
     <>
@@ -33,83 +59,108 @@ export function CodeViewerPanel({
       {isOpen && (
         <div
           className="fixed inset-0 z-40"
-          style={{ backgroundColor: 'rgba(26,26,46,0.25)' }}
-          onClick={onClose}
+          style={{ backgroundColor: 'rgba(26,26,46,0.4)' }}
+          onClick={onClosePanel}
         />
       )}
 
       {/* 슬라이드 패널 */}
       <div
+        ref={panelRef}
         className="fixed top-0 right-0 h-full z-50 flex flex-col shadow-2xl"
         style={{
-          width: 'min(600px, 50vw)',
-          backgroundColor: '#FFFFFF',
-          borderLeft: '1px solid #E8E5DE',
+          width: 'min(900px, 55vw)',
+          minWidth: '40vw',
+          backgroundColor: '#1E1E1E',
+          borderLeft: '1px solid #333',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* 헤더 */}
+        {/* 헤더 — 파일 경로 + 저장/닫기 버튼 */}
         <div
-          className="flex items-center gap-3 px-4 py-3 shrink-0"
-          style={{ borderBottom: '1px solid #E8E5DE', backgroundColor: '#F5F5EF' }}
+          className="flex items-center gap-2 px-3 py-2 shrink-0"
+          style={{ backgroundColor: '#252526', borderBottom: '1px solid #333' }}
         >
-          <FileCode size={16} style={{ color: '#2D7D7B' }} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: '#1A1A1A' }}>
-              {fileName || '파일 뷰어'}
+            <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>
+              {activeFile?.path ?? '파일 에디터'}
             </p>
-            {filePath && (
-              <p className="text-xs truncate" style={{ color: '#6B7280' }}>
-                {filePath}
-              </p>
-            )}
           </div>
+
+          {/* 저장 버튼 */}
+          {activeFile?.isDirty && (
+            <button
+              onClick={() => onSaveFile(activeFile.path)}
+              disabled={isSaving}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors"
+              style={{
+                backgroundColor: '#2D7D7B',
+                color: '#fff',
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              title="저장 (Ctrl+S)"
+            >
+              {isSaving ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Save size={12} />
+              )}
+              <span>저장</span>
+            </button>
+          )}
+
+          {/* 패널 닫기 */}
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-md transition-colors shrink-0"
-            style={{ color: '#6B7280' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#E8E5DE')}
+            onClick={onClosePanel}
+            className="p-1 rounded transition-colors"
+            style={{ color: '#9CA3AF' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3C3C3C')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            aria-label="닫기"
+            aria-label="패널 닫기"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* 본문 */}
-        <div className="flex-1 overflow-auto">
-          {isLoading && (
-            <div className="flex items-center justify-center h-full gap-2" style={{ color: '#6B7280' }}>
+        {/* 탭 바 */}
+        {files.length > 0 && (
+          <EditorTabBar
+            files={files}
+            activeIndex={activeIndex}
+            onSetActiveFile={onSetActiveFile}
+            onCloseFile={onCloseFile}
+          />
+        )}
+
+        {/* 에디터 본문 */}
+        <div className="flex-1 overflow-hidden">
+          {activeFile?.isLoading && (
+            <div className="flex items-center justify-center h-full gap-2" style={{ color: '#9CA3AF' }}>
               <Loader2 size={20} className="animate-spin" />
               <span className="text-sm">불러오는 중...</span>
             </div>
           )}
 
-          {error && !isLoading && (
+          {activeFile?.error && !activeFile.isLoading && (
             <div className="p-4">
-              <p className="text-sm" style={{ color: '#E0845E' }}>{error}</p>
+              <p className="text-sm" style={{ color: '#E0845E' }}>{activeFile.error}</p>
             </div>
           )}
 
-          {content && !isLoading && (
-            <SyntaxHighlighter
-              language={language ?? 'text'}
-              style={oneLight}
-              showLineNumbers
-              wrapLongLines={false}
-              customStyle={{
-                margin: 0,
-                borderRadius: 0,
-                fontSize: '13px',
-                lineHeight: '1.6',
-                background: '#FFFFFF',
-                minHeight: '100%',
-              }}
-              lineNumberStyle={{ color: '#9CA3AF', minWidth: '2.5em' }}
-            >
-              {content}
-            </SyntaxHighlighter>
+          {activeFile && !activeFile.isLoading && !activeFile.error && (
+            <MonacoEditorWrapper
+              path={activeFile.path}
+              content={activeFile.content}
+              language={activeFile.language}
+              onChange={(value) => onUpdateContent(activeFile.path, value)}
+            />
+          )}
+
+          {!activeFile && files.length === 0 && (
+            <div className="flex items-center justify-center h-full" style={{ color: '#6B7280' }}>
+              <p className="text-sm">열린 파일이 없습니다</p>
+            </div>
           )}
         </div>
       </div>

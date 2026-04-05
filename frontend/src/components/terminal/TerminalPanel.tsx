@@ -1,9 +1,10 @@
 'use client';
-// 터미널 패널 — 드래그로 높이 조절 가능한 하단 패널
+// 터미널 패널 — 드래그로 높이 조절 가능한 하단 패널 + 멀티탭 지원
 
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { X, Minus } from 'lucide-react';
 import { Terminal } from './Terminal';
+import { TerminalTabBar, type TerminalTab } from './TerminalTabBar';
 
 interface TerminalPanelProps {
   isOpen: boolean;
@@ -16,6 +17,13 @@ interface TerminalPanelProps {
 
 const MIN_HEIGHT = 120;
 const MAX_HEIGHT = 600;
+/** 최대 동시 터미널 탭 수 — 백엔드 MAX_USER_SESSIONS와 일치해야 함 */
+const MAX_TABS = 4;
+
+/** 탭 ID 생성 — 고유 식별자 */
+function genTabId(): string {
+  return `term-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export function TerminalPanel({
   isOpen,
@@ -28,6 +36,45 @@ export function TerminalPanel({
   // 드래그 활성 여부 — 트랜지션 비활성화에 사용
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+
+  // 탭 상태 — 패널 최초 오픈 시 첫 탭 자동 생성
+  const [tabs, setTabs] = useState<TerminalTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string>('');
+
+  // 패널이 열리면 탭이 하나도 없을 때 자동 생성
+  useEffect(() => {
+    if (isOpen && tabs.length === 0) {
+      const firstTab: TerminalTab = { id: genTabId(), label: '터미널 1' };
+      setTabs([firstTab]);
+      setActiveTabId(firstTab.id);
+    }
+  }, [isOpen, tabs.length]);
+
+  /** 새 탭 추가 */
+  const handleNewTab = useCallback(() => {
+    setTabs((prev) => {
+      if (prev.length >= MAX_TABS) return prev;
+      const nextNum = prev.length + 1;
+      const newTab: TerminalTab = { id: genTabId(), label: `터미널 ${nextNum}` };
+      setActiveTabId(newTab.id);
+      return [...prev, newTab];
+    });
+  }, []);
+
+  /** 탭 닫기 */
+  const handleCloseTab = useCallback((id: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === id);
+      if (idx < 0) return prev;
+      const newTabs = prev.filter((t) => t.id !== id);
+      // 활성 탭이 닫힌 경우 인접 탭으로 이동
+      if (id === activeTabId && newTabs.length > 0) {
+        const nextActive = newTabs[Math.min(idx, newTabs.length - 1)];
+        setActiveTabId(nextActive.id);
+      }
+      return newTabs;
+    });
+  }, [activeTabId]);
 
   /** 드래그 시작 — mousedown 이벤트 */
   const handleDragStart = useCallback(
@@ -68,10 +115,9 @@ export function TerminalPanel({
       className="shrink-0 flex flex-col overflow-hidden"
       style={{
         height: isOpen ? `${height}px` : '0px',
-        // 드래그 중에는 트랜지션 비활성화 (성능 최적화)
         transition: isDragging ? 'none' : 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        borderTop: isOpen ? '1px solid #E8E5DE' : 'none',
-        backgroundColor: '#FFFFFF',
+        borderTop: isOpen ? '1px solid #333' : 'none',
+        backgroundColor: '#282A36',
       }}
     >
       {/* 드래그 핸들 + 헤더 */}
@@ -79,28 +125,26 @@ export function TerminalPanel({
         onMouseDown={handleDragStart}
         className="flex items-center justify-between px-3 shrink-0 select-none"
         style={{
-          height: '32px',
+          height: '28px',
           cursor: 'row-resize',
-          backgroundColor: '#F5F5EF',
-          borderBottom: '1px solid #E8E5DE',
+          backgroundColor: '#1A1A2E',
+          borderBottom: '1px solid #333',
           userSelect: 'none',
         }}
       >
-        {/* 드래그 핸들 시각화 */}
         <div className="flex items-center gap-2">
           <Minus size={12} style={{ color: '#9CA3AF' }} />
-          <span className="text-xs font-medium" style={{ color: '#6B7280' }}>
+          <span className="text-xs font-medium" style={{ color: '#9CA3AF' }}>
             터미널
           </span>
         </div>
 
-        {/* 닫기 버튼 */}
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onClose}
           className="p-1 rounded transition-colors"
-          style={{ color: '#6B7280' }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#E8E5DE')}
+          style={{ color: '#9CA3AF' }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3C3C3C')}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           aria-label="터미널 닫기"
         >
@@ -108,10 +152,30 @@ export function TerminalPanel({
         </button>
       </div>
 
-      {/* xterm.js 터미널 영역 */}
+      {/* 탭 바 */}
+      {isOpen && tabs.length > 0 && (
+        <TerminalTabBar
+          tabs={tabs}
+          activeId={activeTabId}
+          onSelect={setActiveTabId}
+          onClose={handleCloseTab}
+          onNew={handleNewTab}
+          maxTabs={MAX_TABS}
+        />
+      )}
+
+      {/* 터미널 영역 — 각 탭의 인스턴스를 유지하되 활성 탭만 표시 */}
       {isOpen && (
-        <div className="flex-1 overflow-hidden">
-          <Terminal sessionId={sessionId} projectId={projectId} />
+        <div className="flex-1 relative overflow-hidden">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className="absolute inset-0"
+              style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
+            >
+              <Terminal sessionId={`${sessionId}:${tab.id}`} projectId={projectId} />
+            </div>
+          ))}
         </div>
       )}
     </div>

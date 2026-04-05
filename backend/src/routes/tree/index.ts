@@ -8,6 +8,7 @@ import prisma from '../../lib/prisma.js';
 // 요청 타입 정의
 interface TreeQuery { projectId?: string }
 interface FileQuery { path: string; projectId: string }
+interface FileSaveBody { path: string; content: string; projectId: string }
 
 const treeRoutes: FastifyPluginAsync = async (fastify) => {
   // GET / — 프로젝트 > 폴더 > 세션 중첩 트리
@@ -60,6 +61,52 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
       const statusCode = error.statusCode ?? 500;
       const code = error.code ?? 'INTERNAL_ERROR';
       const message = error.message ?? '파일을 읽는 중 오류가 발생했습니다';
+      return reply.code(statusCode).send({ error: { code, message } });
+    }
+  });
+  // PUT /file — 파일 내용 저장 (코드 에디터용)
+  fastify.put<{ Body: FileSaveBody }>('/file', {
+    preHandler: [requireAuth],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['path', 'content', 'projectId'],
+        properties: {
+          path: { type: 'string', minLength: 1 },
+          content: { type: 'string', maxLength: 5 * 1024 * 1024 },
+          projectId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { path: filePath, content, projectId } = request.body;
+      const userId = request.userId;
+
+      // 프로젝트 멤버십 확인 — 멤버가 아니면 403 반환
+      const member = await prisma.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId } },
+      });
+      if (!member) {
+        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '프로젝트 접근 권한이 없습니다' } });
+      }
+
+      // 관리자 전용 프로젝트: 관리자 권한 확인
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { isAdminOnly: true },
+      });
+      if (project?.isAdminOnly && member.role !== 'admin') {
+        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '관리자 전용 프로젝트입니다' } });
+      }
+
+      const result = await fileService.saveFile(projectId, filePath, content);
+      return result;
+    } catch (err: unknown) {
+      const error = err as { code?: string; statusCode?: number; message?: string };
+      const statusCode = error.statusCode ?? 500;
+      const code = error.code ?? 'INTERNAL_ERROR';
+      const message = error.message ?? '파일을 저장하는 중 오류가 발생했습니다';
       return reply.code(statusCode).send({ error: { code, message } });
     }
   });

@@ -58,15 +58,18 @@ export function SessionLayout({ sessionId, projectId }: SessionLayoutProps) {
         projectId={projectId}
       />
 
-      {/* 코드 뷰어 패널 — 파일 선택 시 표시 */}
+      {/* 코드 에디터 패널 — 파일 선택 시 Monaco 에디터 표시 */}
       <CodeViewerPanel
         isOpen={codeViewer.isOpen}
-        filePath={codeViewer.filePath}
-        content={codeViewer.content}
-        language={codeViewer.language}
-        isLoading={codeViewer.isLoading}
-        error={codeViewer.error}
-        onClose={codeViewer.closeFile}
+        files={codeViewer.files}
+        activeIndex={codeViewer.activeIndex}
+        activeFile={codeViewer.activeFile}
+        isSaving={codeViewer.isSaving}
+        onClosePanel={codeViewer.closePanel}
+        onCloseFile={codeViewer.closeFile}
+        onSetActiveFile={codeViewer.setActiveFile}
+        onUpdateContent={codeViewer.updateContent}
+        onSaveFile={(path) => codeViewer.saveFile(path)}
       />
     </div>
   );
