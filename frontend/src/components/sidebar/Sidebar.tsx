@@ -15,8 +15,10 @@ import { CreateProjectDialog } from './CreateProjectDialog';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useRealtimeStore } from '@/stores/realtimeStore';
 import { logout } from '@/services/api/auth';
 import { disconnectSocket } from '@/lib/socket';
+import { useQueryClient } from '@tanstack/react-query';
 
 /** PC 고정 사이드바 — lg 이상에서만 렌더 */
 export function Sidebar() {
@@ -148,6 +150,8 @@ function AdminMenu() {
 /** 로그아웃 버튼 — 클릭 시 세션 종료 후 로그인 페이지로 이동 */
 function LogoutButton() {
   const { setUser } = useAuthStore();
+  const resetRealtime = useRealtimeStore((s) => s.reset);
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   async function handleLogout() {
@@ -157,6 +161,9 @@ function LogoutButton() {
       // 로그아웃 API 실패해도 클라이언트 상태는 초기화
     }
     setUser(null);
+    // 유저간 상태 누수 방지 — Zustand + TanStack Query 캐시 완전 초기화
+    resetRealtime();
+    queryClient.clear();
     disconnectSocket();
     router.push('/login');
   }

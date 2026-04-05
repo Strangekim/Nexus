@@ -22,6 +22,8 @@ interface RealtimeState {
   addNotification: (notif: Notification) => void;
   markAsRead: (notifId: string) => void;
   markAllAsRead: () => void;
+  /** 모든 상태 초기화 — 로그아웃 시 호출하여 이전 유저 상태 제거 */
+  reset: () => void;
 }
 
 /** 실시간 상태 전역 스토어 */
@@ -81,4 +83,12 @@ export const useRealtimeStore = create<RealtimeState>((set) => ({
       notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
       unreadCount: 0,
     })),
+
+  /** 모든 상태 초기화 — 로그아웃 시 유저간 데이터 누수 방지 */
+  reset: () => set(() => ({
+    sessionLocks: new Map(),
+    onlineUsers: new Map(),
+    notifications: [],
+    unreadCount: 0,
+  })),
 }));

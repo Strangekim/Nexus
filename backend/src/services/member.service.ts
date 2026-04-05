@@ -53,13 +53,42 @@ async function remove(projectId: string, userId: string) {
 }
 
 /**
- * 프로젝트 접근 검증 — 로그인한 사용자면 모든 프로젝트에 접근 가능
- * 팀 전용 플랫폼이므로 별도 멤버십 체크 없이 인증만 확인한다.
+ * 프로젝트 접근 검증 — 관리자 또는 프로젝트 멤버만 통과
+ * 관리자는 모든 프로젝트 접근 가능, 일반 유저는 ProjectMember 레코드 필요
  */
-async function assertProjectMember(_projectId: string, userId: string): Promise<void> {
-  // 로그인한 사용자인지만 확인
+async function assertProjectMember(projectId: string, userId: string): Promise<void> {
   if (!userId) {
     throw createHttpError(401, '로그인이 필요합니다');
+  }
+
+  // 관리자 역할 확인 — 관리자는 모든 프로젝트 접근 가능
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (!user) {
+    throw createHttpError(401, '유효하지 않은 사용자입니다');
+  }
+  if (user.role === 'admin') return;
+
+  // 프로젝트 존재 여부 + admin-only 확인
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { isAdminOnly: true },
+  });
+  if (!project) {
+    throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
+  }
+  if (project.isAdminOnly) {
+    throw createHttpError(403, '관리자 전용 프로젝트입니다');
+  }
+
+  // 일반 유저는 ProjectMember 레코드 필요
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!member) {
+    throw createHttpError(403, '프로젝트에 접근 권한이 없습니다');
   }
 }
 

@@ -10,6 +10,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, AlertCircle, Link, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ function extractCode(input: string): string {
 export function ClaudeAuthSettings() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const queryClient = useQueryClient();
 
   const [codeInput, setCodeInput] = useState('');
   const [awaitingCode, setAwaitingCode] = useState(false);
@@ -86,6 +88,9 @@ export function ClaudeAuthSettings() {
     try {
       const result = await completeClaudeAuth(code);
       if (result.success) {
+        // 서버에서 최신 유저 정보 재조회 — notifyBrowser 등 다른 설정 덮어쓰기 방지
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+        // 낙관적 업데이트도 함께 (refetch 전 즉시 UI 반영)
         setUser({
           ...user!,
           claudeConnected: true,
@@ -109,6 +114,7 @@ export function ClaudeAuthSettings() {
     setError(null);
     try {
       await disconnectClaude();
+      await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       setUser({ ...user!, claudeConnected: false, claudeSubscriptionType: undefined });
     } catch {
       setError('연동 해제에 실패했습니다.');

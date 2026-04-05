@@ -6,6 +6,7 @@ import { socketService } from '../../services/socket.service.js';
 import { createHttpError } from '../../lib/errors.js';
 import prisma from '../../lib/prisma.js';
 import { memberService } from '../../services/member.service.js';
+import { assertSessionAccess } from './session.handlers.js';
 
 interface IdParams { id: string }
 interface TransferBody { toUserId: string }
@@ -24,6 +25,7 @@ const lockRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
     schema: { params: idParamsSchema },
   }, async (request) => {
+    await assertSessionAccess(request.params.id, request.userId);
     const lockInfo = await lockService.acquireLock(request.params.id, request.userId);
     return lockInfo;
   });
@@ -33,6 +35,7 @@ const lockRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [requireAuth],
     schema: { params: idParamsSchema },
   }, async (request) => {
+    await assertSessionAccess(request.params.id, request.userId);
     const lockInfo = await lockService.releaseLock(request.params.id, request.userId);
     return lockInfo;
   });
@@ -44,6 +47,7 @@ const lockRoutes: FastifyPluginAsync = async (fastify) => {
       params: idParamsSchema,
       body: {
         type: 'object',
+        additionalProperties: false,
         properties: { message: { type: 'string', maxLength: 300 } },
       },
     },
@@ -112,10 +116,12 @@ const lockRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['toUserId'],
+        additionalProperties: false,
         properties: { toUserId: { type: 'string', format: 'uuid' } },
       },
     },
   }, async (request) => {
+    await assertSessionAccess(request.params.id, request.userId);
     const lockInfo = await lockService.transferLock(
       request.params.id,
       request.userId,

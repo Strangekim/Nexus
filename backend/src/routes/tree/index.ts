@@ -3,12 +3,12 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { treeService } from '../../services/tree.service.js';
 import { fileService } from '../../services/file.service.js';
-import prisma from '../../lib/prisma.js';
+import { memberService } from '../../services/member.service.js';
 
 // 요청 타입 정의
 interface TreeQuery { projectId?: string }
 interface FileQuery { path: string; projectId: string }
-interface FileSaveBody { path: string; content: string; projectId: string }
+interface FileSaveBody { path: string; content: string; projectId: string; expectedMtime?: number }
 interface BrowseQuery { path?: string; projectId: string }
 
 const treeRoutes: FastifyPluginAsync = async (fastify) => {
@@ -46,15 +46,8 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const { path, projectId } = request.query;
       const userId = request.userId;
-
-      // 프로젝트 멤버십 확인 — 멤버가 아니면 403 반환
-      const member = await prisma.projectMember.findUnique({
-        where: { projectId_userId: { projectId, userId } },
-      });
-      if (!member) {
-        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '프로젝트 접근 권한이 없습니다' } });
-      }
-
+      // 프로젝트 멤버십 + admin-only 검증
+      await memberService.assertProjectMember(projectId, userId);
       const result = await fileService.readFile(projectId, path);
       return result;
     } catch (err: unknown) {
@@ -82,15 +75,7 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const { path: dirPath = '', projectId } = request.query;
       const userId = request.userId;
-
-      // 프로젝트 멤버십 확인
-      const member = await prisma.projectMember.findUnique({
-        where: { projectId_userId: { projectId, userId } },
-      });
-      if (!member) {
-        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '프로젝트 접근 권한이 없습니다' } });
-      }
-
+      await memberService.assertProjectMember(projectId, userId);
       const result = await fileService.browseDirectory(projectId, dirPath);
       return result;
     } catch (err: unknown) {
@@ -113,32 +98,17 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
           path: { type: 'string', minLength: 1 },
           content: { type: 'string', maxLength: 5 * 1024 * 1024 },
           projectId: { type: 'string', format: 'uuid' },
+          expectedMtime: { type: 'number' },
         },
       },
     },
   }, async (request, reply) => {
     try {
-      const { path: filePath, content, projectId } = request.body;
+      const { path: filePath, content, projectId, expectedMtime } = request.body;
       const userId = request.userId;
-
-      // 프로젝트 멤버십 확인 — 멤버가 아니면 403 반환
-      const member = await prisma.projectMember.findUnique({
-        where: { projectId_userId: { projectId, userId } },
-      });
-      if (!member) {
-        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '프로젝트 접근 권한이 없습니다' } });
-      }
-
-      // 관리자 전용 프로젝트: 관리자 권한 확인
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { isAdminOnly: true },
-      });
-      if (project?.isAdminOnly && member.role !== 'admin') {
-        return reply.code(403).send({ error: { code: 'FORBIDDEN', message: '관리자 전용 프로젝트입니다' } });
-      }
-
-      const result = await fileService.saveFile(projectId, filePath, content);
+      // 프로젝트 멤버십 + admin-only 검증 (assertProjectMember가 처리)
+      await memberService.assertProjectMember(projectId, userId);
+      const result = await fileService.saveFile(projectId, filePath, content, expectedMtime);
       return result;
     } catch (err: unknown) {
       const error = err as { code?: string; statusCode?: number; message?: string };

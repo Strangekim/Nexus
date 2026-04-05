@@ -44,15 +44,50 @@ async function sessionAuthMiddleware(
   }
 }
 
+/** 프로젝트 멤버십 확인 — 관리자 또는 ProjectMember */
+async function canJoinProject(projectId: string, userId: string): Promise<boolean> {
+  if (!projectId || !userId) return false;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { isAdminOnly: true },
+    });
+    if (!project || project.isAdminOnly) return false;
+    const member = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+    });
+    return !!member;
+  } catch {
+    return false;
+  }
+}
+
+/** 세션 접근 권한 확인 — 세션이 속한 프로젝트의 멤버인지 확인 */
+async function canJoinSession(sessionId: string, userId: string): Promise<boolean> {
+  if (!sessionId || !userId) return false;
+  try {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { projectId: true },
+    });
+    if (!session) return false;
+    return canJoinProject(session.projectId, userId);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * 룸 join/leave 이벤트 핸들러 등록
- * - join:project / leave:project → 'project:{id}' 룸
- * - join:session / leave:session → 'session:{id}' 룸
+ * 룸 join/leave 이벤트 핸들러 등록 — 멤버십 검증 후 룸 참가 허용
  */
 function registerRoomHandlers(socket: AuthenticatedSocket): void {
-  // 팀 전용 플랫폼 — 로그인한 사용자는 모든 프로젝트/세션 룸 참가 가능
-  socket.on('join:project', (projectId: string) => {
-    if (projectId) {
+  const userId = socket.data.userId;
+
+  socket.on('join:project', async (projectId: string) => {
+    if (await canJoinProject(projectId, userId)) {
       socket.join(`project:${projectId}`);
     }
   });
@@ -61,8 +96,8 @@ function registerRoomHandlers(socket: AuthenticatedSocket): void {
     if (projectId) socket.leave(`project:${projectId}`);
   });
 
-  socket.on('join:session', (sessionId: string) => {
-    if (sessionId) {
+  socket.on('join:session', async (sessionId: string) => {
+    if (await canJoinSession(sessionId, userId)) {
       socket.join(`session:${sessionId}`);
     }
   });
@@ -72,7 +107,6 @@ function registerRoomHandlers(socket: AuthenticatedSocket): void {
   });
 
   socket.on('disconnect', () => {
-    // Socket.IO가 자동으로 모든 룸에서 제거하므로 명시적 cleanup 불필요
     socket.rooms.clear();
   });
 }

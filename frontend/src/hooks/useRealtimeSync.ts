@@ -65,6 +65,15 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
 
     const onNewNotification = (payload: SocketPayload<Notification>) => {
       handlersRef.current.addNotification(payload.data);
+      // TanStack Query 캐시에도 동기화 — 중복 방지를 위해 ID 체크
+      handlersRef.current.queryClient.setQueryData<Notification[]>(
+        ['notifications'],
+        (old) => {
+          if (!old) return [payload.data];
+          if (old.some((n) => n.id === payload.data.id)) return old;
+          return [payload.data, ...old];
+        },
+      );
     };
 
     const onLockRequest = (payload: SocketPayload<LockRequestPayload>) => {
@@ -76,6 +85,10 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
         createdAt: new Date().toISOString(),
       };
       handlersRef.current.addNotification(notif);
+      handlersRef.current.queryClient.setQueryData<Notification[]>(
+        ['notifications'],
+        (old) => (old ? [notif, ...old] : [notif]),
+      );
     };
 
     const onSessionCreated = () => {
@@ -83,6 +96,10 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
     };
 
     const onSessionDeleted = () => {
+      handlersRef.current.queryClient.invalidateQueries({ queryKey: ['tree'] });
+    };
+
+    const onSessionArchived = () => {
       handlersRef.current.queryClient.invalidateQueries({ queryKey: ['tree'] });
     };
 
@@ -105,6 +122,7 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
     socket.on('notification:new', onNewNotification);
     socket.on('session:created', onSessionCreated);
     socket.on('session:deleted', onSessionDeleted);
+    socket.on('session:archived', onSessionArchived);
     socket.on('session:task-complete', onTaskComplete);
 
     return () => {
@@ -114,6 +132,7 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
       socket.off('notification:new', onNewNotification);
       socket.off('session:created', onSessionCreated);
       socket.off('session:deleted', onSessionDeleted);
+      socket.off('session:archived', onSessionArchived);
       socket.off('session:task-complete', onTaskComplete);
     };
   }, []);

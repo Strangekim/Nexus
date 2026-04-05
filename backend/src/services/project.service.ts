@@ -7,14 +7,20 @@ import path from 'path';
 /** 프로젝트 git 저장소 루트 경로 (Docker: /data/projects) */
 const PROJECTS_BASE = process.env.PROJECTS_DIR || '/home/ubuntu/projects';
 
-/** 프로젝트 목록 조회 (페이지네이션, 관리자 전용 프로젝트 필터링) */
+/** 프로젝트 목록 조회 (페이지네이션) — 관리자는 전체, 일반 유저는 멤버인 프로젝트만 */
 async function findAll(page: number, limit: number, userId?: string) {
-  // 비관리자인 경우 관리자 전용 프로젝트 제외
-  let where = {};
+  let where: Record<string, unknown> = {};
   if (userId) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (!user || user.role !== 'admin') {
-      where = { isAdminOnly: false };
+    if (!user) {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+    if (user.role !== 'admin') {
+      // 일반 유저: admin-only 제외 + 멤버 프로젝트만
+      where = {
+        isAdminOnly: false,
+        projectMembers: { some: { userId } },
+      };
     }
   }
   const skip = (page - 1) * limit;

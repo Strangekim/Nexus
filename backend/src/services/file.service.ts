@@ -134,11 +134,17 @@ async function readFile(projectId: string, relativePath: string) {
   // repoPath 기준 상대 경로로 변환
   const normalizedPath = path.relative(repoPath, absolutePath);
 
-  return { content, path: normalizedPath, language };
+  // mtime을 ms 단위로 반환 — 저장 시 충돌 감지에 사용
+  return { content, path: normalizedPath, language, mtime: stat.mtimeMs };
 }
 
-/** 파일 내용 저장 — readFile과 동일한 보안 검증 수행 */
-async function saveFile(projectId: string, relativePath: string, content: string) {
+/** 파일 내용 저장 — readFile과 동일한 보안 검증 + 선택적 mtime 충돌 감지 */
+async function saveFile(
+  projectId: string,
+  relativePath: string,
+  content: string,
+  expectedMtime?: number,
+) {
   // 프로젝트 조회
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -164,6 +170,24 @@ async function saveFile(projectId: string, relativePath: string, content: string
     throw createHttpError(403, '접근이 차단된 파일입니다', { code: 'FORBIDDEN_PATH' });
   }
 
+  // 충돌 감지 — expectedMtime이 전달됐고 파일이 존재하면 현재 mtime과 비교
+  if (expectedMtime !== undefined) {
+    try {
+      const currentStat = await fs.stat(absolutePath);
+      // 1초 여유 — 파일시스템 시간 해상도 차이 감안
+      if (Math.abs(currentStat.mtimeMs - expectedMtime) > 1000) {
+        throw createHttpError(409, '파일이 외부에서 수정되었습니다. 다시 불러오세요.', {
+          code: 'CONFLICT',
+        });
+      }
+    } catch (err) {
+      const error = err as { code?: string; statusCode?: number };
+      // CONFLICT 에러는 그대로 전파
+      if (error.statusCode === 409) throw err;
+      // 파일이 존재하지 않으면 새 파일 생성으로 간주 — 통과
+    }
+  }
+
   // 파일 쓰기 (디렉토리가 존재하지 않으면 재귀 생성)
   const dir = path.dirname(absolutePath);
   await fs.mkdir(dir, { recursive: true });
@@ -174,7 +198,7 @@ async function saveFile(projectId: string, relativePath: string, content: string
   const language = detectLanguage(absolutePath);
   const normalizedPath = path.relative(repoPath, absolutePath);
 
-  return { path: normalizedPath, language, size: stat.size };
+  return { path: normalizedPath, language, size: stat.size, mtime: stat.mtimeMs };
 }
 
 /** 디렉토리 내용 브라우징 — 파일/폴더 목록 반환 */

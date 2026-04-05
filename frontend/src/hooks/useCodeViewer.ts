@@ -13,6 +13,8 @@ export interface OpenFile {
   isDirty: boolean;
   isLoading: boolean;
   error: string | null;
+  /** 서버에서 받은 파일 mtime — 저장 시 충돌 감지용 */
+  mtime?: number;
 }
 
 interface CodeViewerState {
@@ -83,7 +85,7 @@ export function useCodeViewer() {
 
     // API에서 파일 내용 로드
     try {
-      const data = await apiFetch<{ content: string; language?: string }>(
+      const data = await apiFetch<{ content: string; language?: string; mtime?: number }>(
         `/api/tree/file?path=${encodeURIComponent(path)}&projectId=${projectId}`,
       );
       setState((prev) => {
@@ -95,6 +97,7 @@ export function useCodeViewer() {
           content: data.content,
           originalContent: data.content,
           language: data.language ?? detectLanguage(path),
+          mtime: data.mtime,
           isLoading: false,
         };
         return { ...prev, files: updated };
@@ -176,12 +179,17 @@ export function useCodeViewer() {
         return;
       }
 
-      await apiFetch('/api/tree/file', {
+      const response = await apiFetch<{ mtime?: number }>('/api/tree/file', {
         method: 'PUT',
-        body: JSON.stringify({ path, content: file.content, projectId: pid }),
+        body: JSON.stringify({
+          path,
+          content: file.content,
+          projectId: pid,
+          expectedMtime: file.mtime,
+        }),
       });
 
-      // 저장 성공 — originalContent 갱신, 더티 해제
+      // 저장 성공 — originalContent + mtime 갱신, 더티 해제
       setState((prev) => {
         const idx = prev.files.findIndex((f) => f.path === path);
         if (idx < 0) return prev;
@@ -189,13 +197,27 @@ export function useCodeViewer() {
         updated[idx] = {
           ...updated[idx],
           originalContent: updated[idx].content,
+          mtime: response.mtime,
           isDirty: false,
         };
         return { ...prev, files: updated };
       });
     } catch (err) {
       console.error('[useCodeViewer] 파일 저장 실패:', err);
-      // 저장 실패 시 별도 에러 처리 가능 (현재는 콘솔 로그만)
+      // 409 CONFLICT인 경우 에러 표시 — 사용자에게 재로드 안내
+      const error = err as { status?: number; body?: { error?: { code?: string } } };
+      if (error.status === 409 || error.body?.error?.code === 'CONFLICT') {
+        setState((prev) => {
+          const idx = prev.files.findIndex((f) => f.path === path);
+          if (idx < 0) return prev;
+          const updated = [...prev.files];
+          updated[idx] = {
+            ...updated[idx],
+            error: '파일이 외부에서 수정되었습니다. 탭을 닫고 다시 열어주세요.',
+          };
+          return { ...prev, files: updated };
+        });
+      }
     } finally {
       setIsSaving(false);
     }
