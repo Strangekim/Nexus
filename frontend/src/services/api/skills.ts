@@ -1,4 +1,4 @@
-// Skills API 함수 — CLAUDE.md / .claude/skills.md 읽기·쓰기
+// Skills API 함수 — CLAUDE.md 편집 + Skills 디렉토리 관리 (활성/비활성)
 import { apiFetch } from '@/lib/api';
 
 /** 파일 조회 응답 타입 */
@@ -10,6 +10,21 @@ export interface SkillFileResponse {
 /** 파일 저장 응답 타입 */
 export interface SkillSaveResponse {
   success: boolean;
+}
+
+/** 스킬 요약 정보 */
+export interface SkillSummary {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+/** 스킬 상세 정보 */
+export interface SkillDetail {
+  name: string;
+  description: string;
+  content: string;
+  enabled: boolean;
 }
 
 const base = (projectId: string) => `/api/projects/${projectId}/skills`;
@@ -25,13 +40,44 @@ export const saveClaudeMd = (projectId: string, content: string) =>
     body: JSON.stringify({ content }),
   });
 
-/** skills.md 내용 조회 */
-export const fetchSkillsMd = (projectId: string) =>
-  apiFetch<SkillFileResponse>(`${base(projectId)}/skills-md`);
+/** 스킬 목록 조회 */
+export const fetchSkillsList = (projectId: string) =>
+  apiFetch<{ skills: SkillSummary[] }>(`${base(projectId)}/list`);
 
-/** skills.md 저장 */
-export const saveSkillsMd = (projectId: string, content: string) =>
-  apiFetch<SkillSaveResponse>(`${base(projectId)}/skills-md`, {
+/** 스킬 상세 조회 */
+export const fetchSkillDetail = (projectId: string, name: string) =>
+  apiFetch<SkillDetail>(`${base(projectId)}/list/${encodeURIComponent(name)}`);
+
+/** 새 스킬 생성 */
+export const createSkill = (
+  projectId: string,
+  data: { name: string; description: string; content: string },
+) =>
+  apiFetch<SkillDetail>(`${base(projectId)}/list`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+/** 스킬 내용 수정 */
+export const updateSkill = (
+  projectId: string,
+  name: string,
+  data: { description: string; content: string },
+) =>
+  apiFetch<SkillDetail>(`${base(projectId)}/list/${encodeURIComponent(name)}`, {
     method: 'PUT',
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(data),
+  });
+
+/** 스킬 활성/비활성 토글 */
+export const toggleSkill = (projectId: string, name: string) =>
+  apiFetch<{ name: string; enabled: boolean }>(
+    `${base(projectId)}/list/${encodeURIComponent(name)}/toggle`,
+    { method: 'PATCH' },
+  );
+
+/** 스킬 삭제 */
+export const deleteSkill = (projectId: string, name: string) =>
+  apiFetch<SkillSaveResponse>(`${base(projectId)}/list/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
   });

@@ -14,16 +14,20 @@ export class ApiError extends Error {
   }
 }
 
-/** API 요청 함수 — 모든 요청에 쿠키 포함 */
+/** API 요청 함수 — 모든 요청에 쿠키 포함, body 있을 때만 Content-Type 설정 */
 export async function apiFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
+  // Fastify는 application/json content-type에 빈 body를 허용하지 않음
+  const hasBody = options?.body != null;
+  const headers: Record<string, string> = {};
+  if (hasBody) headers['Content-Type'] = 'application/json';
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...headers,
       ...options?.headers,
     },
   });
