@@ -1,5 +1,6 @@
 'use client';
 // 채팅 전체 패널 — 메시지 목록 + 입력창 + 락 상태 표시
+// 메시지는 useMessages가 유일한 source of truth, useChat은 스트리밍 상태만 관리
 
 import { useEffect, useRef } from 'react';
 import { MessageList } from './MessageList';
@@ -23,8 +24,18 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
+  // 메시지 SSOT — 무한 스크롤 + 낙관적 업데이트
   const {
     messages,
+    hasPreviousPage,
+    isFetchingPreviousPage,
+    fetchPreviousPage,
+    appendOptimisticUserMessage,
+    refreshMessages,
+  } = useMessages(sessionId);
+
+  // 스트리밍 상태만 관리 (메시지 저장/조회는 useMessages가 담당)
+  const {
     streamingText,
     isStreaming,
     toolUses,
@@ -32,16 +43,10 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
     sendMessage,
     retrySend,
     abort,
-    setMessages,
-  } = useChat(sessionId);
-
-  // 서버에서 기존 메시지 로드 (역방향 무한 스크롤)
-  const {
-    data: messagesData,
-    hasPreviousPage,
-    isFetchingPreviousPage,
-    fetchPreviousPage,
-  } = useMessages(sessionId);
+  } = useChat(sessionId, {
+    onOptimisticUserMessage: appendOptimisticUserMessage,
+    onRefreshMessages: refreshMessages,
+  });
 
   // 락 상태 조회 — 타인 락 여부 판단
   const lock = useRealtimeStore((s) => s.sessionLocks.get(sessionId));
@@ -55,12 +60,14 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
   const { data: sessionData } = useSession(sessionId);
   const setLock = useRealtimeStore((s) => s.setLock);
 
-  // 초기 로드 시에만 API 응답으로 락 상태 동기화 — 이후는 Socket.IO 이벤트로 갱신
-  // 5초 폴링이 Socket.IO 상태를 덮어쓰는 레이스 컨디션 방지
-  const lockInitialized = useRef(false);
+  // 초기 로드 시에만 API 응답으로 락 상태 동기화 — sessionData가 실제로 도착한 후에만 플래그 설정
+  // 이후 변경은 Socket.IO 이벤트로 갱신
+  const lockInitializedFor = useRef<string>('');
   useEffect(() => {
-    if (!sessionData || lockInitialized.current) return;
-    lockInitialized.current = true;
+    if (!sessionData) return;
+    // 같은 세션에 대해 이미 초기화됐으면 스킵
+    if (lockInitializedFor.current === sessionId) return;
+    lockInitializedFor.current = sessionId;
     if (sessionData.locker) {
       setLock(sessionId, {
         userId: sessionData.locker.id,
@@ -71,18 +78,6 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
       setLock(sessionId, null);
     }
   }, [sessionData, sessionId, setLock]);
-
-  // 세션 전환 시 이전 세션 메시지 즉시 제거 — key 리마운트와 이중 방어
-  useEffect(() => {
-    setMessages([]);
-  }, [sessionId, setMessages]);
-
-  // 무한 스크롤 페이지들을 하나의 메시지 배열로 병합
-  useEffect(() => {
-    if (!messagesData?.pages) return;
-    const allMessages = messagesData.pages.flatMap((page) => page.messages);
-    setMessages(allMessages);
-  }, [messagesData, setMessages]);
 
   return (
     <div className="flex flex-col h-full">
@@ -96,7 +91,6 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
       >
         <LockStatusBadge sessionId={sessionId} />
         <div className="flex items-center gap-2">
-          {/* 폴더 소속 세션만 merge/archive 버튼 표시 (프로젝트 직속 질의 세션은 제외) */}
           {sessionData && sessionData.folderId && (
             <ArchiveButton
               sessionId={sessionId}
@@ -108,7 +102,7 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         </div>
       </div>
 
-      {/* 메시지 목록 — 상단 스크롤 시 이전 페이지 자동 로드 */}
+      {/* 메시지 목록 */}
       <MessageList
         messages={messages}
         streamingText={streamingText}
@@ -120,7 +114,6 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         onFileClick={onFileClick}
       />
 
-      {/* 에러 표시 — SSE 연결 끊김 시 재시도 버튼 포함 */}
       {error && (
         <div className="max-w-3xl mx-auto w-full px-4 pb-2">
           <div
@@ -139,7 +132,6 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         </div>
       )}
 
-      {/* 입력창 — 타인 락 또는 Claude 미연동 시 비활성화 */}
       <MessageInput
         onSend={sendMessage}
         onAbort={abort}

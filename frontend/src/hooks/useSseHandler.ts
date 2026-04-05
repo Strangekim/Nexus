@@ -66,13 +66,14 @@ export function useSseHandler(deps: SseHandlerDeps) {
           break;
         }
         case 'done': {
-          // 스트리밍 완료 — 무한 스크롤 캐시 초기화 후 마지막 페이지부터 재로드
-          // invalidateQueries는 기존 페이지 번호를 재요청하여 페이지 경계 이동 시 엉뚱한 데이터 표시
+          // 스트리밍 완료 — 스트림 상태만 정리, 캐시 갱신은 onClose 콜백에서 담당
+          // (중복 invalidate 방지)
           textRef.current = '';
           setStreamingText('');
           setIsStreaming(false);
           setToolUses([]);
-          queryClient.resetQueries({ queryKey: ['sessions', sessionId, 'messages'] });
+          // invalidateQueries로 서버 상태 동기화 (resetQueries는 페이지 경계 이동 문제)
+          queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
           break;
         }
       }

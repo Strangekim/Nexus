@@ -208,6 +208,8 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
     );
 
     try {
+      // 클라이언트 연결 끊김은 자연스럽게 허용 (응답은 끝까지 수집되어 DB에 저장)
+      // 명시적 중지는 별도 POST /abort 엔드포인트로만 처리
       await handleChatStream(emitter, reply, sessionId, {
         projectId: session.projectId,
         worktreePath: session.worktreePath,
@@ -216,9 +218,6 @@ const chatRoute: FastifyPluginAsync = async (fastify) => {
         projectName: project?.name ?? '',
         userId,
         useGlobalConfig,
-      }, () => {
-        // 클라이언트 중단 시 CLI 프로세스 종료
-        claudeService.abort(sessionId);
       });
     } finally {
       activeStreams.delete(sessionId);

@@ -1,15 +1,14 @@
 'use client';
-// 채팅 상태 관리 훅 — SSE 스트리밍 + 메시지 관리
+// 채팅 스트리밍 훅 — SSE 스트림 상태만 관리 (메시지는 useMessages가 SSOT)
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSse } from '@/lib/sse';
 import { abortChat } from '@/services/api/messages';
 import { useSseHandler } from './useSseHandler';
-import type { Message, ActiveToolUse } from '@/types/message';
+import type { ActiveToolUse } from '@/types/message';
 
 interface UseChatReturn {
-  messages: Message[];
   streamingText: string;
   isStreaming: boolean;
   toolUses: ActiveToolUse[];
@@ -17,11 +16,17 @@ interface UseChatReturn {
   sendMessage: (text: string) => void;
   retrySend: () => void;
   abort: () => void;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
-export function useChat(sessionId: string): UseChatReturn {
-  const [messages, setMessages] = useState<Message[]>([]);
+/** 낙관적 메시지 추가 콜백 — useMessages와 연동 */
+interface UseChatOptions {
+  onOptimisticUserMessage: (content: string) => void;
+  onRefreshMessages: () => void;
+}
+
+export function useChat(sessionId: string, options: UseChatOptions): UseChatReturn {
+  const { onOptimisticUserMessage, onRefreshMessages } = options;
+
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolUses, setToolUses] = useState<ActiveToolUse[]>([]);
@@ -32,6 +37,8 @@ export function useChat(sessionId: string): UseChatReturn {
   const rafRef = useRef<number | null>(null);
   // 마지막 전송 메시지 저장 — 에러 시 재시도에 사용
   const lastMessageRef = useRef<string>('');
+  // 명시적 중지 플래그 — abort()에서 true, SSE 자연 종료에서는 false
+  const userAbortedRef = useRef<boolean>(false);
   const queryClient = useQueryClient();
 
   /** RAF 배치 업데이트 — 텍스트 렌더 최적화 */
@@ -46,14 +53,14 @@ export function useChat(sessionId: string): UseChatReturn {
     }
   }, [flushText]);
 
-  // 언마운트 시 진행 중인 RAF 취소 — 메모리 누수 방지
+  // 언마운트 시 진행 중인 RAF 취소
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  /** SSE 이벤트 핸들러 (별도 훅으로 분리) */
+  /** SSE 이벤트 핸들러 */
   const handleEvent = useSseHandler({
     sessionId, textRef, scheduleFlush,
     setStreamingText, setIsStreaming,
@@ -65,14 +72,12 @@ export function useChat(sessionId: string): UseChatReturn {
     (text: string) => {
       if (!text.trim() || isStreaming) return;
 
-      // 마지막 전송 메시지 저장 (재시도 대비)
       lastMessageRef.current = text;
+      userAbortedRef.current = false;
 
-      setMessages((prev) => [...prev, {
-        id: Math.random().toString(36).slice(2) + Date.now().toString(36), sessionId,
-        role: 'user', type: 'text',
-        content: text, createdAt: new Date().toISOString(),
-      }]);
+      // 낙관적 유저 메시지 추가 (useMessages 캐시에 직접 삽입)
+      onOptimisticUserMessage(text);
+
       setError(null);
       setIsStreaming(true);
       textRef.current = '';
@@ -90,42 +95,44 @@ export function useChat(sessionId: string): UseChatReturn {
           onError: () => {
             setError('연결이 끊겼습니다. 응답이 이미 완료되었을 수 있습니다.');
             setIsStreaming(false);
-            // 연결 끊김 시에도 백엔드는 응답을 DB에 저장하므로 쿼리 재요청
-            queryClient.resetQueries({ queryKey: ['sessions', sessionId, 'messages'] });
-            // 5초 후 에러 메시지 자동 제거 — 메시지가 정상 로드되면 에러가 남아있을 필요 없음
+            // 에러 시에만 서버 상태 재조회 (낙관적 메시지와 실제 DB 동기화)
+            onRefreshMessages();
             setTimeout(() => setError(null), 5000);
           },
           onClose: () => {
             setIsStreaming(false);
-            // done 이벤트 미수신 대비 안전장치 — 쿼리 갱신
-            queryClient.resetQueries({ queryKey: ['sessions', sessionId, 'messages'] });
+            // 자연 close 시에만 새로고침 — 유저 중단(abort)은 done 이벤트에서 처리
+            if (!userAbortedRef.current) {
+              onRefreshMessages();
+            }
           },
         },
         controller.signal,
       );
     },
-    [sessionId, isStreaming, handleEvent, queryClient],
+    [sessionId, isStreaming, handleEvent, onOptimisticUserMessage, onRefreshMessages],
   );
 
-  /** 마지막 메시지 재시도 — SSE 에러 후 동일 내용 재전송 */
+  /** 마지막 메시지 재시도 */
   const retrySend = useCallback(() => {
     if (lastMessageRef.current) {
       sendMessage(lastMessageRef.current);
     }
   }, [sendMessage]);
 
-  /** 스트리밍 중단 — 클라이언트 fetch 취소 + 백엔드 CLI 프로세스 종료 */
+  /** 명시적 중지 — 유저가 중지 버튼 클릭 */
   const abort = useCallback(() => {
+    userAbortedRef.current = true;
     abortRef.current?.abort();
     setIsStreaming(false);
-    // 백엔드에 CLI 프로세스 종료 요청 — 실패해도 무시 (이미 종료됐을 수 있음)
+    // 백엔드 CLI 프로세스 종료 요청
     abortChat(sessionId).catch(() => {});
-    // 중단 후 DB에 저장된 부분 응답 반영
-    queryClient.resetQueries({ queryKey: ['sessions', sessionId, 'messages'] });
-  }, [sessionId, queryClient]);
+    // 명시적 중지 시에만 캐시 리셋 (부분 응답 반영)
+    onRefreshMessages();
+  }, [sessionId, onRefreshMessages]);
 
   return {
-    messages, streamingText, isStreaming,
-    toolUses, error, sendMessage, retrySend, abort, setMessages,
+    streamingText, isStreaming, toolUses, error,
+    sendMessage, retrySend, abort,
   };
 }

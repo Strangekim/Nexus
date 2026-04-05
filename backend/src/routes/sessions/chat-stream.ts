@@ -42,8 +42,6 @@ export function handleChatStream(
   reply: FastifyReply,
   sessionId: string,
   sessionCtx?: SessionContext,
-  /** 클라이언트 중단 시 CLI 프로세스 종료 콜백 */
-  onAbort?: () => void,
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     let fullText = '';

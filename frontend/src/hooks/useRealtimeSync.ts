@@ -1,9 +1,9 @@
 // WebSocket 이벤트 → Zustand 스토어 매핑 훅
-// 프로젝트/세션 룸 자동 join/leave 처리
+// 단일 구독 로직 — 핸들러를 ref에 저장하여 불필요한 재구독 방지
 
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '@/lib/socket';
 import { useRealtimeStore } from '@/stores/realtimeStore';
@@ -13,13 +13,10 @@ import { playNotificationSound } from '@/lib/notification-sound';
 import type { LockInfo, OnlineUser, Notification, SocketPayload } from '@/types/realtime';
 
 interface UseRealtimeSyncOptions {
-  /** 현재 프로젝트 ID — 변경 시 룸 재참가 */
   projectId?: string;
-  /** 현재 세션 ID — 변경 시 룸 재참가 */
   sessionId?: string;
 }
 
-/** session:lock-request WebSocket 이벤트 페이로드 */
 interface LockRequestPayload {
   sessionId: string;
   sessionTitle: string;
@@ -28,7 +25,6 @@ interface LockRequestPayload {
   message: string;
 }
 
-/** task-complete WebSocket 이벤트 페이로드 */
 interface TaskCompletePayload {
   sessionId: string;
   sessionTitle: string;
@@ -37,37 +33,41 @@ interface TaskCompletePayload {
   notifySound: boolean;
 }
 
-/** Socket.IO 이벤트를 구독하고 Zustand 스토어와 TanStack Query를 동기화 */
+/**
+ * Socket.IO 이벤트를 구독하고 Zustand 스토어와 TanStack Query를 동기화.
+ * 이벤트 리스너는 컴포넌트 마운트 시 1회만 등록 (의존성 변경 시 재구독 안 함).
+ * 프로젝트/세션 룸 join/leave는 별도 effect로 분리.
+ */
 export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions = {}) {
   const queryClient = useQueryClient();
-  const { setLock, setOnlineUsers, addNotification } = useRealtimeStore();
+  const setLock = useRealtimeStore((s) => s.setLock);
+  const setOnlineUsers = useRealtimeStore((s) => s.setOnlineUsers);
+  const addNotification = useRealtimeStore((s) => s.addNotification);
   const user = useAuthStore((s) => s.user);
 
-  // 이벤트 핸들러 — 소켓 이벤트 → 스토어 업데이트
-  const handleLockUpdated = useCallback(
-    (payload: SocketPayload<{ sessionId: string; lock: LockInfo | null }>) => {
-      setLock(payload.data.sessionId, payload.data.lock);
-    },
-    [setLock],
-  );
+  // 현재 값을 ref에 보관 — useEffect 재실행 없이 최신 값 참조
+  const handlersRef = useRef({
+    setLock, setOnlineUsers, addNotification, queryClient, user,
+  });
+  handlersRef.current = { setLock, setOnlineUsers, addNotification, queryClient, user };
 
-  const handleOnlineUsers = useCallback(
-    (payload: SocketPayload<{ projectId: string; users: OnlineUser[] }>) => {
-      setOnlineUsers(payload.data.projectId, payload.data.users);
-    },
-    [setOnlineUsers],
-  );
+  // 단일 구독 — 마운트 시 1회만 실행, 언마운트 시 정리
+  useEffect(() => {
+    const socket = getSocket();
 
-  const handleNewNotification = useCallback(
-    (payload: SocketPayload<Notification>) => {
-      addNotification(payload.data);
-    },
-    [addNotification],
-  );
+    const onLockUpdated = (payload: SocketPayload<{ sessionId: string; lock: LockInfo | null }>) => {
+      handlersRef.current.setLock(payload.data.sessionId, payload.data.lock);
+    };
 
-  // 세션 락 요청 이벤트 → 알림으로 변환하여 스토어에 추가
-  const handleLockRequest = useCallback(
-    (payload: SocketPayload<LockRequestPayload>) => {
+    const onOnlineUsers = (payload: SocketPayload<{ projectId: string; users: OnlineUser[] }>) => {
+      handlersRef.current.setOnlineUsers(payload.data.projectId, payload.data.users);
+    };
+
+    const onNewNotification = (payload: SocketPayload<Notification>) => {
+      handlersRef.current.addNotification(payload.data);
+    };
+
+    const onLockRequest = (payload: SocketPayload<LockRequestPayload>) => {
       const notif: Notification = {
         id: `lr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         type: 'lock_request',
@@ -75,100 +75,69 @@ export function useRealtimeSync({ projectId, sessionId }: UseRealtimeSyncOptions
         isRead: false,
         createdAt: new Date().toISOString(),
       };
-      addNotification(notif);
-    },
-    [addNotification],
-  );
+      handlersRef.current.addNotification(notif);
+    };
 
-  const handleSessionCreated = useCallback(() => {
-    // 세션 목록/트리 캐시 무효화
-    queryClient.invalidateQueries({ queryKey: ['tree'] });
-  }, [queryClient]);
+    const onSessionCreated = () => {
+      handlersRef.current.queryClient.invalidateQueries({ queryKey: ['tree'] });
+    };
 
-  const handleSessionDeleted = useCallback(() => {
-    // 세션 목록/트리 캐시 무효화
-    queryClient.invalidateQueries({ queryKey: ['tree'] });
-  }, [queryClient]);
+    const onSessionDeleted = () => {
+      handlersRef.current.queryClient.invalidateQueries({ queryKey: ['tree'] });
+    };
 
-  // 작업 완료 이벤트 — 브라우저 푸시 알림 + 알림음 처리
-  const handleTaskComplete = useCallback(
-    (payload: SocketPayload<TaskCompletePayload>) => {
+    const onTaskComplete = (payload: SocketPayload<TaskCompletePayload>) => {
       const { sessionTitle, projectName, notifyBrowser, notifySound } = payload.data;
-
-      // 유저 설정과 서버에서 내려온 설정 모두 true인 경우에만 동작
-      const browserEnabled = notifyBrowser && (user?.notifyBrowser ?? true);
-      const soundEnabled = notifySound && (user?.notifySound ?? true);
-
+      const u = handlersRef.current.user;
+      const browserEnabled = notifyBrowser && (u?.notifyBrowser ?? true);
+      const soundEnabled = notifySound && (u?.notifySound ?? true);
       if (browserEnabled) {
-        showNotification(
-          `작업 완료 — ${projectName}`,
-          `"${sessionTitle}" 세션의 작업이 완료되었습니다.`,
-        );
+        showNotification(`작업 완료 — ${projectName}`, `"${sessionTitle}" 세션의 작업이 완료되었습니다.`);
       }
-
       if (soundEnabled) {
         playNotificationSound();
       }
-    },
-    [user],
-  );
+    };
 
-  // 이벤트 구독/해제
-  useEffect(() => {
-    const socket = getSocket();
-
-    socket.on('session:lock-updated', handleLockUpdated);
-    socket.on('session:lock-request', handleLockRequest);
-    socket.on('project:online-users', handleOnlineUsers);
-    socket.on('notification:new', handleNewNotification);
-    socket.on('session:created', handleSessionCreated);
-    socket.on('session:deleted', handleSessionDeleted);
-    socket.on('session:task-complete', handleTaskComplete);
+    socket.on('session:lock-updated', onLockUpdated);
+    socket.on('session:lock-request', onLockRequest);
+    socket.on('project:online-users', onOnlineUsers);
+    socket.on('notification:new', onNewNotification);
+    socket.on('session:created', onSessionCreated);
+    socket.on('session:deleted', onSessionDeleted);
+    socket.on('session:task-complete', onTaskComplete);
 
     return () => {
-      socket.off('session:lock-updated', handleLockUpdated);
-      socket.off('session:lock-request', handleLockRequest);
-      socket.off('project:online-users', handleOnlineUsers);
-      socket.off('notification:new', handleNewNotification);
-      socket.off('session:created', handleSessionCreated);
-      socket.off('session:deleted', handleSessionDeleted);
-      socket.off('session:task-complete', handleTaskComplete);
+      socket.off('session:lock-updated', onLockUpdated);
+      socket.off('session:lock-request', onLockRequest);
+      socket.off('project:online-users', onOnlineUsers);
+      socket.off('notification:new', onNewNotification);
+      socket.off('session:created', onSessionCreated);
+      socket.off('session:deleted', onSessionDeleted);
+      socket.off('session:task-complete', onTaskComplete);
     };
-  }, [handleLockUpdated, handleLockRequest, handleOnlineUsers, handleNewNotification, handleSessionCreated, handleSessionDeleted, handleTaskComplete]);
+  }, []);
 
-  // 프로젝트 룸 자동 join/leave — 소켓 연결 상태 확인 후 emit
+  // 프로젝트 룸 join/leave — projectId 변경 시에만 실행
   useEffect(() => {
     if (!projectId) return;
-
     const socket = getSocket();
-
     const joinProject = () => socket.emit('join:project', projectId);
-
-    if (socket.connected) {
-      joinProject();
-    }
+    if (socket.connected) joinProject();
     socket.on('connect', joinProject);
-
     return () => {
       socket.off('connect', joinProject);
       socket.emit('leave:project', projectId);
     };
   }, [projectId]);
 
-  // 세션 룸 자동 join/leave — 소켓 연결 상태 확인 후 emit
+  // 세션 룸 join/leave — sessionId 변경 시에만 실행
   useEffect(() => {
     if (!sessionId) return;
-
     const socket = getSocket();
-
     const joinSession = () => socket.emit('join:session', sessionId);
-
-    // 이미 연결된 상태면 즉시 join, 아니면 연결 후 join
-    if (socket.connected) {
-      joinSession();
-    }
+    if (socket.connected) joinSession();
     socket.on('connect', joinSession);
-
     return () => {
       socket.off('connect', joinSession);
       socket.emit('leave:session', sessionId);
