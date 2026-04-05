@@ -6,6 +6,7 @@ import { requireAuth } from '../../plugins/auth.js';
 import { memberService } from '../../services/member.service.js';
 import { projectService } from '../../services/project.service.js';
 import { skillsService } from '../../services/skills.service.js';
+import { claudeAuthService } from '../../services/claude-auth.service.js';
 import { createHttpError } from '../../lib/errors.js';
 
 interface IdParams { id: string }
@@ -76,6 +77,23 @@ const skillsRoutes: FastifyPluginAsync = async (fastify) => {
     const repoPath = await getRepoPath(id);
     await writeFile(join(repoPath, 'CLAUDE.md'), request.body.content, 'utf-8');
     return { success: true };
+  });
+
+  // GET /:id/skills/global — 전역 스킬 목록 (유저 글로벌 + 플러그인, 읽기 전용)
+  fastify.get<{ Params: IdParams }>('/:id/skills/global', {
+    preHandler: [requireAuth],
+    schema: { params: idParamsSchema },
+  }, async (request) => {
+    const { id } = request.params;
+    await memberService.assertProjectMember(id, request.userId);
+    // admin-only 프로젝트: 서버 ~/.claude 사용, 일반: 유저별 config dir
+    const project = await projectService.findById(id);
+    if (!project) throw createHttpError(404, '프로젝트를 찾을 수 없습니다');
+    const configDir = project.isAdminOnly
+      ? (process.env.HOME ?? '/home/ubuntu') + '/.claude'
+      : claudeAuthService.getConfigDir(request.userId);
+    const skills = await skillsService.listGlobalSkills(configDir);
+    return { skills };
   });
 
   // GET /:id/skills/list — 모든 스킬 목록 (활성 + 비활성)

@@ -6,6 +6,7 @@ import {
   fetchClaudeMd,
   saveClaudeMd,
   fetchSkillsList,
+  fetchGlobalSkills,
   fetchSkillDetail,
   createSkill,
   updateSkill,
@@ -41,6 +42,16 @@ export function useSkillsList(projectId: string) {
     queryFn: () => fetchSkillsList(projectId),
     enabled: !!projectId,
     staleTime: 30_000,
+  });
+}
+
+/** 전역 스킬 조회 훅 — 읽기 전용, 자주 안 바뀌므로 캐시 길게 유지 */
+export function useGlobalSkills(projectId: string) {
+  return useQuery({
+    queryKey: ['skills', 'global', projectId],
+    queryFn: () => fetchGlobalSkills(projectId),
+    enabled: !!projectId,
+    staleTime: 5 * 60_000,
   });
 }
 

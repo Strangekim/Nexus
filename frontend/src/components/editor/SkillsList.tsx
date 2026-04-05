@@ -2,10 +2,11 @@
 // Skills 관리 UI — 카드 목록 + 활성/비활성 토글 + 편집/생성/삭제 모달
 
 import { useState } from 'react';
-import { Plus, Power, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Power, Edit2, Trash2, Loader2, Package, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   useSkillsList,
+  useGlobalSkills,
   useToggleSkill,
   useDeleteSkill,
 } from '@/hooks/useSkills';
@@ -17,6 +18,7 @@ interface SkillsListProps {
 
 export function SkillsList({ projectId }: SkillsListProps) {
   const { data, isLoading } = useSkillsList(projectId);
+  const { data: globalData } = useGlobalSkills(projectId);
   const toggleMutation = useToggleSkill(projectId);
   const deleteMutation = useDeleteSkill(projectId);
 
@@ -28,6 +30,7 @@ export function SkillsList({ projectId }: SkillsListProps) {
 
   const skills = data?.skills ?? [];
   const enabledCount = skills.filter((s) => s.enabled).length;
+  const globalSkills = globalData?.skills ?? [];
 
   const handleToggle = (name: string) => {
     toggleMutation.mutate(name);
@@ -144,6 +147,58 @@ export function SkillsList({ projectId }: SkillsListProps) {
             </div>
           </div>
         ))}
+
+        {/* 전역 자동 적용 스킬 섹션 — 읽기 전용 */}
+        {globalSkills.length > 0 && (
+          <div className="mt-6 pt-4 border-t" style={{ borderColor: '#E8E5DE' }}>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <Globe className="size-3.5" style={{ color: '#6B6B7B' }} />
+              <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6B6B7B' }}>
+                자동 적용 스킬 ({globalSkills.length})
+              </h3>
+            </div>
+            <p className="text-xs mb-2 px-1" style={{ color: '#9CA3AF' }}>
+              전역 설치된 스킬 — 모든 세션에서 자동 사용됨
+            </p>
+            <div className="space-y-1.5">
+              {globalSkills.map((skill) => (
+                <div
+                  key={`${skill.source}-${skill.pluginName ?? ''}-${skill.name}`}
+                  className="flex items-start gap-3 p-2.5 rounded-md border"
+                  style={{ background: '#F5F5EF', borderColor: '#E8E5DE' }}
+                >
+                  <Package className="size-4 mt-0.5 flex-shrink-0" style={{ color: '#6B6B7B' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <span className="font-mono text-sm font-semibold" style={{ color: '#1A1A2E' }}>
+                        {skill.name}
+                      </span>
+                      {skill.source === 'plugin' && skill.pluginName && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                          style={{ background: '#2D7D7B20', color: '#2D7D7B' }}
+                        >
+                          {skill.pluginName}
+                        </span>
+                      )}
+                      {skill.source === 'user' && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                          style={{ background: '#E0845E20', color: '#E0845E' }}
+                        >
+                          전역
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs" style={{ color: '#6B6B7B' }}>
+                      {skill.description || '(설명 없음)'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 편집 모달 */}

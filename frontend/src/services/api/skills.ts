@@ -27,6 +27,14 @@ export interface SkillDetail {
   enabled: boolean;
 }
 
+/** 전역 스킬 (읽기 전용) */
+export interface GlobalSkill {
+  name: string;
+  description: string;
+  source: 'user' | 'plugin';
+  pluginName?: string;
+}
+
 const base = (projectId: string) => `/api/projects/${projectId}/skills`;
 
 /** CLAUDE.md 내용 조회 */
@@ -43,6 +51,10 @@ export const saveClaudeMd = (projectId: string, content: string) =>
 /** 스킬 목록 조회 */
 export const fetchSkillsList = (projectId: string) =>
   apiFetch<{ skills: SkillSummary[] }>(`${base(projectId)}/list`);
+
+/** 전역 스킬 목록 조회 (읽기 전용) */
+export const fetchGlobalSkills = (projectId: string) =>
+  apiFetch<{ skills: GlobalSkill[] }>(`${base(projectId)}/global`);
 
 /** 스킬 상세 조회 */
 export const fetchSkillDetail = (projectId: string, name: string) =>

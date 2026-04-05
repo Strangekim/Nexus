@@ -186,6 +186,95 @@ async function deleteSkill(repoPath: string, name: string) {
   await rm(resolved.dir, { recursive: true, force: true });
 }
 
+/** 전역 스킬 정보 (읽기 전용) — 소스(user/plugin)와 플러그인명 포함 */
+export interface GlobalSkill {
+  name: string;
+  description: string;
+  source: 'user' | 'plugin';
+  /** plugin source일 때 플러그인 이름 (예: 'frontend-design') */
+  pluginName?: string;
+}
+
+/** 전역 디렉토리의 유저 스킬 조회 */
+async function readUserGlobalSkills(configDir: string): Promise<GlobalSkill[]> {
+  const skillsRoot = join(configDir, 'skills');
+  try {
+    const entries = await readdir(skillsRoot, { withFileTypes: true });
+    const skills: GlobalSkill[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const content = await readFile(join(skillsRoot, entry.name, 'SKILL.md'), 'utf-8');
+        const meta = parseFrontmatter(content);
+        skills.push({
+          name: entry.name,
+          description: meta.description ?? '',
+          source: 'user',
+        });
+      } catch { /* SKILL.md 없음 */ }
+    }
+    return skills;
+  } catch { return []; }
+}
+
+/** 플러그인 스킬 조회 — plugins/cache 내부의 SKILL.md 재귀 탐색 */
+async function readPluginSkills(configDir: string): Promise<GlobalSkill[]> {
+  const pluginsCache = join(configDir, 'plugins', 'cache');
+  const skills: GlobalSkill[] = [];
+  try {
+    const marketplaces = await readdir(pluginsCache, { withFileTypes: true });
+    for (const mp of marketplaces) {
+      if (!mp.isDirectory()) continue;
+      const mpPath = join(pluginsCache, mp.name);
+      const plugins = await readdir(mpPath, { withFileTypes: true });
+      for (const plugin of plugins) {
+        if (!plugin.isDirectory()) continue;
+        // 각 플러그인에서 버전 디렉토리 → skills/ 탐색
+        const pluginPath = join(mpPath, plugin.name);
+        const versions = await readdir(pluginPath, { withFileTypes: true });
+        for (const version of versions) {
+          if (!version.isDirectory()) continue;
+          const skillsDir = join(pluginPath, version.name, 'skills');
+          try {
+            const skillDirs = await readdir(skillsDir, { withFileTypes: true });
+            for (const sd of skillDirs) {
+              if (!sd.isDirectory()) continue;
+              try {
+                const content = await readFile(join(skillsDir, sd.name, 'SKILL.md'), 'utf-8');
+                const meta = parseFrontmatter(content);
+                skills.push({
+                  name: sd.name,
+                  description: meta.description ?? '',
+                  source: 'plugin',
+                  pluginName: plugin.name,
+                });
+              } catch { /* SKILL.md 없음 */ }
+            }
+          } catch { /* skills/ 없음 */ }
+        }
+      }
+    }
+  } catch { /* plugins/cache 없음 */ }
+  return skills;
+}
+
+/** 전역 스킬 목록 반환 — 유저 글로벌 + 플러그인 스킬 (읽기 전용) */
+async function listGlobalSkills(configDir: string): Promise<GlobalSkill[]> {
+  const [userSkills, pluginSkills] = await Promise.all([
+    readUserGlobalSkills(configDir),
+    readPluginSkills(configDir),
+  ]);
+  // 중복 제거 — 같은 이름이면 user 우선
+  const seen = new Set<string>();
+  const result: GlobalSkill[] = [];
+  for (const skill of [...userSkills, ...pluginSkills]) {
+    if (seen.has(skill.name)) continue;
+    seen.add(skill.name);
+    result.push(skill);
+  }
+  return result.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export const skillsService = {
   listSkills,
   getSkill,
@@ -193,4 +282,5 @@ export const skillsService = {
   updateSkill,
   toggleSkill,
   deleteSkill,
+  listGlobalSkills,
 };
