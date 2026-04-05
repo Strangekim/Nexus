@@ -66,12 +66,13 @@ export function useSseHandler(deps: SseHandlerDeps) {
           break;
         }
         case 'done': {
-          // 로컬 낙관적 업데이트 제거 — invalidateQueries로 서버 상태를 신뢰
+          // 스트리밍 완료 — 무한 스크롤 캐시 초기화 후 마지막 페이지부터 재로드
+          // invalidateQueries는 기존 페이지 번호를 재요청하여 페이지 경계 이동 시 엉뚱한 데이터 표시
           textRef.current = '';
           setStreamingText('');
           setIsStreaming(false);
           setToolUses([]);
-          queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
+          queryClient.resetQueries({ queryKey: ['sessions', sessionId, 'messages'] });
           break;
         }
       }

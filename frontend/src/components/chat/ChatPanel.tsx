@@ -1,7 +1,7 @@
 'use client';
 // 채팅 전체 패널 — 메시지 목록 + 입력창 + 락 상태 표시
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { SessionCreatorBanner } from './SessionCreatorBanner';
@@ -35,8 +35,13 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
     setMessages,
   } = useChat(sessionId);
 
-  // 서버에서 기존 메시지 로드
-  const { data } = useMessages(sessionId);
+  // 서버에서 기존 메시지 로드 (역방향 무한 스크롤)
+  const {
+    data: messagesData,
+    hasPreviousPage,
+    isFetchingPreviousPage,
+    fetchPreviousPage,
+  } = useMessages(sessionId);
 
   // 락 상태 조회 — 타인 락 여부 판단
   const lock = useRealtimeStore((s) => s.sessionLocks.get(sessionId));
@@ -50,9 +55,12 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
   const { data: sessionData } = useSession(sessionId);
   const setLock = useRealtimeStore((s) => s.setLock);
 
-  // API 응답에서 초기 락 상태를 store에 동기화 (소켓 이벤트 수신 전에도 표시)
+  // 초기 로드 시에만 API 응답으로 락 상태 동기화 — 이후는 Socket.IO 이벤트로 갱신
+  // 5초 폴링이 Socket.IO 상태를 덮어쓰는 레이스 컨디션 방지
+  const lockInitialized = useRef(false);
   useEffect(() => {
-    if (!sessionData) return;
+    if (!sessionData || lockInitialized.current) return;
+    lockInitialized.current = true;
     if (sessionData.locker) {
       setLock(sessionId, {
         userId: sessionData.locker.id,
@@ -64,11 +72,17 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
     }
   }, [sessionData, sessionId, setLock]);
 
+  // 세션 전환 시 이전 세션 메시지 즉시 제거 — key 리마운트와 이중 방어
   useEffect(() => {
-    if (data?.messages) {
-      setMessages(data.messages);
-    }
-  }, [data, setMessages]);
+    setMessages([]);
+  }, [sessionId, setMessages]);
+
+  // 무한 스크롤 페이지들을 하나의 메시지 배열로 병합
+  useEffect(() => {
+    if (!messagesData?.pages) return;
+    const allMessages = messagesData.pages.flatMap((page) => page.messages);
+    setMessages(allMessages);
+  }, [messagesData, setMessages]);
 
   return (
     <div className="flex flex-col h-full">
@@ -94,12 +108,15 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         </div>
       </div>
 
-      {/* 메시지 목록 */}
+      {/* 메시지 목록 — 상단 스크롤 시 이전 페이지 자동 로드 */}
       <MessageList
         messages={messages}
         streamingText={streamingText}
         isStreaming={isStreaming}
         toolUses={toolUses}
+        hasPreviousPage={hasPreviousPage}
+        isFetchingPreviousPage={isFetchingPreviousPage}
+        onLoadPrevious={fetchPreviousPage}
         onFileClick={onFileClick}
       />
 

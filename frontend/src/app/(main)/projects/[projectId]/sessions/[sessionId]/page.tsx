@@ -8,5 +8,6 @@ export default async function SessionPage({
   params: Promise<{ projectId: string; sessionId: string }>;
 }) {
   const { projectId, sessionId } = await params;
-  return <SessionLayout sessionId={sessionId} projectId={projectId} />;
+  // key로 세션 전환 시 컴포넌트 리마운트 강제 — 이전 세션 상태 잔존 방지
+  return <SessionLayout key={sessionId} sessionId={sessionId} projectId={projectId} />;
 }
