@@ -167,7 +167,187 @@ test.describe('세션 격리', () => {
 });
 
 // ────────────────────────────────────────────
-// 5. 404 처리
+// 5. 코드 에디터 (Monaco + 파일 브라우저)
+// ────────────────────────────────────────────
+test.describe('코드 에디터', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('에디터 토글 → 파일 탐색기 표시', async ({ page }) => {
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const sessions = await getSessionsList(page, projectId);
+    if (sessions.length === 0) return;
+
+    await page.goto(`/projects/${projectId}/sessions/${sessions[0].id}`);
+    await page.waitForTimeout(1000);
+
+    // 에디터 토글 버튼 클릭
+    const editorBtn = page.getByRole('button', { name: '코드 에디터 토글' });
+    await expect(editorBtn).toBeVisible({ timeout: 5000 });
+    await editorBtn.click();
+    await page.waitForTimeout(1000);
+
+    // 파일 탐색기 헤더 확인
+    await expect(page.getByText('탐색기')).toBeVisible({ timeout: 5000 });
+    // 빈 상태 메시지 or 파일 목록 확인
+    await expect(page.getByText(/좌측 탐색기에서 파일을 선택하세요|로딩 중/)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('파일 클릭 → Monaco 에디터에서 열림', async ({ page }) => {
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const sessions = await getSessionsList(page, projectId);
+    if (sessions.length === 0) return;
+
+    await page.goto(`/projects/${projectId}/sessions/${sessions[0].id}`);
+    await page.waitForTimeout(1000);
+
+    await page.getByRole('button', { name: '코드 에디터 토글' }).click();
+    await page.waitForTimeout(2000);
+
+    // CLAUDE.md 파일 버튼 찾아서 클릭 (프로젝트 루트에 존재)
+    const fileBtn = page.getByRole('button', { name: /CLAUDE\.md/ }).first();
+    if (await fileBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await fileBtn.click();
+      await page.waitForTimeout(2000);
+      // Monaco 에디터가 로드됐는지 — 라인 번호 나타남
+      await expect(page.locator('.monaco-editor').first()).toBeVisible({ timeout: 10000 });
+    }
+  });
+
+  test('패널 닫기 → 상태 유지', async ({ page }) => {
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const sessions = await getSessionsList(page, projectId);
+    if (sessions.length === 0) return;
+
+    await page.goto(`/projects/${projectId}/sessions/${sessions[0].id}`);
+    await page.waitForTimeout(1000);
+
+    const toggleBtn = page.getByRole('button', { name: '코드 에디터 토글' });
+    await toggleBtn.click();
+    await page.waitForTimeout(500);
+    // 열림 상태 확인
+    await expect(page.getByText('탐색기')).toBeVisible();
+
+    // 닫기
+    await page.getByRole('button', { name: '패널 닫기' }).click();
+    await page.waitForTimeout(500);
+    // 숨겨짐
+    await expect(page.getByText('탐색기')).not.toBeVisible();
+  });
+});
+
+// ────────────────────────────────────────────
+// 6. 터미널 멀티탭
+// ────────────────────────────────────────────
+test.describe('터미널', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('터미널 토글 → 탭 생성', async ({ page }) => {
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const sessions = await getSessionsList(page, projectId);
+    if (sessions.length === 0) return;
+
+    await page.goto(`/projects/${projectId}/sessions/${sessions[0].id}`);
+    await page.waitForTimeout(1000);
+
+    await page.getByRole('button', { name: '터미널 토글' }).click();
+    await page.waitForTimeout(1500);
+
+    // 첫 번째 탭 자동 생성 확인
+    await expect(page.getByText('터미널 1').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('새 탭 추가 → 탭 2개', async ({ page }) => {
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const sessions = await getSessionsList(page, projectId);
+    if (sessions.length === 0) return;
+
+    await page.goto(`/projects/${projectId}/sessions/${sessions[0].id}`);
+    await page.waitForTimeout(1000);
+
+    await page.getByRole('button', { name: '터미널 토글' }).click();
+    await page.waitForTimeout(1500);
+
+    // + 버튼 클릭
+    await page.getByRole('button', { name: '새 터미널' }).click();
+    await page.waitForTimeout(1500);
+
+    // 두 번째 탭 확인
+    await expect(page.getByText('터미널 2')).toBeVisible({ timeout: 5000 });
+  });
+});
+
+// ────────────────────────────────────────────
+// 7. API - 파일 브라우저
+// ────────────────────────────────────────────
+test.describe('파일 브라우저 API', () => {
+  test('GET /api/tree/browse → 파일 목록', async ({ page }) => {
+    await login(page);
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const cookie = await getCookieStr(page);
+
+    const res = await page.request.get(`/api/tree/browse?projectId=${projectId}`, {
+      headers: { Cookie: cookie },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.items).toBeDefined();
+    expect(Array.isArray(body.items)).toBe(true);
+    // 민감 디렉토리 필터링 확인
+    const names = body.items.map((i: { name: string }) => i.name);
+    expect(names).not.toContain('.git');
+    expect(names).not.toContain('node_modules');
+  });
+
+  test('경로 트래버설 차단 → 403', async ({ page }) => {
+    await login(page);
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const cookie = await getCookieStr(page);
+
+    const res = await page.request.get(`/api/tree/browse?projectId=${projectId}&path=../../etc`, {
+      headers: { Cookie: cookie },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('파일 읽기 → 200', async ({ page }) => {
+    await login(page);
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const cookie = await getCookieStr(page);
+
+    const res = await page.request.get(
+      `/api/tree/file?projectId=${projectId}&path=${encodeURIComponent('CLAUDE.md')}`,
+      { headers: { Cookie: cookie } },
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.content).toBeDefined();
+    expect(body.language).toBe('markdown');
+  });
+
+  test('민감 파일 읽기 차단 → 403', async ({ page }) => {
+    await login(page);
+    const projectId = await getProjectId(page);
+    if (!projectId) return;
+    const cookie = await getCookieStr(page);
+
+    const res = await page.request.get(
+      `/api/tree/file?projectId=${projectId}&path=${encodeURIComponent('.env')}`,
+      { headers: { Cookie: cookie } },
+    );
+    expect(res.status()).toBe(403);
+  });
+});
+
+// ────────────────────────────────────────────
+// 8. 404 처리
 // ────────────────────────────────────────────
 test.describe('존재하지 않는 페이지', () => {
   test('잘못된 세션 ID → 에러 또는 빈 상태', async ({ page }) => {
