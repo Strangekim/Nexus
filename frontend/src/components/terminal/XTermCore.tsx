@@ -8,7 +8,6 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { io, Socket } from 'socket.io-client';
 import { Search, X, ChevronUp, ChevronDown } from 'lucide-react';
@@ -119,17 +118,9 @@ export default function XTermCore({ sessionId, projectId }: XTermCoreProps) {
       searchAddonRef.current = searchAddon;
 
       term.open(containerRef.current);
+      // 기본 canvas 렌더러 사용 — WebGL 애드온은 dispose 타이밍 이슈로 제외
 
-      // WebGL 렌더러 시도 — 실패 시 기본 canvas 렌더러 사용
-      try {
-        const webglAddon = new WebglAddon();
-        webglAddon.onContextLoss(() => webglAddon.dispose());
-        term.loadAddon(webglAddon);
-      } catch {
-        // WebGL 미지원 환경 — 무시
-      }
-
-      requestAnimationFrame(() => fitAddon.fit());
+      requestAnimationFrame(() => { try { fitAddon.fit(); } catch { /* 컨테이너 크기 0 — 무시 */ } });
 
       // Socket.IO /terminal 네임스페이스 연결
       const socket: Socket = io(`${API_URL}/terminal`, { withCredentials: true });
@@ -153,21 +144,26 @@ export default function XTermCore({ sessionId, projectId }: XTermCoreProps) {
       term.onData((data: string) => socket.emit('terminal:input', data));
 
       const resizeObserver = new ResizeObserver(() => {
-        fitAddon.fit();
-        socket.emit('terminal:resize', { cols: term.cols, rows: term.rows });
+        // 컨테이너가 숨겨져 있거나 크기가 0이면 fit 스킵 (탭 전환 시 발생)
+        if (!containerRef.current || containerRef.current.clientWidth === 0) return;
+        try {
+          fitAddon.fit();
+          socket.emit('terminal:resize', { cols: term.cols, rows: term.rows });
+        } catch { /* fit 실패 — 무시 */ }
       });
       resizeObserver.observe(containerRef.current);
 
       cleanupRef.current = () => {
-        socket.off('connect');
-        socket.off('terminal:output');
-        socket.off('terminal:ready');
-        socket.off('terminal:error');
-        socket.off('terminal:timeout');
-        resizeObserver.disconnect();
+        // 각 단계별로 try-catch — 한 단계 실패해도 나머지 정리 진행
+        try { socket.off('connect'); } catch { /* 무시 */ }
+        try { socket.off('terminal:output'); } catch { /* 무시 */ }
+        try { socket.off('terminal:ready'); } catch { /* 무시 */ }
+        try { socket.off('terminal:error'); } catch { /* 무시 */ }
+        try { socket.off('terminal:timeout'); } catch { /* 무시 */ }
+        try { resizeObserver.disconnect(); } catch { /* 무시 */ }
         searchAddonRef.current = null;
-        term.dispose();
-        socket.disconnect();
+        try { term.dispose(); } catch { /* 이미 disposed — 무시 */ }
+        try { socket.disconnect(); } catch { /* 무시 */ }
       };
     }
 
