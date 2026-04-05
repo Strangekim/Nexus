@@ -33,14 +33,14 @@ const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const ptyMap = new Map<string, TerminalEntry>();
 
 // 1분마다 유휴 세션 정리
-setInterval(() => {
+const idleCheckInterval = setInterval(() => {
   const now = Date.now();
   for (const [socketId, entry] of ptyMap.entries()) {
     if (now - entry.lastActivity > IDLE_TIMEOUT_MS) {
       entry.pty.kill();
       ptyMap.delete(socketId);
       // 클라이언트에 타임아웃 이벤트 전송
-      entry.socket.emit('terminal:timeout', { message: '유휴 상태로 인해 터미널 세션이 종료되었습니다 (15분)' });
+      try { entry.socket.emit('terminal:timeout', { message: '유휴 상태로 인해 터미널 세션이 종료되었습니다 (15분)' }); } catch { /* 소켓 이미 닫힘 */ }
     }
   }
 }, 60_000);
@@ -65,10 +65,28 @@ function resolveCommand(runAsUser?: string): { cmd: string; args: string[] } {
 
 /**
  * cwd 경로에서 명령 인젝션에 악용될 수 있는 특수문자를 이스케이프
- * 큰따옴표, 백슬래시, $, 백틱을 백슬래시로 이스케이프
+ * 큰따옴표, 백슬래시, $, 백틱, 개행문자를 제거/이스케이프
  */
 function escapeCwd(cwd: string): string {
-  return cwd.replace(/["\\`$]/g, (c) => `\\${c}`);
+  // 개행/캐리지리턴 완전 제거 — 명령 인젝션 벡터 차단
+  return cwd
+    .replace(/[\r\n]/g, '')
+    .replace(/["\\`$]/g, (c) => `\\${c}`);
+}
+
+/** PTY에 전달할 안전한 환경변수 — 민감 정보 제외 */
+function getSafeEnv(): Record<string, string> {
+  const safe: Record<string, string> = {};
+  const ALLOWED_KEYS = [
+    'HOME', 'USER', 'SHELL', 'PATH', 'LANG', 'LC_ALL', 'TERM',
+    'COLORTERM', 'EDITOR', 'VISUAL', 'PAGER',
+    'XDG_RUNTIME_DIR', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME',
+  ];
+  for (const key of ALLOWED_KEYS) {
+    if (process.env[key]) safe[key] = process.env[key]!;
+  }
+  safe.TERM = 'xterm-256color';
+  return safe;
 }
 
 /** node-pty로 bash 스폰 */
@@ -89,7 +107,7 @@ async function spawnWithNodePty(
     rows,
     // sudo -i 없이 직접 실행 시 cwd 옵션으로 안전하게 전달 (셸 인젝션 없음)
     cwd: runAsUser ? undefined : cwd,
-    env: { ...process.env } as Record<string, string>,
+    env: getSafeEnv(),
   });
 
   // runAsUser 시 시작 디렉토리를 수동 이동 — 특수문자 이스케이프 후 큰따옴표로 감싸기
@@ -116,7 +134,7 @@ function spawnWithChildProcess(
 
   const child = spawn(cmd, [...args], {
     cwd: runAsUser ? undefined : cwd,
-    env: { ...process.env, TERM: 'xterm-256color' },
+    env: getSafeEnv(),
     stdio: ['pipe', 'pipe', 'pipe'],
   }) as ChildProcessWithoutNullStreams;
 
@@ -212,10 +230,20 @@ function getActiveCount(): number {
   return ptyMap.size;
 }
 
+/** 모든 터미널 종료 및 인터벌 정리 — 서버 shutdown 시 호출 */
+function destroyAll(): void {
+  clearInterval(idleCheckInterval);
+  for (const [socketId, entry] of ptyMap.entries()) {
+    entry.pty.kill();
+    ptyMap.delete(socketId);
+  }
+}
+
 export const terminalService = {
   startTerminal,
   writeInput,
   resizeTerminal,
   killTerminal,
   getActiveCount,
+  destroyAll,
 };

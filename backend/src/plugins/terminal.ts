@@ -22,19 +22,29 @@ interface TerminalResizePayload {
   rows: number;
 }
 
-/** 프로젝트 repoPath 조회 (없거나 유효하지 않으면 홈 디렉토리) */
-async function resolveWorkingDir(projectId?: string): Promise<string> {
-  const fallback = process.env.HOME ?? '/tmp';
-  if (!projectId) return fallback;
+/** 프로젝트 멤버십 검증 후 repoPath 반환 — 비멤버는 null 반환 */
+async function resolveWorkingDir(
+  projectId: string | undefined,
+  userId: string,
+): Promise<{ cwd: string; isAdminOnly: boolean } | null> {
+  if (!projectId) return null;
 
   try {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { repoPath: true },
+      select: { repoPath: true, isAdminOnly: true },
     });
-    return project?.repoPath ?? fallback;
+    if (!project) return null;
+
+    // 프로젝트 멤버십 검증
+    const membership = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+    });
+    if (!membership) return null;
+
+    return { cwd: project.repoPath, isAdminOnly: project.isAdminOnly };
   } catch {
-    return fallback;
+    return null;
   }
 }
 
@@ -94,17 +104,45 @@ export function registerTerminalNamespace(io: SocketIOServer): void {
       try {
         const { projectId, cols = 80, rows = 24 } = payload ?? {};
 
-        const cwd = await resolveWorkingDir(projectId);
+        // cols/rows 범위 제한 — 과도한 값으로 인한 메모리 낭비 방지
+        const safeCols = Math.min(Math.max(cols, 10), 500);
+        const safeRows = Math.min(Math.max(rows, 5), 200);
+
+        // 프로젝트 멤버십 검증 — 비멤버 또는 프로젝트 미지정 시 차단
+        const resolved = await resolveWorkingDir(projectId, userId);
+        if (!resolved) {
+          socket.emit('terminal:error', {
+            error: { code: 'FORBIDDEN', message: '프로젝트에 접근 권한이 없습니다' },
+          });
+          return;
+        }
+
         const user = await resolveUser(userId);
+        if (!user) {
+          socket.emit('terminal:error', {
+            error: { code: 'UNAUTHORIZED', message: '사용자 정보를 확인할 수 없습니다' },
+          });
+          return;
+        }
 
-        // admin → ubuntu 유저로 실행 (전체 접근)
-        // 일반 멤버 → linuxUser로 실행 (프로젝트 디렉토리 제한)
-        const isAdmin = user?.role === 'admin';
-        const runAsUser = isAdmin ? undefined : (user?.linuxUser ?? undefined);
+        const isAdmin = user.role === 'admin';
 
-        await terminalService.startTerminal(socket, userId, cwd, cols, rows, runAsUser);
+        // [CRITICAL] 일반 멤버는 linuxUser가 설정되어 있어야 터미널 사용 가능
+        // linuxUser 없으면 백엔드 프로세스 유저로 실행되므로 차단
+        if (!isAdmin && !user.linuxUser) {
+          socket.emit('terminal:error', {
+            error: { code: 'NO_LINUX_USER', message: '터미널 사용을 위해 관리자에게 Linux 계정 할당을 요청하세요' },
+          });
+          return;
+        }
+
+        // admin → 백엔드 프로세스 유저로 실행 (ubuntu)
+        // 일반 멤버 → linuxUser로 격리 실행
+        const runAsUser = isAdmin ? undefined : user.linuxUser!;
+
+        await terminalService.startTerminal(socket, userId, resolved.cwd, safeCols, safeRows, runAsUser);
         socket.emit('terminal:ready', {
-          cwd,
+          cwd: resolved.cwd,
           user: runAsUser ?? 'ubuntu',
           restricted: !isAdmin,
         });
@@ -116,15 +154,19 @@ export function registerTerminalNamespace(io: SocketIOServer): void {
       }
     });
 
-    socket.on('terminal:input', (data: string) => {
+    socket.on('terminal:input', (data: unknown) => {
+      // 입력 타입 + 크기 검증 — 비문자열 또는 과도한 입력 차단
+      if (typeof data !== 'string' || data.length > 64 * 1024) return;
       terminalService.writeInput(socket.id, data);
     });
 
     socket.on('terminal:resize', (payload: TerminalResizePayload) => {
       const { cols, rows } = payload ?? {};
-      if (cols > 0 && rows > 0) {
-        terminalService.resizeTerminal(socket.id, cols, rows);
-      }
+      if (!cols || !rows || cols <= 0 || rows <= 0) return;
+      // 범위 제한 — 과도한 값 방지
+      const safeCols = Math.min(cols, 500);
+      const safeRows = Math.min(rows, 200);
+      terminalService.resizeTerminal(socket.id, safeCols, safeRows);
     });
 
     socket.on('disconnect', () => {

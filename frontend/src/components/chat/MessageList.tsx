@@ -38,28 +38,75 @@ export function MessageList({
   /** 이전 페이지 로드 후 스크롤 위치 복원용 */
   const prevScrollHeightRef = useRef<number>(0);
   const isRestoringScroll = useRef(false);
+  /** 사용자가 하단에 고정되어 있는지 추적 — 스크롤 감지로 업데이트 */
+  const stickToBottomRef = useRef(true);
 
-  // 메시지 변경 시 하단 스크롤 — DOM 렌더 완료 후 실행 보장
-  useEffect(() => {
-    if (isRestoringScroll.current) return;
-    // requestAnimationFrame으로 DOM 업데이트 후 스크롤
-    requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  /** 하단 스크롤 헬퍼 — scrollTop을 직접 조작하여 확실하게 내림 */
+  const scrollToBottom = useCallback((smooth = false) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
     });
-  }, [messages.length, streamingText, toolUses.length]);
+  }, []);
 
-  // 초기 로드 시 하단 스크롤 — messages 내용 자체가 바뀔 때 (세션 전환, 데이터 도착)
+  // 사용자 스크롤 감지 — 하단에서 100px 이내면 고정 모드 유지
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      if (isRestoringScroll.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      stickToBottomRef.current = distanceFromBottom < 100;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // MutationObserver로 DOM 변경(마크다운 렌더, 이미지 로드 등) 감지하여 자동 하단 스크롤
+  // 비동기 렌더링으로 인한 높이 변화에도 대응
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      if (isRestoringScroll.current || !stickToBottomRef.current) return;
+      scrollToBottom(false);
+    });
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [scrollToBottom]);
+
+  // 메시지 변경 시 즉시 하단 스크롤 (사용자가 하단 근처일 때만)
+  useEffect(() => {
+    if (isRestoringScroll.current || !stickToBottomRef.current) return;
+    scrollToBottom(false);
+  }, [messages.length, streamingText, toolUses.length, scrollToBottom]);
+
+  // 세션 전환/초기 로드 시 강제 하단 스크롤 — 마지막 메시지 ID 변경 감지
   const prevMsgIdRef = useRef<string>('');
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      prevMsgIdRef.current = '';
+      stickToBottomRef.current = true;
+      return;
+    }
     const lastId = messages[messages.length - 1]?.id ?? '';
     if (lastId === prevMsgIdRef.current) return;
+    const isNewBatch = prevMsgIdRef.current === '';
     prevMsgIdRef.current = lastId;
-    // 짧은 딜레이로 렌더 완료 보장
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-    }, 100);
-  }, [messages]);
+    // 새 세션 진입 시 stickToBottom 강제 true + 즉시 스크롤
+    if (isNewBatch) {
+      stickToBottomRef.current = true;
+      // 여러 타이밍에 스크롤 시도 — 비동기 렌더 대응
+      scrollToBottom(false);
+      requestAnimationFrame(() => scrollToBottom(false));
+      setTimeout(() => scrollToBottom(false), 100);
+      setTimeout(() => scrollToBottom(false), 300);
+    }
+  }, [messages, scrollToBottom]);
 
   // 이전 페이지 로드 후 스크롤 위치 복원 — 새 콘텐츠가 위에 삽입되어도 현재 보는 위치 유지
   useEffect(() => {

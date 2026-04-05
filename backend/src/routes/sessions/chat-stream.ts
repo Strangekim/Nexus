@@ -212,12 +212,12 @@ export function handleChatStream(
       }
     });
 
-    // 클라이언트 연결 끊김 — CLI 프로세스 종료하여 빠르게 정리
-    // 프로세스 kill → emitter 'close' 이벤트 → DB에 부분 응답 저장
+    // 클라이언트 연결 끊김 — SSE 전송만 중단, CLI는 계속 실행
+    // 이유: 탭 이동/새로고침 등 비명시적 끊김에서도 응답 완료 후 DB에 저장되도록
+    // 명시적 중지는 POST /abort 엔드포인트로만 처리 (onAbort는 호출하지 않음)
     reply.raw.on('close', () => {
       clientDisconnected = true;
-      clearTimeout(streamTimeout);
-      onAbort?.();
+      // streamTimeout은 유지 — CLI hang 방지 목적이므로 필요
     });
   });
 }
