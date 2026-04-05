@@ -46,3 +46,11 @@ Thumbs.db
 backend/src/generated/
 .claude/
 .playwright-mcp/
+
+# Playwright 테스트 아티팩트
+/test-results/
+/playwright-report/
+# 루트 디렉토리 임시 스크린샷 (테스트/디버깅용)
+/*.png
+/*.jpg
+/*.jpeg
