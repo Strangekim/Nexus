@@ -3,6 +3,7 @@
 // 메시지는 useMessages가 유일한 source of truth, useChat은 스트리밍 상태만 관리
 
 import { useEffect, useRef } from 'react';
+import { Loader2 } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { SessionCreatorBanner } from './SessionCreatorBanner';
@@ -32,6 +33,7 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
     fetchPreviousPage,
     appendOptimisticUserMessage,
     refreshMessages,
+    isLoading: isMessagesLoading,
   } = useMessages(sessionId);
 
   // 스트리밍 상태만 관리 (메시지 저장/조회는 useMessages가 담당)
@@ -102,17 +104,23 @@ export function ChatPanel({ sessionId, creator, onFileClick }: ChatPanelProps) {
         </div>
       </div>
 
-      {/* 메시지 목록 */}
-      <MessageList
-        messages={messages}
-        streamingText={streamingText}
-        isStreaming={isStreaming}
-        toolUses={toolUses}
-        hasPreviousPage={hasPreviousPage}
-        isFetchingPreviousPage={isFetchingPreviousPage}
-        onLoadPrevious={fetchPreviousPage}
-        onFileClick={onFileClick}
-      />
+      {/* 메시지 목록 — 초기 로딩 시 스피너 표시 */}
+      {isMessagesLoading && messages.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="size-6 animate-spin" style={{ color: '#2D7D7B' }} />
+        </div>
+      ) : (
+        <MessageList
+          messages={messages}
+          streamingText={streamingText}
+          isStreaming={isStreaming}
+          toolUses={toolUses}
+          hasPreviousPage={hasPreviousPage}
+          isFetchingPreviousPage={isFetchingPreviousPage}
+          onLoadPrevious={fetchPreviousPage}
+          onFileClick={onFileClick}
+        />
+      )}
 
       {error && (
         <div className="max-w-3xl mx-auto w-full px-4 pb-2">

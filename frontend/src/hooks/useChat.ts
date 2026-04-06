@@ -53,12 +53,19 @@ export function useChat(sessionId: string, options: UseChatOptions): UseChatRetu
     }
   }, [flushText]);
 
-  // 언마운트 시 진행 중인 RAF 취소
+  // 언마운트 플래그 — 페이지 이탈 후 콜백 실행 방지
+  const unmountedRef = useRef(false);
+
+  // 언마운트 시 진행 중인 SSE 정리 + RAF 취소
   useEffect(() => {
+    unmountedRef.current = false;
     return () => {
+      unmountedRef.current = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      // 진행 중인 SSE 연결 정리 — 페이지 이탈 시 stale 콜백 방지
+      abortRef.current?.abort();
     };
-  }, []);
+  }, [sessionId]);
 
   /** SSE 이벤트 핸들러 */
   const handleEvent = useSseHandler({
@@ -93,15 +100,16 @@ export function useChat(sessionId: string, options: UseChatOptions): UseChatRetu
         {
           onEvent: handleEvent,
           onError: () => {
+            // 언마운트 후에는 상태 업데이트 스킵
+            if (unmountedRef.current) return;
             setError('연결이 끊겼습니다. 응답이 이미 완료되었을 수 있습니다.');
             setIsStreaming(false);
-            // 에러 시에만 서버 상태 재조회 (낙관적 메시지와 실제 DB 동기화)
             onRefreshMessages();
             setTimeout(() => setError(null), 5000);
           },
           onClose: () => {
+            if (unmountedRef.current) return;
             setIsStreaming(false);
-            // 자연 close 시에만 새로고침 — 유저 중단(abort)은 done 이벤트에서 처리
             if (!userAbortedRef.current) {
               onRefreshMessages();
             }
