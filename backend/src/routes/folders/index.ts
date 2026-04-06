@@ -49,6 +49,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['name'],
+        additionalProperties: false,
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 200 },
           description: { type: 'string' },
@@ -83,6 +84,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
       params: folderParamsSchema,
       body: {
         type: 'object',
+        additionalProperties: false,
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 200 },
           description: { type: 'string' },

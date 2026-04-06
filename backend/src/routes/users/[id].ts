@@ -55,11 +55,12 @@ const userIdRoute: FastifyPluginAsync = async (fastify) => {
       params: idParamsSchema,
       body: {
         type: 'object',
+        additionalProperties: false,
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 100 },
           role: { type: 'string', enum: ['admin', 'member'] },
           authMode: { type: 'string', enum: ['subscription', 'api'] },
-          linuxUser: { type: 'string', maxLength: 50 },
+          linuxUser: { type: 'string', pattern: '^[a-z0-9_-]{1,32}$' },
           newPassword: { type: 'string', minLength: 6 },
         },
       },

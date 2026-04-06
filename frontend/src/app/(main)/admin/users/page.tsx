@@ -16,7 +16,6 @@ export default function AdminUsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const { data: users = [], isLoading } = useUsers();
 
-  // 비관리자 접근 시 홈으로 리다이렉트
   useEffect(() => {
     if (!authLoading && user && user.role !== 'admin') {
       router.replace('/');
@@ -26,14 +25,12 @@ export default function AdminUsersPage() {
     }
   }, [authLoading, user, router]);
 
-  // 인증 로딩 중이거나 비관리자인 경우 렌더링 제외
   if (authLoading || !user || user.role !== 'admin') {
     return null;
   }
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto w-full">
-      {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-[#1A1A1A]">사용자 관리</h1>
@@ -48,14 +45,12 @@ export default function AdminUsersPage() {
         </Button>
       </div>
 
-      {/* 통계 카드 — 모바일에서 1열, sm 이상에서 3열 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="전체 사용자" value={users.length} color="teal" />
         <StatCard label="관리자" value={users.filter((u) => u.role === 'admin').length} color="teal" />
         <StatCard label="API 키 모드" value={users.filter((u) => u.authMode === 'api').length} color="coral" />
       </div>
 
-      {/* 사용자 테이블 */}
       {isLoading ? (
         <div className="py-16 text-center text-[#6B6B7B] text-sm">불러오는 중...</div>
       ) : (
@@ -67,7 +62,6 @@ export default function AdminUsersPage() {
   );
 }
 
-/** 통계 카드 컴포넌트 */
 function StatCard({ label, value, color }: { label: string; value: number; color: 'teal' | 'coral' }) {
   const accent = color === 'teal' ? 'text-[#2D7D7B]' : 'text-[#E0845E]';
   return (

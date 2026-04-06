@@ -11,7 +11,7 @@ export interface LockInfo {
   lockerName: string | null;
 }
 
-/** 락 상태 브로드캐스트 헬퍼 */
+/** 락 상태 브로드캐스트 — 트랜잭션 커밋 후에 호출해야 정확한 데이터 전송 보장 */
 async function broadcastLockUpdate(sessionId: string): Promise<LockInfo> {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
@@ -47,7 +47,8 @@ class LockService {
    * - 다른 사용자 → 409 SESSION_LOCKED
    */
   async acquireLock(sessionId: string, userId: string): Promise<LockInfo> {
-    return await prisma.$transaction(async (tx) => {
+    // 트랜잭션으로 원자적 업데이트 후 커밋
+    await prisma.$transaction(async (tx) => {
       const session = await tx.session.findUnique({
         where: { id: sessionId },
         select: { lockedBy: true },
@@ -70,23 +71,24 @@ class LockService {
           lastActivityAt: now,
         },
       });
-
-      return broadcastLockUpdate(sessionId);
     });
+
+    // 트랜잭션 커밋 완료 후 브로드캐스트 — 정확한 데이터 보장
+    return broadcastLockUpdate(sessionId);
   }
 
   /**
    * 세션 락 해제 — 본인 락만 해제 가능
    */
   async releaseLock(sessionId: string, userId: string): Promise<LockInfo> {
-    return await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const session = await tx.session.findUnique({
         where: { id: sessionId },
         select: { lockedBy: true },
       });
 
       if (!session) throw createHttpError(404, '세션을 찾을 수 없습니다');
-      if (!session.lockedBy) return broadcastLockUpdate(sessionId); // 이미 미잠금
+      if (!session.lockedBy) return; // 이미 미잠금
       if (session.lockedBy !== userId) {
         throw createHttpError(403, '본인 락만 해제할 수 있습니다');
       }
@@ -95,9 +97,10 @@ class LockService {
         where: { id: sessionId },
         data: { lockedBy: null, lockedAt: null, lastActivityAt: null },
       });
-
-      return broadcastLockUpdate(sessionId);
     });
+
+    // 트랜잭션 커밋 완료 후 브로드캐스트
+    return broadcastLockUpdate(sessionId);
   }
 
   /**
@@ -108,7 +111,7 @@ class LockService {
     fromUserId: string,
     toUserId: string,
   ): Promise<LockInfo> {
-    return await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const session = await tx.session.findUnique({
         where: { id: sessionId },
         select: { lockedBy: true },
@@ -128,9 +131,10 @@ class LockService {
         where: { id: sessionId },
         data: { lockedBy: toUserId, lockedAt: now, lastActivityAt: now },
       });
-
-      return broadcastLockUpdate(sessionId);
     });
+
+    // 트랜잭션 커밋 완료 후 브로드캐스트
+    return broadcastLockUpdate(sessionId);
   }
 
   /**

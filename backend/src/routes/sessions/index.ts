@@ -58,6 +58,7 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['projectId', 'title'],
+        additionalProperties: false,
         properties: {
           projectId: { type: 'string', format: 'uuid' },
           folderId: { type: 'string', format: 'uuid' },
@@ -80,6 +81,7 @@ const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       params: idParamsSchema,
       body: {
         type: 'object',
+        additionalProperties: false,
         properties: {
           title: { type: 'string', minLength: 1, maxLength: 300 },
           status: { type: 'string', enum: ['active', 'archived'] },

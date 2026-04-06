@@ -72,6 +72,7 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['name'],
+        additionalProperties: false,
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 200 },
           // repoPath는 서버에서 자동 생성 (프론트에서 전달하지 않음)
@@ -114,6 +115,7 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
       params: idParamsSchema,
       body: {
         type: 'object',
+        additionalProperties: false,
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 200 },
           description: { type: 'string' },

@@ -1,10 +1,11 @@
 'use client';
-// 개별 메시지 컴포넌트 — 유저/어시스턴트 구분 렌더링 + 도구 사용 이력 표시
+// 개별 메시지 컴포넌트 — Claude 웹 스타일: 최종 답변만 표시, 도구 이력은 토글
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { StreamingMessage } from './StreamingMessage';
 import { ToolUseCard } from './ToolUseCard';
 import { ClaudeLogo } from './ClaudeLogo';
+import { ChevronRight } from 'lucide-react';
 import type { Message } from '@/types/message';
 
 interface MessageItemProps {
@@ -14,13 +15,14 @@ interface MessageItemProps {
 
 function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
   const isUser = message.role === 'user';
+  const [showTools, setShowTools] = useState(false);
 
   // 유저 메시지
   if (isUser) {
     return (
       <div className="flex justify-end mb-4">
         <div
-          className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm"
+          className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm break-words whitespace-pre-wrap"
           style={{
             backgroundColor: 'rgba(45, 125, 123, 0.2)',
             color: '#3D3D3D',
@@ -32,18 +34,33 @@ function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
     );
   }
 
-  // 어시스턴트 메시지 — 도구 사용 이력 + 텍스트
+  // 어시스턴트 메시지
   const toolDetails = message.metadata?.toolDetails;
+  const hasTools = toolDetails && toolDetails.length > 0;
 
   return (
     <div className="flex gap-3 mb-4">
-      {/* Claude 로고 — 저장된 메시지는 정적 표시 */}
       <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center mt-1">
         <ClaudeLogo size={24} isAnimating={false} />
       </div>
-      <div className="flex-1 min-w-0">
-        {/* 도구 사용 이력 카드 — metadata에 저장된 상세 정보 */}
-        {toolDetails && toolDetails.length > 0 && (
+      <div className="flex-1 min-w-0 break-words">
+        {/* 도구 사용 요약 토글 — 있을 때만 표시 */}
+        {hasTools && (
+          <button
+            onClick={() => setShowTools(!showTools)}
+            className="flex items-center gap-1 mb-1.5 text-xs transition-colors hover:text-[#2D7D7B]"
+            style={{ color: '#9CA3AF' }}
+          >
+            <ChevronRight
+              size={12}
+              className="transition-transform"
+              style={{ transform: showTools ? 'rotate(90deg)' : undefined }}
+            />
+            {toolDetails.length}개 도구 사용
+          </button>
+        )}
+        {/* 도구 카드 — 토글 시에만 표시 */}
+        {showTools && toolDetails && (
           <div className="mb-2">
             {toolDetails.map((td) => (
               <ToolUseCard
@@ -61,8 +78,10 @@ function MessageItemRaw({ message, onFileClick }: MessageItemProps) {
             ))}
           </div>
         )}
-        {/* 텍스트 본문 */}
-        <StreamingMessage content={message.content} onFileClick={onFileClick} />
+        {/* 최종 텍스트 답변 */}
+        {message.content && (
+          <StreamingMessage content={message.content} onFileClick={onFileClick} />
+        )}
       </div>
     </div>
   );

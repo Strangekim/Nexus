@@ -70,6 +70,7 @@ const loginRoute: FastifyPluginAsync = async (fastify) => {
         body: {
           type: 'object',
           required: ['email', 'password'],
+          additionalProperties: false,
           properties: {
             email: { type: 'string', format: 'email' },
             password: { type: 'string', minLength: 1 },

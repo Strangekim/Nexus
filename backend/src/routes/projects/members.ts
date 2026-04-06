@@ -79,6 +79,7 @@ const memberRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['userId', 'role'],
+        additionalProperties: false,
         properties: {
           userId: { type: 'string', format: 'uuid' },
           role: { type: 'string', enum: ['admin', 'member'] },
@@ -104,6 +105,7 @@ const memberRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['role'],
+        additionalProperties: false,
         properties: {
           role: { type: 'string', enum: ['admin', 'member'] },
         },

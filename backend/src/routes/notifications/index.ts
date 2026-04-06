@@ -79,6 +79,7 @@ const notificationRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['isRead'],
+        additionalProperties: false,
         properties: { isRead: { type: 'boolean' } },
       },
     },

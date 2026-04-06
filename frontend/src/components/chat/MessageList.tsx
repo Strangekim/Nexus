@@ -147,7 +147,7 @@ export function MessageList({
   }, [handleLoadPrevious]);
 
   return (
-    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-6">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6">
       <div className="max-w-3xl mx-auto">
         {/* 상단 센티널 — 스크롤이 여기에 도달하면 이전 페이지 로드 */}
         <div ref={sentinelRef} className="h-1" />
@@ -181,7 +181,7 @@ export function MessageList({
             <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center mt-1">
               <ClaudeLogo size={24} isAnimating />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 break-words">
               {/* 도구 사용 카드들 */}
               {toolUses.map((tu) => (
                 <ToolUseCard key={tu.toolId} toolUse={tu} />

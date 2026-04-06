@@ -1,21 +1,23 @@
 // 메시지 저장 서비스
 import prisma from '../lib/prisma.js';
 
-/** 메시지 목록 조회 (페이지네이션) */
+/** 메시지 목록 조회 (페이지네이션, page=-1이면 마지막 페이지) */
 async function findBySession(sessionId: string, page: number, limit: number) {
-  const skip = (page - 1) * limit;
-  const [data, total] = await Promise.all([
-    prisma.message.findMany({
-      where: { sessionId },
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'asc' },
-    }),
-    prisma.message.count({ where: { sessionId } }),
-  ]);
+  const total = await prisma.message.count({ where: { sessionId } });
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const effectivePage = page === -1 ? totalPages : page;
+  const skip = (effectivePage - 1) * limit;
+
+  const messages = await prisma.message.findMany({
+    where: { sessionId },
+    skip,
+    take: limit,
+    orderBy: { createdAt: 'asc' },
+  });
+
   return {
-    data,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    messages,
+    pagination: { page: effectivePage, limit, total, totalPages },
   };
 }
 

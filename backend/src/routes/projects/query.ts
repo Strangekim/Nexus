@@ -28,6 +28,7 @@ const queryRoute: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['message'],
+        additionalProperties: false,
         properties: {
           message: { type: 'string', minLength: 1, maxLength: 4000 },
           folderId: { type: 'string', format: 'uuid' },

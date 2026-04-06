@@ -43,12 +43,13 @@ const usersIndexRoute: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         required: ['name', 'email', 'password'],
+        additionalProperties: false,
         properties: {
           name: { type: 'string', minLength: 1, maxLength: 100 },
           email: { type: 'string', format: 'email' },
           password: { type: 'string', minLength: 6 },
           role: { type: 'string', enum: ['admin', 'member'] },
-          linuxUser: { type: 'string', maxLength: 50 },
+          linuxUser: { type: 'string', pattern: '^[a-z0-9_-]{1,32}$' },
           authMode: { type: 'string', enum: ['subscription', 'api'] },
         },
       },

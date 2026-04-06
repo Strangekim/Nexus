@@ -37,17 +37,17 @@ export function LockStatusBadge({ sessionId }: LockStatusBadgeProps) {
     );
   }
 
-  // 본인 락
+  // 본인 락 — 다른 기기에서도 접근 가능함을 명시
   const isOwner = currentUser?.id === lock.userId;
   if (isOwner) {
     return (
       <span
         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
         style={{ backgroundColor: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0' }}
-        title={`락 획득: ${new Date(lock.lockedAt).toLocaleString()}`}
+        title={`내가 작업 중 (${new Date(lock.lockedAt).toLocaleString()}부터)`}
       >
         <Lock size={11} />
-        작업 중 · {formatRelativeTime(lock.lockedAt)}
+        내 작업 · {formatRelativeTime(lock.lockedAt)}
       </span>
     );
   }

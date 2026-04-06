@@ -72,11 +72,18 @@ const claudeOAuthRoute: FastifyPluginAsync = async (fastify) => {
 
       const { codeVerifier, state: savedState } = pkce;
 
-      // URL이 들어온 경우 code 파라미터만 추출
+      // URL이 들어온 경우 code + state 파라미터 추출 후 CSRF 검증
       let rawCode = request.body.code.trim();
       if (rawCode.startsWith('http')) {
         try {
           const url = new URL(rawCode);
+          const urlState = url.searchParams.get('state');
+          // URL에 state가 포함된 경우 저장된 state와 비교 (CSRF 방어)
+          if (urlState && urlState !== savedState) {
+            return reply.code(400).send({
+              error: { code: 'OAUTH_STATE_MISMATCH', message: 'OAuth state 값이 일치하지 않습니다. 다시 시작해주세요.' },
+            });
+          }
           rawCode = url.searchParams.get('code') ?? rawCode;
         } catch {
           // URL 파싱 실패 → 원본 사용

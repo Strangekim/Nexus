@@ -5,14 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSession } from '@/services/api/projects';
 import type { Session } from '@/types/project';
 
-/** 세션 상세 데이터 조회 (30초 stale time) */
+/** 세션 상세 데이터 조회 — Socket.IO 이벤트로 실시간 갱신, polling 불필요 */
 export function useSession(sessionId: string) {
   return useQuery<Session>({
     queryKey: ['sessions', sessionId],
     queryFn: () => fetchSession(sessionId),
     enabled: !!sessionId,
-    staleTime: 5_000,
-    // 5초마다 자동 갱신 — 락 상태 등 실시간 변경 반영
-    refetchInterval: 5_000,
+    staleTime: 30_000,
   });
 }

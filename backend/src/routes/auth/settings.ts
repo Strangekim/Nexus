@@ -8,6 +8,8 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../../plugins/auth.js';
 import { createHttpError } from '../../lib/errors.js';
+import { encrypt } from '../../lib/crypto.js';
+import { env } from '../../config/env.js';
 import prisma from '../../lib/prisma.js';
 
 /**
@@ -26,8 +28,7 @@ interface SettingsBody {
   /**
    * 사용자 개인 Claude API 키 (sk-ant-... 형식).
    * 빈 문자열 전달 시 null로 저장 (키 삭제).
-   * 최대 200자.
-   * TODO: 향후 AES-256 등으로 암호화 저장 필요
+   * 최대 200자. ENCRYPTION_KEY 설정 시 AES-256-GCM으로 암호화 저장.
    */
   claudeAccount?: string;
 }
@@ -66,9 +67,17 @@ const settingsRoute: FastifyPluginAsync = async (fastify) => {
       if (notifySms !== undefined)     data.notifySms     = notifySms;
       if (notifyBrowser !== undefined) data.notifyBrowser = notifyBrowser;
       if (notifySound !== undefined)   data.notifySound   = notifySound;
-      // 빈 문자열이면 null로 저장 (키 삭제), 값이 있으면 평문 저장
-      // TODO: 향후 저장 전 AES-256 암호화 적용 필요
-      if (claudeAccount !== undefined) data.claudeAccount = claudeAccount.trim() || null;
+      // 빈 문자열이면 null로 저장 (키 삭제), 값이 있으면 AES-256-GCM으로 암호화 저장
+      if (claudeAccount !== undefined) {
+        const trimmed = claudeAccount.trim();
+        if (!trimmed) {
+          data.claudeAccount = null;
+        } else if (env.ENCRYPTION_KEY) {
+          data.claudeAccount = encrypt(trimmed);
+        } else {
+          data.claudeAccount = trimmed;
+        }
+      }
 
       // 변경할 필드가 하나도 없으면 400 오류 반환
       if (Object.keys(data).length === 0) {

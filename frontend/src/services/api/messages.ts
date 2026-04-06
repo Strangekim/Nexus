@@ -19,7 +19,7 @@ export async function fetchMessages(
   sessionId: string,
   page = 1,
   limit = 50,
-): Promise<{ messages: Message[]; total: number }> {
+): Promise<{ messages: Message[]; total: number; page: number; totalPages: number }> {
   const res = await apiFetch<MessagesApiResponse & { messages?: Message[] }>(
     `/api/sessions/${sessionId}/messages?page=${page}&limit=${limit}`,
   );
@@ -28,6 +28,8 @@ export async function fetchMessages(
   return {
     messages,
     total: res.pagination.total,
+    page: res.pagination.page,
+    totalPages: res.pagination.totalPages,
   };
 }
 
