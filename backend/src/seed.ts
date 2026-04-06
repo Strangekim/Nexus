@@ -10,7 +10,9 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const passwordHash = await bcrypt.hash('admin1234', 10);
+  // 환경변수에서 관리자 초기 비밀번호 읽기 — 미설정 시 랜덤 생성
+  const seedPassword = process.env.ADMIN_SEED_PASSWORD ?? require('crypto').randomBytes(16).toString('hex');
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@nexus.com' },
@@ -22,6 +24,8 @@ async function main() {
       role: 'admin',
     },
   });
+
+  console.log('관리자 초기 비밀번호:', seedPassword, '(반드시 변경하세요)');
 
   console.log('시드 완료:', admin);
 }

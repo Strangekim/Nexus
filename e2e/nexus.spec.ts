@@ -3,8 +3,12 @@
 // 전제조건: 프론트(3000) + 백엔드(8080) 서버가 실행 중이어야 함
 import { test, expect, Page } from '@playwright/test';
 
-const TEST_EMAIL = process.env.TEST_EMAIL || 'admin@nexus.com';
-const TEST_PASSWORD = process.env.TEST_PASSWORD || 'test1234';
+const TEST_EMAIL = process.env.TEST_EMAIL ?? '';
+const TEST_PASSWORD = process.env.TEST_PASSWORD ?? '';
+
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  throw new Error('TEST_EMAIL, TEST_PASSWORD 환경변수가 필요합니다');
+}
 
 // ────────────────────────────────────────────
 // 헬퍼

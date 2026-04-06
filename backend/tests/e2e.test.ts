@@ -4,8 +4,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
 const API = process.env.TEST_API_URL || 'http://localhost:8080';
-const TEST_EMAIL = process.env.TEST_EMAIL || 'admin@nexus.com';
-const TEST_PASSWORD = process.env.TEST_PASSWORD || 'test1234';
+const TEST_EMAIL = process.env.TEST_EMAIL ?? '';
+const TEST_PASSWORD = process.env.TEST_PASSWORD ?? '';
+
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  throw new Error('TEST_EMAIL, TEST_PASSWORD 환경변수가 필요합니다');
+}
 
 /** 쿠키 저장소 */
 let sessionCookie = '';

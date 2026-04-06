@@ -5,7 +5,7 @@ export default defineConfig({
   timeout: 60_000,
   retries: 0,
   use: {
-    baseURL: process.env.BASE_URL || 'http://3.36.158.59:3000',
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
     // headless로 실행 (CI/서버 환경)
     headless: true,
     screenshot: 'only-on-failure',

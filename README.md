@@ -55,8 +55,8 @@ sudo -u postgres psql -c "CREATE DATABASE nexus OWNER nexus;"
 cd backend
 npx prisma migrate deploy
 
-# 관리자 계정 시드 (admin@nexus.com / admin1234)
-npx tsx src/seed.ts
+# 관리자 계정 시드 (초기 비밀번호는 콘솔에 출력됨 — 반드시 변경)
+ADMIN_SEED_PASSWORD=your_secure_password npx tsx src/seed.ts
 ```
 
 ### 5. 실행
