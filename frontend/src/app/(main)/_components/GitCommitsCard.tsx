@@ -15,10 +15,14 @@ interface Props {
   projectId: string;
 }
 
-/** 커밋 시각 — committedAt ISO 문자열을 상대 시간으로 변환 */
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+/** 커밋 시각 — ISO 문자열을 상대 시간으로 변환 (유효하지 않으면 빈 문자열) */
+function relativeTime(iso: string | undefined | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
   const min = Math.floor(diff / 60_000);
+  if (min < 0) return '방금';
   if (min < 60) return `${min}분 전`;
   const hour = Math.floor(min / 60);
   if (hour < 24) return `${hour}시간 전`;
@@ -58,7 +62,7 @@ function CommitRow({ commit }: { commit: Commit }) {
           <span className="font-mono text-[10px] rounded bg-[#F5F5EF] px-1.5 py-0.5 text-[#6B6B7B]">
             {commit.hash.slice(0, 7)}
           </span>
-          <span className="text-xs text-[#6B6B7B]">{relativeTime(commit.committedAt)}</span>
+          <span className="text-xs text-[#6B6B7B]">{relativeTime(commit.committedAt ?? commit.createdAt)}</span>
         </div>
         <p className="mt-0.5 text-sm font-medium text-[#1A1A1A] truncate">{commit.message}</p>
         <div className="mt-1 flex items-center gap-3">

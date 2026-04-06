@@ -5,8 +5,11 @@ import { getSessionColor } from './sessionColor';
 import type { Commit } from '@/types/commit';
 
 /** 시간 상대 표시 */
-function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+function relativeTime(dateStr: string | undefined | null): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return '방금 전';
   if (mins < 60) return `${mins}분 전`;
@@ -53,7 +56,7 @@ export function CommitCard({ commit, onClick }: CommitCardProps) {
           </div>
           <div className="flex items-center gap-1 text-[#9CA3AF] text-[11px] shrink-0">
             <Clock size={11} />
-            {relativeTime(commit.committedAt)}
+            {relativeTime(commit.committedAt ?? commit.createdAt)}
           </div>
         </div>
 
