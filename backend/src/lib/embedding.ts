@@ -2,7 +2,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env.js';
 
-const MODEL = 'gemini-embedding-exp-03-07';
+const MODEL = 'gemini-embedding-2-preview';
 const DIMENSIONS = 3072;
 
 function getClient(): GoogleGenAI {

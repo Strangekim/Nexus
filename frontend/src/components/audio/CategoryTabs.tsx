@@ -1,23 +1,12 @@
-// 카테고리 탭 네비게이션 — 대분류 > 중분류 > 소분류 드릴다운
+// 카테고리 탭 네비게이션 — taxonomy 기반 대분류 > 중분류 > 소분류 드릴다운
 
 'use client';
 
 import { cn } from '@/lib/utils';
 import { ChevronRight } from 'lucide-react';
-import type { CategoryNode } from '@/services/api/audio';
-
-/** major별 표시 이름 */
-const MAJOR_LABELS: Record<string, string> = {
-  Dialogue_VO: 'Dialogue / VO',
-  Music: 'Music',
-  Ambience: 'Ambience',
-  Foley: 'Foley',
-  Hard_SFX: 'Hard SFX',
-  Cinematic: 'Cinematic',
-};
+import { AUDIO_TAXONOMY, MAJOR_LABELS } from '@/lib/audio-taxonomy';
 
 interface CategoryTabsProps {
-  categories: CategoryNode[];
   selectedMajor: string | null;
   selectedMid: string | null;
   selectedSub: string | null;
@@ -27,7 +16,6 @@ interface CategoryTabsProps {
 }
 
 export function CategoryTabs({
-  categories,
   selectedMajor,
   selectedMid,
   selectedSub,
@@ -35,12 +23,12 @@ export function CategoryTabs({
   onSelectMid,
   onSelectSub,
 }: CategoryTabsProps) {
-  const activeMajor = categories.find((c) => c.major === selectedMajor);
-  const activeMid = activeMajor?.children.find((c) => c.mid === selectedMid);
+  const activeMajor = AUDIO_TAXONOMY.find((c) => c.key === selectedMajor);
+  const activeMid = activeMajor?.mids.find((m) => m.name === selectedMid);
 
   return (
     <div className="space-y-0">
-      {/* 브레드크럼 — 드릴다운 경로 표시 */}
+      {/* 브레드크럼 */}
       {selectedMajor && (
         <div className="flex items-center gap-1 text-xs text-[#9B9B9B] mb-2">
           <button
@@ -91,14 +79,13 @@ export function CategoryTabs({
           active={!selectedMajor}
           onClick={() => { onSelectMajor(null); onSelectMid(null); onSelectSub(null); }}
         />
-        {categories.map((cat) => (
+        {AUDIO_TAXONOMY.map((cat) => (
           <Tab
-            key={cat.major}
-            label={MAJOR_LABELS[cat.major] || cat.major}
-            count={cat.count}
-            active={selectedMajor === cat.major}
+            key={cat.key}
+            label={cat.label}
+            active={selectedMajor === cat.key}
             onClick={() => {
-              onSelectMajor(cat.major);
+              onSelectMajor(cat.key);
               onSelectMid(null);
               onSelectSub(null);
             }}
@@ -106,7 +93,7 @@ export function CategoryTabs({
         ))}
       </div>
 
-      {/* 중분류 탭 — major 선택 시 */}
+      {/* 중분류 탭 */}
       {activeMajor && (
         <div className="flex overflow-x-auto border-b border-[#E8E5DE]/60 gap-0 bg-[#FAFAF8] scrollbar-hide">
           <Tab
@@ -115,14 +102,13 @@ export function CategoryTabs({
             onClick={() => { onSelectMid(null); onSelectSub(null); }}
             size="sm"
           />
-          {activeMajor.children.map((mid) => (
+          {activeMajor.mids.map((mid) => (
             <Tab
-              key={mid.mid}
-              label={mid.mid.replace(/_/g, ' ')}
-              count={mid.count}
-              active={selectedMid === mid.mid}
+              key={mid.name}
+              label={mid.name.replace(/_/g, ' ')}
+              active={selectedMid === mid.name}
               onClick={() => {
-                onSelectMid(mid.mid);
+                onSelectMid(mid.name);
                 onSelectSub(null);
               }}
               size="sm"
@@ -131,8 +117,8 @@ export function CategoryTabs({
         </div>
       )}
 
-      {/* 소분류 탭 — mid 선택 + sub 존재 시 */}
-      {activeMid && activeMid.children.length > 0 && (
+      {/* 소분류 탭 */}
+      {activeMid && activeMid.subs.length > 0 && (
         <div className="flex overflow-x-auto border-b border-[#E8E5DE]/40 gap-0 bg-[#F5F5EF] scrollbar-hide">
           <Tab
             label="전체"
@@ -140,7 +126,7 @@ export function CategoryTabs({
             onClick={() => onSelectSub(null)}
             size="xs"
           />
-          {activeMid.children.map((sub) => (
+          {activeMid.subs.map((sub) => (
             <Tab
               key={sub}
               label={sub.replace(/_/g, ' ')}
@@ -158,13 +144,11 @@ export function CategoryTabs({
 /** 개별 탭 */
 function Tab({
   label,
-  count,
   active,
   onClick,
   size = 'md',
 }: {
   label: string;
-  count?: number;
   active: boolean;
   onClick: () => void;
   size?: 'xs' | 'sm' | 'md';
@@ -187,11 +171,6 @@ function Tab({
       )}
     >
       {label}
-      {count !== undefined && (
-        <span className={cn('ml-1', active ? 'text-[#2D7D7B]/60' : 'text-[#9B9B9B]')}>
-          {count}
-        </span>
-      )}
     </button>
   );
 }

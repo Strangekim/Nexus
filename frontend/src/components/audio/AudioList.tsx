@@ -2,10 +2,14 @@
 
 'use client';
 
+import { useState } from 'react';
 import { AudioCard } from './AudioCard';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import type { AudioAsset, AudioSearchResult } from '@/services/api/audio';
+
+/** 검색 모드 기본 표시 수 */
+const SEARCH_PAGE_SIZE = 30;
 
 interface AudioListProps {
   items: (AudioAsset | AudioSearchResult)[];
@@ -26,6 +30,12 @@ export function AudioList({
   onPageChange,
   isSearchMode,
 }: AudioListProps) {
+  const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE_SIZE);
+
+  // 검색 모드에서 보여줄 아이템
+  const displayItems = isSearchMode ? items.slice(0, visibleCount) : items;
+  const hasMore = isSearchMode && items.length > visibleCount;
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -52,12 +62,27 @@ export function AudioList({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        {items.map((item) => (
+        {displayItems.map((item) => (
           <AudioCard key={item.id} asset={item} />
         ))}
       </div>
 
-      {/* 페이지네이션 (목록 모드) */}
+      {/* 검색 모드: 더보기 버튼 */}
+      {isSearchMode && hasMore && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVisibleCount((prev) => prev + SEARCH_PAGE_SIZE)}
+            className="text-[#6B6B7B]"
+          >
+            더보기 ({items.length - visibleCount}개 남음)
+            <ChevronDown className="ml-1 size-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* 목록 모드: 페이지네이션 */}
       {!isSearchMode && page && totalPages && totalPages > 1 && onPageChange && (
         <div className="flex items-center justify-center gap-2 pt-2">
           <Button

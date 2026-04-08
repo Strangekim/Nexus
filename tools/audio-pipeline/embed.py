@@ -58,7 +58,7 @@ async def embed_single(client: genai.Client, file_path: str) -> list[float] | No
             mime_type = _get_mime_type(file_path)
 
             result = await client.aio.models.embed_content(
-                model="gemini-embedding-exp-03-07",
+                model="gemini-embedding-2-preview",
                 contents=[types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)],
                 config=types.EmbedContentConfig(output_dimensionality=3072),
             )

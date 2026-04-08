@@ -47,15 +47,17 @@ export interface AudioStats {
   byFormat: { format: string; count: number }[];
 }
 
-/** 텍스트 기반 유사도 검색 */
+/** 멀티모달 유사도 검색 (텍스트 / 이미지 / 영상) */
 export async function searchAudio(
   query: string,
+  modality: 'text' | 'image' | 'video' = 'text',
   filters?: { major?: string; mid?: string; sub?: string },
   limit = 20,
+  mimeType?: string,
 ): Promise<AudioSearchResult[]> {
   const res = await apiFetch<{ results: AudioSearchResult[] }>('/api/audio/search', {
     method: 'POST',
-    body: JSON.stringify({ query, modality: 'text', filters, limit }),
+    body: JSON.stringify({ query, modality, mimeType, filters, limit }),
   });
   return res.results;
 }

@@ -104,7 +104,7 @@ export function AudioCard({ asset }: AudioCardProps) {
               backgroundColor: similarity > 0.7 ? '#2D7D7B' : similarity > 0.5 ? '#6B9E9D' : '#E0845E',
             }}
           >
-            {Math.round(similarity * 100)}%
+            {(similarity * 100).toFixed(3)}%
           </Badge>
         )}
         <span className="text-xs text-[#9B9B9B] w-10 text-right">

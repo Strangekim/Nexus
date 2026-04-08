@@ -59,7 +59,7 @@ export async function searchAudio(params: SearchParams): Promise<AudioSearchResu
   // 2) pgvector 코사인 유사도 검색
   const rows = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id, file_name, s3_key, major, mid, sub,
-            mood, tags, description, duration,
+            mood, tags, description, duration, format, file_size,
             1 - (embedding <=> $1::vector) AS similarity
      FROM audio_assets
      WHERE embedding IS NOT NULL
@@ -88,6 +88,8 @@ export async function searchAudio(params: SearchParams): Promise<AudioSearchResu
       tags: row.tags || [],
       description: row.description,
       duration: row.duration,
+      format: row.format,
+      fileSize: row.file_size,
       similarity: parseFloat(row.similarity),
       s3Url: await getPresignedUrl(row.s3_key),
     })),

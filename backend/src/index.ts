@@ -23,7 +23,7 @@ import { lockService } from './services/lock.service.js';
 import { pruneExpiredPkce } from './lib/oauth-pkce-store.js';
 import { terminalService } from './services/terminal.service.js';
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
 
 // 전역 에러 핸들러 플러그인 — Prisma 에러 변환 + 일관된 응답 형식
 await app.register(errorHandlerPlugin);

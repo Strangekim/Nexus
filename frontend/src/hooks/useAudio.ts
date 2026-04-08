@@ -33,15 +33,22 @@ export function useAudioList(params: {
   });
 }
 
-/** 텍스트 검색 훅 — 쿼리가 비어있으면 비활성화 */
+/** 멀티모달 검색 훅 — 쿼리가 비어있으면 비활성화 */
 export function useAudioSearch(
   query: string,
+  modality: 'text' | 'image' | 'video' = 'text',
   filters?: { major?: string; mid?: string; sub?: string },
   limit = 20,
+  mimeType?: string,
 ) {
   return useQuery({
-    queryKey: ['audio', 'search', query, filters, limit],
-    queryFn: () => searchAudio(query, filters, limit),
+    queryKey: ['audio', 'search', query, modality, filters, limit],
+    queryFn: async () => {
+      console.log('[오디오 검색]', { query: modality === 'text' ? query : `${modality} 파일`, modality, filters, limit });
+      const results = await searchAudio(query, modality, filters, limit, mimeType);
+      console.log('[오디오 검색 결과]', results.length, '건', results.slice(0, 3).map(r => ({ name: r.fileName, similarity: r.similarity })));
+      return results;
+    },
     enabled: query.trim().length > 0,
   });
 }
