@@ -193,3 +193,27 @@ model Notification {
   @@index([userId, isRead])
   @@map("notifications")
 }
+
+model AudioAsset {
+  id          String   @id @default(uuid()) @db.Uuid
+  fileName    String   @map("file_name") @db.VarChar(500)
+  s3Key       String   @unique @map("s3_key") @db.VarChar(500)
+  major       String   @db.VarChar(50)
+  mid         String   @db.VarChar(100)
+  sub         String?  @db.VarChar(100)
+  mood        String[] @default([])
+  tags        String[] @default([])
+  description String   @db.Text
+  bpm         Int?
+  instruments String[] @default([])
+  duration    Float?
+  format      String   @db.VarChar(20)
+  fileSize    Int      @map("file_size")
+  embedding   Unsupported("vector(3072)")?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([major])
+  @@index([major, mid])
+  @@index([major, mid, sub])
+  @@map("audio_assets")
+}

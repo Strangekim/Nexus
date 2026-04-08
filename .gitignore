@@ -39,9 +39,6 @@ Thumbs.db
 # TypeScript 캐시
 *.tsbuildinfo
 
-# 패키지 락 파일 (선택적 추적 — 팀 정책에 따라)
-# package-lock.json
-
 # Prisma 생성 파일
 backend/src/generated/
 .claude/
@@ -50,7 +47,10 @@ backend/src/generated/
 # Playwright 테스트 아티팩트
 /test-results/
 /playwright-report/
-# 루트 디렉토리 임시 스크린샷 (테스트/디버깅용)
 /*.png
 /*.jpg
 /*.jpeg
+
+# 파이프라인 중간 결과
+tools/audio-pipeline/manifest/*.jsonl
+tools/audio-pipeline/.env

@@ -15,6 +15,7 @@ import notificationRoutes from './routes/notifications/index.js';
 import usersIndexRoute from './routes/users/index.js';
 import userIdRoute from './routes/users/[id].js';
 import internalRoutes from './routes/internal/index.js';
+import audioRoutes from './routes/audio/index.js';
 import { registerTerminalNamespace } from './plugins/terminal.js';
 import { registerSocketPlugin } from './plugins/socket.js';
 import { socketService } from './services/socket.service.js';
@@ -56,6 +57,7 @@ await app.register(projectRoutes, { prefix: '/api/projects' });
 await app.register(sessionRoutes, { prefix: '/api/sessions' });
 await app.register(treeRoutes, { prefix: '/api/tree' });
 await app.register(notificationRoutes, { prefix: '/api/notifications' });
+await app.register(audioRoutes, { prefix: '/api/audio' });
 
 // 사용자 관리 라우트 (관리자 전용)
 await app.register(usersIndexRoute, { prefix: '/api/users' });

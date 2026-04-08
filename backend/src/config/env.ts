@@ -13,6 +13,12 @@ interface Env {
   ALIGO_API_KEY?: string;
   ALIGO_USER_ID?: string;
   ALIGO_SENDER?: string;
+  // 오디오 검색 — optional
+  GOOGLE_API_KEY?: string;
+  AWS_S3_BUCKET?: string;
+  AWS_REGION?: string;
+  AWS_ACCESS_KEY_ID?: string;
+  AWS_SECRET_ACCESS_KEY?: string;
 }
 
 function loadEnv(): Env {
@@ -33,6 +39,11 @@ function loadEnv(): Env {
     ALIGO_API_KEY: process.env.ALIGO_API_KEY,
     ALIGO_USER_ID: process.env.ALIGO_USER_ID,
     ALIGO_SENDER: process.env.ALIGO_SENDER,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+    AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
+    AWS_REGION: process.env.AWS_REGION || 'ap-northeast-2',
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
   };
 }
 
