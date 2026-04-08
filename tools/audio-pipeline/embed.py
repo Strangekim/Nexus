@@ -60,7 +60,7 @@ async def embed_single(client: genai.Client, file_path: str) -> list[float] | No
             result = await client.aio.models.embed_content(
                 model="gemini-embedding-exp-03-07",
                 contents=[types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)],
-                config=types.EmbedContentConfig(output_dimensionality=3072),
+                config=types.EmbedContentConfig(output_dimensionality=768),
             )
 
             return result.embeddings[0].values
@@ -129,5 +129,5 @@ async def embed_all(classify_manifest: str, embed_manifest: str, dry_run: bool =
                         results.append(result)
                     pbar.update(1)
 
-    print(f"임베딩 완료: {len(results)}개 성공 (차원: 3072)")
+    print(f"임베딩 완료: {len(results)}개 성공 (차원: 768)")
     return results

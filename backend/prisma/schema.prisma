@@ -209,7 +209,7 @@ model AudioAsset {
   duration    Float?
   format      String   @db.VarChar(20)
   fileSize    Int      @map("file_size")
-  embedding   Unsupported("vector(3072)")?
+  embedding   Unsupported("vector(768)")?
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([major])
