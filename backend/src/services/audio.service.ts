@@ -1,7 +1,7 @@
 // 오디오 에셋 검색 및 조회 서비스
 import prisma from '../lib/prisma.js';
 import { embedText, embedImage, embedVideo } from '../lib/embedding.js';
-import { getPresignedUrl } from '../lib/s3.js';
+import { getPresignedUrl, getStreamUrl, getDownloadUrl } from '../lib/s3.js';
 
 interface SearchParams {
   query: string | Buffer;
@@ -171,4 +171,60 @@ export async function listAudio(params: ListParams) {
   ]);
 
   return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+/** 스트리밍용 presigned URL (짧은 TTL) */
+export async function getAudioStreamUrl(id: string): Promise<string | null> {
+  const asset = await prisma.audioAsset.findUnique({
+    where: { id },
+    select: { s3Key: true },
+  });
+  if (!asset) return null;
+  return getStreamUrl(asset.s3Key);
+}
+
+/** 다운로드용 presigned URL (Content-Disposition 포함) */
+export async function getAudioDownloadUrl(id: string): Promise<string | null> {
+  const asset = await prisma.audioAsset.findUnique({
+    where: { id },
+    select: { s3Key: true, fileName: true },
+  });
+  if (!asset) return null;
+  return getDownloadUrl(asset.s3Key, asset.fileName);
+}
+
+/** 복수 에셋 일괄 조회 */
+export async function getAudioBatch(ids: string[]) {
+  const assets = await prisma.audioAsset.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      fileName: true,
+      s3Key: true,
+      major: true,
+      mid: true,
+      sub: true,
+      mood: true,
+      tags: true,
+      description: true,
+      duration: true,
+      format: true,
+      fileSize: true,
+    },
+  });
+  return assets;
+}
+
+/** 라이브러리 통계 */
+export async function getAudioStats() {
+  const [total, byMajor, byFormat] = await Promise.all([
+    prisma.audioAsset.count(),
+    prisma.$queryRawUnsafe<{ major: string; count: number }[]>(
+      `SELECT major, count(*)::int AS count FROM audio_assets GROUP BY major ORDER BY count DESC`,
+    ),
+    prisma.$queryRawUnsafe<{ format: string; count: number }[]>(
+      `SELECT format, count(*)::int AS count FROM audio_assets GROUP BY format ORDER BY count DESC`,
+    ),
+  ]);
+  return { total, byMajor, byFormat };
 }

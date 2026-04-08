@@ -6,7 +6,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { PanelLeftClose, PanelLeft, Plus, Users, LogOut } from 'lucide-react';
+import { PanelLeftClose, PanelLeft, Plus, Users, LogOut, Music } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -52,8 +52,9 @@ export function Sidebar() {
         </div>
       </ScrollArea>
 
-      {/* 하단: 관리자 메뉴 + 로그아웃 */}
+      {/* 하단: 오디오 라이브러리 + 관리자 메뉴 + 로그아웃 */}
       <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
+        <AudioLibraryLink />
         <AdminMenu />
         <AdminProjectCreate onOpen={() => setCreateOpen(true)} />
         <LogoutButton />
@@ -89,9 +90,10 @@ export function MobileSidebar() {
           </div>
         </ScrollArea>
 
-        {/* 하단: 관리자 메뉴 + 로그아웃 */}
+        {/* 하단: 오디오 라이브러리 + 관리자 메뉴 + 로그아웃 */}
         <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
           <div onClick={() => setMobileSidebarOpen(false)}>
+            <AudioLibraryLink />
             <AdminMenu />
           </div>
           <AdminProjectCreate onOpen={() => setCreateOpen(true)} />
@@ -101,6 +103,28 @@ export function MobileSidebar() {
         <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** 오디오 라이브러리 링크 — 모든 사용자에게 표시 */
+function AudioLibraryLink() {
+  const pathname = usePathname();
+  const isActive = pathname.startsWith('/audio');
+
+  return (
+    <Link href="/audio" className="block">
+      <Button
+        variant="ghost"
+        className={`w-full justify-start gap-2 ${
+          isActive
+            ? 'bg-[#2D7D7B]/10 text-[#2D7D7B] hover:bg-[#2D7D7B]/15'
+            : 'text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]'
+        }`}
+      >
+        <Music className="size-4" />
+        오디오 라이브러리
+      </Button>
+    </Link>
   );
 }
 

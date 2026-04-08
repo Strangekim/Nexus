@@ -5,6 +5,10 @@ import {
   getCategories,
   getAudioById,
   listAudio,
+  getAudioStreamUrl,
+  getAudioDownloadUrl,
+  getAudioBatch,
+  getAudioStats,
 } from '../../services/audio.service.js';
 
 const audioRoutes: FastifyPluginAsync = async (app) => {
@@ -58,6 +62,53 @@ const audioRoutes: FastifyPluginAsync = async (app) => {
       });
     }
     return reply.send({ asset });
+  });
+
+  // GET /api/audio/:id/stream — 스트리밍용 presigned URL
+  app.get('/:id/stream', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const url = await getAudioStreamUrl(id);
+    if (!url) {
+      return reply.status(404).send({
+        error: { code: 'NOT_FOUND', message: '오디오 에셋을 찾을 수 없습니다' },
+      });
+    }
+    return reply.send({ url });
+  });
+
+  // GET /api/audio/:id/download — 다운로드용 presigned URL
+  app.get('/:id/download', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const url = await getAudioDownloadUrl(id);
+    if (!url) {
+      return reply.status(404).send({
+        error: { code: 'NOT_FOUND', message: '오디오 에셋을 찾을 수 없습니다' },
+      });
+    }
+    return reply.send({ url });
+  });
+
+  // POST /api/audio/batch — 복수 에셋 일괄 조회
+  app.post('/batch', async (request, reply) => {
+    const { ids } = request.body as { ids: string[] };
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return reply.status(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'ids 배열이 필요합니다' },
+      });
+    }
+    if (ids.length > 100) {
+      return reply.status(400).send({
+        error: { code: 'INVALID_REQUEST', message: '한 번에 최대 100개까지 조회 가능합니다' },
+      });
+    }
+    const assets = await getAudioBatch(ids);
+    return reply.send({ assets });
+  });
+
+  // GET /api/audio/stats — 라이브러리 통계
+  app.get('/stats', async (_request, reply) => {
+    const stats = await getAudioStats();
+    return reply.send({ stats });
   });
 
   // GET /api/audio — 카테고리 필터 목록
