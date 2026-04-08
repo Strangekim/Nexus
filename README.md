@@ -32,28 +32,20 @@
 
 <br/>
 
-### Library Overview
-
-> 6개 카테고리 탭으로 전체 라이브러리를 탐색합니다.
-
-<p align="center">
-  <img src="docs/screenshots/library-overview.png" alt="Library Overview" width="960" />
-</p>
-
-### Category Drilldown
-
-> 카테고리를 선택하면 중분류 · 소분류로 드릴다운하여 탐색할 수 있습니다.
-
-<p align="center">
-  <img src="docs/screenshots/category-drilldown.png" alt="Category Drilldown" width="960" />
-</p>
-
-### Semantic Search
+### Text Search — "고양이"
 
 > 자연어로 원하는 사운드를 검색하면, 유사도 점수와 함께 결과가 정렬됩니다.
 
 <p align="center">
-  <img src="docs/screenshots/search-results.png" alt="Search Results" width="960" />
+  <img src="docs/screenshots/cat-search.png" alt="Text Search" width="960" />
+</p>
+
+### Image Search — 이미지로 검색
+
+> 레퍼런스 이미지를 업로드하면, 그 분위기에 맞는 사운드를 자동 매칭합니다.
+
+<p align="center">
+  <img src="docs/screenshots/image-search.png" alt="Image Search" width="960" />
 </p>
 
 <br/>
