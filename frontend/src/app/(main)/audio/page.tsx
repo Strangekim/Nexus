@@ -1,18 +1,19 @@
-// 오디오 라이브러리 메인 페이지 — 검색 + 카테고리 + 목록
+// 오디오 라이브러리 메인 페이지 — 탭 기반 카테고리 드릴다운 + 검색
 
 'use client';
 
 import { useState, useCallback } from 'react';
 import { AudioSearchBar } from '@/components/audio/AudioSearchBar';
-import { CategoryFilter } from '@/components/audio/CategoryFilter';
+import { CategoryTabs } from '@/components/audio/CategoryTabs';
 import { AudioList } from '@/components/audio/AudioList';
 import { useAudioCategories, useAudioList, useAudioSearch, useAudioStats } from '@/hooks/useAudio';
-import { Music, Disc3, FileAudio } from 'lucide-react';
+import { Music } from 'lucide-react';
 
 export default function AudioPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMajor, setSelectedMajor] = useState<string | null>(null);
   const [selectedMid, setSelectedMid] = useState<string | null>(null);
+  const [selectedSub, setSelectedSub] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const isSearchMode = searchQuery.trim().length > 0;
@@ -23,15 +24,19 @@ export default function AudioPage() {
   // 통계
   const { data: stats } = useAudioStats();
 
-  // 검색 결과
-  const searchFilters = selectedMajor
-    ? { major: selectedMajor, ...(selectedMid ? { mid: selectedMid } : {}) }
-    : undefined;
+  // 현재 필터 조합
+  const filters = {
+    ...(selectedMajor ? { major: selectedMajor } : {}),
+    ...(selectedMid ? { mid: selectedMid } : {}),
+    ...(selectedSub ? { sub: selectedSub } : {}),
+  };
+  const hasFilters = Object.keys(filters).length > 0;
 
+  // 검색 결과
   const {
     data: searchResults,
     isLoading: searchLoading,
-  } = useAudioSearch(searchQuery, searchFilters);
+  } = useAudioSearch(searchQuery, hasFilters ? filters : undefined);
 
   // 목록 (검색 모드가 아닐 때)
   const {
@@ -40,6 +45,7 @@ export default function AudioPage() {
   } = useAudioList({
     major: selectedMajor ?? undefined,
     mid: selectedMid ?? undefined,
+    sub: selectedSub ?? undefined,
     page,
     limit: 30,
   });
@@ -51,92 +57,100 @@ export default function AudioPage() {
 
   const handleSelectMajor = useCallback((major: string | null) => {
     setSelectedMajor(major);
+    setSelectedMid(null);
+    setSelectedSub(null);
     setPage(1);
   }, []);
 
   const handleSelectMid = useCallback((mid: string | null) => {
     setSelectedMid(mid);
+    setSelectedSub(null);
     setPage(1);
   }, []);
 
+  const handleSelectSub = useCallback((sub: string | null) => {
+    setSelectedSub(sub);
+    setPage(1);
+  }, []);
+
+  // 현재 카테고리 경로 텍스트
+  const categoryLabel = selectedMajor
+    ? [
+        MAJOR_LABELS[selectedMajor] || selectedMajor,
+        selectedMid?.replace(/_/g, ' '),
+        selectedSub?.replace(/_/g, ' '),
+      ].filter(Boolean).join(' > ')
+    : '전체';
+
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 space-y-5">
-      {/* 헤더 */}
-      <div>
-        <h1 className="text-xl font-semibold text-[#1A1A1A] flex items-center gap-2">
-          <Music className="size-5 text-[#2D7D7B]" />
-          오디오 라이브러리
-        </h1>
-        {stats && (
-          <p className="mt-1 text-sm text-[#9B9B9B]">
-            총 {stats.total.toLocaleString()}개 사운드 에셋
-          </p>
+    <div className="flex flex-col h-full">
+      {/* 상단 고정 영역 */}
+      <div className="shrink-0 border-b border-[#E8E5DE] bg-white">
+        {/* 헤더 + 검색바 */}
+        <div className="mx-auto max-w-5xl px-4 pt-5 pb-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-[#1A1A1A] flex items-center gap-2">
+              <Music className="size-5 text-[#2D7D7B]" />
+              오디오 라이브러리
+            </h1>
+            {stats && (
+              <span className="text-xs text-[#9B9B9B]">
+                총 {stats.total.toLocaleString()}개
+              </span>
+            )}
+          </div>
+          <AudioSearchBar onSearch={handleSearch} isLoading={searchLoading} />
+        </div>
+
+        {/* 카테고리 탭 */}
+        {categories && !catLoading && (
+          <div className="mx-auto max-w-5xl px-4">
+            <CategoryTabs
+              categories={categories}
+              selectedMajor={selectedMajor}
+              selectedMid={selectedMid}
+              selectedSub={selectedSub}
+              onSelectMajor={handleSelectMajor}
+              onSelectMid={handleSelectMid}
+              onSelectSub={handleSelectSub}
+            />
+          </div>
         )}
       </div>
 
-      {/* 통계 카드 */}
-      {stats && !isSearchMode && !selectedMajor && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {stats.byMajor.map((item) => (
-            <button
-              key={item.major}
-              onClick={() => handleSelectMajor(item.major)}
-              className="flex flex-col items-center gap-1 rounded-lg border border-[#E8E5DE] bg-white p-3 transition-colors hover:border-[#2D7D7B]/30 hover:bg-[#2D7D7B]/5"
-            >
-              <CategoryIcon major={item.major} />
-              <span className="text-xs font-medium text-[#1A1A1A]">
-                {MAJOR_LABELS[item.major] || item.major}
-              </span>
-              <span className="text-[10px] text-[#9B9B9B]">
-                {item.count.toLocaleString()}
-              </span>
-            </button>
-          ))}
+      {/* 목록 영역 */}
+      <div className="flex-1 overflow-auto">
+        <div className="mx-auto max-w-5xl px-4 py-4 space-y-3">
+          {/* 결과 헤더 */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-[#6B6B7B]">
+              {isSearchMode
+                ? `"${searchQuery}" 검색 결과 ${searchResults?.length ?? 0}건`
+                : `${categoryLabel} — ${listData?.total ?? 0}개`}
+              {isSearchMode && hasFilters && (
+                <span className="text-[#9B9B9B]"> ({categoryLabel} 내)</span>
+              )}
+            </p>
+          </div>
+
+          {/* 오디오 목록 */}
+          {isSearchMode ? (
+            <AudioList
+              items={searchResults ?? []}
+              isLoading={searchLoading}
+              isSearchMode
+            />
+          ) : (
+            <AudioList
+              items={listData?.items ?? []}
+              isLoading={listLoading}
+              page={page}
+              totalPages={listData?.totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </div>
-      )}
-
-      {/* 검색바 */}
-      <AudioSearchBar
-        onSearch={handleSearch}
-        isLoading={searchLoading}
-      />
-
-      {/* 카테고리 필터 */}
-      {categories && !catLoading && (
-        <CategoryFilter
-          categories={categories}
-          selectedMajor={selectedMajor}
-          selectedMid={selectedMid}
-          onSelectMajor={handleSelectMajor}
-          onSelectMid={handleSelectMid}
-        />
-      )}
-
-      {/* 결과 헤더 */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-[#6B6B7B]">
-          {isSearchMode
-            ? `검색 결과 ${searchResults?.length ?? 0}건`
-            : `${listData?.total ?? 0}개 에셋`}
-        </p>
       </div>
-
-      {/* 오디오 목록 */}
-      {isSearchMode ? (
-        <AudioList
-          items={searchResults ?? []}
-          isLoading={searchLoading}
-          isSearchMode
-        />
-      ) : (
-        <AudioList
-          items={listData?.items ?? []}
-          isLoading={listLoading}
-          page={page}
-          totalPages={listData?.totalPages}
-          onPageChange={setPage}
-        />
-      )}
     </div>
   );
 }
@@ -150,16 +164,3 @@ const MAJOR_LABELS: Record<string, string> = {
   Hard_SFX: 'Hard SFX',
   Cinematic: 'Cinematic',
 };
-
-/** major별 아이콘 */
-function CategoryIcon({ major }: { major: string }) {
-  const cls = 'size-5 text-[#2D7D7B]';
-  switch (major) {
-    case 'Music':
-      return <Music className={cls} />;
-    case 'Cinematic':
-      return <Disc3 className={cls} />;
-    default:
-      return <FileAudio className={cls} />;
-  }
-}
