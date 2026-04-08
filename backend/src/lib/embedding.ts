@@ -3,7 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env.js';
 
 const MODEL = 'gemini-embedding-exp-03-07';
-const DIMENSIONS = 768;
+const DIMENSIONS = 3072;
 
 function getClient(): GoogleGenAI {
   if (!env.GOOGLE_API_KEY) {
