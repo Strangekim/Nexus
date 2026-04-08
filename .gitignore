@@ -51,6 +51,25 @@ backend/src/generated/
 /*.jpg
 /*.jpeg
 
+# Python 캐시 / 가상환경
+__pycache__/
+**/__pycache__/
+**/venv/
+*.pyc
+
+# 인증서 / 키 파일
+*.pem
+*.key
+*.p12
+*.pfx
+
+# 스크린샷 캡처 스크립트 (크레덴셜 포함)
+tools/screenshot.mjs
+tools/crop-screenshots.mjs
+
+# 배포 스크립트 (서버 경로 포함)
+deploy-*.sh
+
 # 파이프라인 중간 결과
 tools/audio-pipeline/manifest/*.jsonl
 tools/audio-pipeline/.env

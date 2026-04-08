@@ -111,7 +111,7 @@ Cinematic     — Riser, Hit, Whoosh, Drone, UI, Stab 등
       "description": "Light rain falling on an empty city street with distant traffic",
       "duration": 45.2,
       "similarity": 0.847,
-      "s3Url": "https://nexus-audio-library.s3.ap-northeast-2.amazonaws.com/..."
+      "s3Url": "https://your-bucket-name.s3.ap-northeast-2.amazonaws.com/..."
     }
   ]
 }
