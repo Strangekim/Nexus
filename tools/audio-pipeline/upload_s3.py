@@ -2,51 +2,16 @@
 
 import json
 import os
-import re
 from pathlib import Path
 
-import boto3
 from tqdm import tqdm
 
-
-def _to_kebab(name: str) -> str:
-    """문자열을 kebab-case로 변환"""
-    name = name.replace("_", "-").replace(" ", "-")
-    name = re.sub(r"[^a-zA-Z0-9\-]", "", name)
-    name = re.sub(r"-+", "-", name).strip("-").lower()
-    return name
-
-
-def _get_content_type(file_path: str) -> str:
-    """파일 확장자로 Content-Type 결정"""
-    ext = Path(file_path).suffix.lower()
-    content_types = {
-        ".wav": "audio/wav",
-        ".mp3": "audio/mpeg",
-        ".ogg": "audio/ogg",
-        ".flac": "audio/flac",
-    }
-    return content_types.get(ext, "application/octet-stream")
-
-
-def _build_s3_key(entry: dict) -> str:
-    """분류 결과로 S3 키 생성"""
-    major = _to_kebab(entry["major"])
-    mid = _to_kebab(entry["mid"])
-    filename = Path(entry["file_name"]).name
-
-    parts = ["audio", major, mid]
-    if entry.get("sub"):
-        parts.append(_to_kebab(entry["sub"]))
-    parts.append(filename)
-
-    return "/".join(parts)
+from services import s3 as s3_svc
 
 
 def upload_all(classify_manifest: str, upload_manifest: str, dry_run: bool = False) -> list[dict]:
     """분류 manifest 기반으로 S3 업로드"""
-    bucket = os.environ["AWS_S3_BUCKET"]
-    region = os.environ.get("AWS_REGION", "ap-northeast-2")
+    bucket = s3_svc.get_bucket()
 
     # 분류 결과 로드
     entries = []
@@ -61,7 +26,7 @@ def upload_all(classify_manifest: str, upload_manifest: str, dry_run: bool = Fal
 
     if dry_run:
         for e in entries[:10]:
-            s3_key = _build_s3_key(e)
+            s3_key = s3_svc.build_s3_key(e["major"], e["mid"], e.get("sub"), e["file_name"])
             print(f"  {e['file_name']} → s3://{bucket}/{s3_key}")
         if len(entries) > 10:
             print(f"  ... 외 {len(entries) - 10}개")
@@ -85,37 +50,17 @@ def upload_all(classify_manifest: str, upload_manifest: str, dry_run: bool = Fal
         print("모든 파일이 이미 업로드되었습니다.")
         return []
 
-    s3 = boto3.client(
-        "s3",
-        region_name=region,
-        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-    )
+    s3_client = s3_svc.create_client()
 
     results = []
     with tqdm(total=len(remaining), desc="업로드 중") as pbar:
         for entry in remaining:
             file_path = entry["file_path"]
-            s3_key = _build_s3_key(entry)
-            content_type = _get_content_type(file_path)
+            s3_key = s3_svc.build_s3_key(entry["major"], entry["mid"], entry.get("sub"), entry["file_name"])
             file_size = os.path.getsize(file_path)
 
             try:
-                extra_args = {"ContentType": content_type}
-
-                # 8MB 초과 시 멀티파트 업로드
-                config = boto3.s3.transfer.TransferConfig(
-                    multipart_threshold=8 * 1024 * 1024,
-                    multipart_chunksize=8 * 1024 * 1024,
-                )
-
-                s3.upload_file(
-                    file_path,
-                    bucket,
-                    s3_key,
-                    ExtraArgs=extra_args,
-                    Config=config,
-                )
+                s3_svc.upload_file(s3_client, bucket, s3_key, file_path)
 
                 result = {
                     "file_path": file_path,
@@ -123,7 +68,7 @@ def upload_all(classify_manifest: str, upload_manifest: str, dry_run: bool = Fal
                     "s3_key": s3_key,
                     "s3_bucket": bucket,
                     "file_size": file_size,
-                    "content_type": content_type,
+                    "content_type": s3_svc.get_content_type(file_path),
                     "major": entry["major"],
                     "mid": entry["mid"],
                     "sub": entry.get("sub"),

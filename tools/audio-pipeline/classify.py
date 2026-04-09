@@ -3,16 +3,13 @@
 import asyncio
 import io
 import json
-import mimetypes
 import os
 import wave
 from pathlib import Path
 
-from google import genai
-from google.genai import types
 from tqdm import tqdm
 
-from taxonomy import TAXONOMY, validate_classification
+from services.gemini import classify_async, get_mime_type
 
 # Gemini 동시 요청 제한
 SEMAPHORE = asyncio.Semaphore(10)
@@ -20,45 +17,13 @@ SEMAPHORE = asyncio.Semaphore(10)
 # 분류용 최대 오디오 길이 (초)
 MAX_CLASSIFY_SECONDS = 15
 
-SYSTEM_PROMPT = """너는 오디오 파일 분류 전문가야. 주어진 오디오를 듣고 아래 taxonomy에 따라 정확히 분류해.
-
-## Taxonomy
-{taxonomy}
-
-## 규칙
-1. major, mid는 반드시 taxonomy에 있는 값만 사용
-2. sub는 해당 mid의 sub 목록에서 반드시 하나를 선택해야 한다. 가장 가까운 것을 골라라. sub 목록이 빈 배열([])인 mid만 null 허용
-3. mood는 해당하는 감정/분위기를 배열로 (예: ["tense", "dark", "mysterious"])
-4. tags는 검색에 유용한 키워드를 영어로 3~8개
-5. description은 오디오 내용을 영어로 한 문장으로 설명
-6. bpm은 음악일 경우만 추정, 나머지는 null
-7. instruments는 음악일 경우 사용된 악기 목록, 나머지는 빈 배열
-8. 파일명도 참고하되, 실제 오디오 내용을 우선시해
-
-반드시 JSON 형식으로만 응답해."""
-
-TAXONOMY_TEXT = json.dumps(
-    {k: {"mid": {mk: mv for mk, mv in v["mid"].items()}} for k, v in TAXONOMY.items()},
-    indent=2,
-)
-
-
-def _get_mime_type(path: str) -> str:
-    """파일 확장자로 MIME 타입 결정"""
-    mime, _ = mimetypes.guess_type(path)
-    if mime and mime.startswith("audio/"):
-        return mime
-    ext = Path(path).suffix.lower()
-    mime_map = {".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".flac": "audio/flac"}
-    return mime_map.get(ext, "audio/mpeg")
-
 
 def _trim_wav(audio_path: str, max_seconds: int = MAX_CLASSIFY_SECONDS) -> tuple[bytes, str]:
     """WAV 파일의 앞 N초만 추출. 비-WAV는 원본 반환."""
     ext = Path(audio_path).suffix.lower()
     if ext != ".wav":
         with open(audio_path, "rb") as f:
-            return f.read(), _get_mime_type(audio_path)
+            return f.read(), get_mime_type(audio_path)
 
     try:
         with wave.open(audio_path, "rb") as w:
@@ -74,67 +39,16 @@ def _trim_wav(audio_path: str, max_seconds: int = MAX_CLASSIFY_SECONDS) -> tuple
         return buf.getvalue(), "audio/wav"
     except Exception:
         with open(audio_path, "rb") as f:
-            return f.read(), _get_mime_type(audio_path)
+            return f.read(), get_mime_type(audio_path)
 
 
-async def classify_single(client: genai.Client, audio_path: str, file_name: str) -> dict | None:
+async def classify_single(audio_path: str, file_name: str) -> dict | None:
     """단일 오디오 파일을 Gemini로 분류"""
     async with SEMAPHORE:
-        try:
-            audio_bytes, mime_type = _trim_wav(audio_path)
-
-            # API 호출 후 바로 메모리 해제
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[
-                    types.Content(
-                        parts=[
-                            types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-                            types.Part.from_text(
-                                text=f"파일명: {file_name}\n이 오디오를 분류해줘."
-                            ),
-                        ]
-                    )
-                ],
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT.format(taxonomy=TAXONOMY_TEXT),
-                    response_mime_type="application/json",
-                    response_schema={
-                        "type": "object",
-                        "properties": {
-                            "major": {"type": "string"},
-                            "mid": {"type": "string"},
-                            "sub": {"type": "string", "nullable": True},
-                            "mood": {"type": "array", "items": {"type": "string"}},
-                            "tags": {"type": "array", "items": {"type": "string"}},
-                            "description": {"type": "string"},
-                            "bpm": {"type": "integer", "nullable": True},
-                            "instruments": {"type": "array", "items": {"type": "string"}},
-                        },
-                        "required": ["major", "mid", "mood", "tags", "description"],
-                    },
-                    temperature=0.1,
-                ),
-            )
-
-            del audio_bytes  # 메모리 즉시 해제
-            result = json.loads(response.text)
-
-            # taxonomy 검증
-            major, mid, sub = validate_classification(
-                result.get("major", ""),
-                result.get("mid", ""),
-                result.get("sub"),
-            )
-            result["major"] = major
-            result["mid"] = mid
-            result["sub"] = sub
-
-            return result
-
-        except Exception as e:
-            print(f"  [오류] {file_name}: {e}")
-            return None
+        audio_bytes, mime_type = _trim_wav(audio_path)
+        result = await classify_async(audio_bytes, mime_type, file_name)
+        del audio_bytes
+        return result
 
 
 def load_processed(manifest_path: str) -> set[str]:
@@ -153,7 +67,6 @@ def load_processed(manifest_path: str) -> set[str]:
 
 async def classify_all(source_dir: str, manifest_path: str, dry_run: bool = False) -> list[dict]:
     """소스 디렉토리의 모든 오디오 파일 분류"""
-    # 오디오 파일 스캔
     audio_extensions = {".wav", ".mp3", ".ogg", ".flac"}
     files = []
     for root, _, filenames in os.walk(source_dir):
@@ -180,7 +93,6 @@ async def classify_all(source_dir: str, manifest_path: str, dry_run: bool = Fals
         print("모든 파일이 이미 처리되었습니다.")
         return []
 
-    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
     results = []
 
     # 배치 처리 (10개씩)
@@ -189,7 +101,7 @@ async def classify_all(source_dir: str, manifest_path: str, dry_run: bool = Fals
         for i in range(0, len(remaining), batch_size):
             batch = remaining[i : i + batch_size]
             tasks = [
-                classify_single(client, fp, os.path.basename(fp)) for fp in batch
+                classify_single(fp, os.path.basename(fp)) for fp in batch
             ]
             batch_results = await asyncio.gather(*tasks)
 
