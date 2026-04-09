@@ -34,7 +34,7 @@ CATEGORY_QUERIES = {
         "jumping landing", "cabinet door", "chalk blackboard",
         "pencil writing", "swallow gulp drink", "grab release object",
     ],
-    "Hard_SFX": [
+    "SFX": [
         "cat meow", "insect buzz cricket", "shield block", "magic spell",
         "torch fire", "wave ocean crash", "kick impact",
         "whistle referee", "ball bounce sport",

@@ -1,137 +1,163 @@
-"""6-tier 오디오 분류 체계 정의"""
+"""오디오 분류 체계 (v2.2)
 
-TAXONOMY = {
-    "Dialogue_VO": {
-        "display": "Dialogue / VO",
-        "mid": {
-            "Dialogue": [],
-            "Narration_VO": [],
-            "Crowd_Dialogue": [],
-            "Announcement": [],
-            "Voiceover": [],
-            "Synthetic": [],
-            "Human": [],
-        },
-    },
-    "Music": {
-        "display": "Music",
-        "mid": {
-            "BGM": ["Cinematic_Score", "Lo_fi_Chill", "Electronic", "Orchestral", "Acoustic", "Rock", "Jazz", "Hip_Hop", "World"],
-            "Stinger": ["Hit_Stinger", "Reveal_Stinger", "Transition_Stinger"],
-            "Jingle": ["Intro_Jingle", "Outro_Jingle", "Notification_Jingle"],
-            "Drone_Pad": ["Ambient_Pad", "Dark_Drone", "Bright_Pad"],
-            "Score": ["Orchestral", "Electronic", "Hybrid"],
-            "Percussion": ["Acoustic", "Electronic", "World"],
-        },
-    },
-    "Ambience": {
-        "display": "Ambience",
-        "mid": {
-            "Nature": ["Forest", "Ocean", "River", "Wind", "Birds", "Insects", "Rain_Forest"],
-            "Urban": ["City_Traffic", "Street", "Construction", "Market", "Subway"],
-            "Interior": ["Office", "Restaurant", "Hospital", "School", "Home", "Mall"],
-            "Exterior": ["Park", "Parking_Lot", "Airport", "Stadium", "Harbor"],
-            "Weather": ["Rain", "Thunder", "Wind", "Snow", "Hail"],
-            "Special": ["Sci_Fi", "Fantasy", "Horror", "Underwater"],
-            "Designed": ["Abstract", "Processed"],
-            "Mechanical": ["Factory", "Engine", "HVAC"],
-            "Human": ["Crowd", "Walla", "Children"],
-        },
-    },
-    "Foley": {
-        "display": "Foley",
-        "mid": {
-            "Footsteps": ["Concrete", "Wood", "Gravel", "Grass", "Metal", "Carpet", "Tile", "Snow", "Mud", "Sand"],
-            "Cloth_Rustle": ["Jacket", "Dress", "Denim", "Leather"],
-            "Body_movement": ["Jump", "Fall", "Crawl", "Roll"],
-            "Hand_Touch": ["Grab", "Release", "Tap", "Scratch"],
-            "Object_handling": ["Cup_Glass", "Paper", "Plastic", "Metal_Object", "Wood_Object"],
-            "Door_Window": ["Open", "Close", "Knock", "Creak", "Slide"],
-            "Furniture": ["Chair", "Drawer", "Cabinet", "Table"],
-            "Eating_Drinking": ["Chew", "Sip", "Pour", "Swallow"],
-            "Writing": ["Pen", "Pencil", "Keyboard", "Chalk"],
-            "Liquid": ["Pour", "Splash", "Drip", "Bubble"],
-            "Material": ["Glass", "Metal", "Wood", "Fabric", "Paper"],
-            "Movement": ["Slide", "Drag", "Roll", "Spin"],
-            "Object_Interaction": ["Stack", "Drop", "Catch", "Throw"],
-            "Body": ["Clap", "Snap", "Slap", "Stomp"],
-            "Misc_Foley": [],
-        },
-    },
-    "Hard_SFX": {
-        "display": "Hard SFX",
-        "mid": {
-            "Impact_Hit": ["Punch", "Kick", "Slam", "Thud", "Metal_Hit", "Wood_Hit"],
-            "Crash_Break": ["Glass_Shatter", "Wood_Break", "Metal_Crash", "Ceramic_Break"],
-            "Explosion": ["Small", "Medium", "Large", "Distant", "Debris"],
-            "Gunshot_Weapon": ["Pistol", "Rifle", "Shotgun", "Laser", "Sword", "Bow"],
-            "Vehicle": ["Car", "Motorcycle", "Truck", "Helicopter", "Airplane", "Boat"],
-            "Fire": ["Campfire", "Torch", "Inferno", "Match"],
-            "Water_impact": ["Splash", "Drip", "Underwater", "Wave"],
-            "Mechanical": ["Gear", "Lock", "Switch", "Motor", "Hydraulic"],
-            "Electrical": ["Spark", "Buzz", "Zap", "Short_Circuit"],
-            "Animal": ["Dog", "Cat", "Bird", "Horse", "Insect", "Monster"],
-            "Human_nonspeech": ["Breath", "Cough", "Scream", "Laugh", "Grunt", "Gasp"],
-            "Impact": ["Generic", "Body", "Object"],
-            "Weapon": ["Sword", "Shield", "Bow", "Magic"],
-            "Whoosh": ["Fast", "Slow", "Heavy", "Light"],
-            "UI": ["Click", "Beep", "Notification", "Error"],
-            "Cartoon": ["Boing", "Splat", "Pop", "Squeak"],
-            "Electronic": ["Glitch", "Digital", "Synth"],
-            "Construction": ["Hammer", "Drill", "Saw"],
-            "Sports": ["Ball", "Whistle", "Crowd"],
-            "General": [],
-        },
-    },
-    "Cinematic": {
-        "display": "Cinematic",
-        "mid": {
-            "Riser_Sweller": ["Short_Riser", "Long_Riser", "Reverse_Riser", "Swell"],
-            "Hit_Impact": ["Cinematic_Hit", "Sub_Hit", "Orchestral_Hit", "Hybrid_Hit"],
-            "Whoosh_Transition": ["Fast_Whoosh", "Slow_Whoosh", "Flyby", "Sweep"],
-            "Drone_Texture": ["Dark_Drone", "Light_Texture", "Evolving_Pad", "Granular"],
-            "UI_Notification": ["Button_Click", "Alert", "Confirm", "Cancel", "Hover"],
-            "Stab_Sting": ["Orchestra_Stab", "Synth_Sting", "Brass_Stab"],
-            "Dark": ["Horror", "Suspense", "Eerie"],
-            "Fantasy": ["Magic", "Sparkle", "Enchant"],
-            "Horror": ["Scare", "Creep", "Jump_Scare"],
-            "Sci_Fi": ["Laser", "Hologram", "Warp"],
-            "Tension": ["Build", "Sustain", "Release"],
-            "Texture": ["Organic", "Synthetic", "Metallic"],
-            "Transition": ["Cut", "Fade", "Swipe"],
-            "Impact": ["Boom", "Thud", "Crash"],
-        },
-    },
-}
+원천 데이터: shared/audio-taxonomy.json
+이 파일은 JSON을 로드하여 검증/정규화 로직을 제공한다.
+"""
 
-# 유효한 major 목록
+import json
+from pathlib import Path
+
+# ── JSON 원천 데이터 로드 ──
+_TAXONOMY_PATH = Path(__file__).resolve().parents[2] / "shared" / "audio-taxonomy.json"
+_raw = json.loads(_TAXONOMY_PATH.read_text(encoding="utf-8"))
+
+# Python용 dict 변환: { major_key: { "display": label, "mid": { mid: [subs] } } }
+TAXONOMY: dict[str, dict] = {}
+for cat in _raw["categories"]:
+    TAXONOMY[cat["key"]] = {
+        "display": cat["label"],
+        "mid": cat["mids"],
+    }
+
+# ── 유효값 매핑 ──
 VALID_MAJORS = set(TAXONOMY.keys())
 
-# major → mid 매핑
-VALID_MIDS = {}
+VALID_MIDS: dict[str, set[str]] = {}
 for major, data in TAXONOMY.items():
     VALID_MIDS[major] = set(data["mid"].keys())
 
-# major → mid → sub 매핑
-VALID_SUBS = {}
+VALID_SUBS: dict[str, dict[str, set[str]]] = {}
 for major, data in TAXONOMY.items():
     VALID_SUBS[major] = {}
     for mid, subs in data["mid"].items():
         VALID_SUBS[major][mid] = set(subs) if subs else set()
 
+# ── 대소문자 정규화 룩업 ──
+_MAJOR_LOOKUP: dict[str, str] = {m.lower(): m for m in VALID_MAJORS}
+
+_MID_LOOKUP: dict[str, dict[str, str]] = {}
+for major, data in TAXONOMY.items():
+    _MID_LOOKUP[major.lower()] = {m.lower(): m for m in data["mid"].keys()}
+
+_SUB_LOOKUP: dict[str, dict[str, dict[str, str]]] = {}
+for major, data in TAXONOMY.items():
+    _SUB_LOOKUP[major.lower()] = {}
+    for mid, subs in data["mid"].items():
+        _SUB_LOOKUP[major.lower()][mid.lower()] = {s.lower(): s for s in subs}
+
+# ── v1 → v2 마이그레이션 매핑 ──
+_MAJOR_MIGRATION: dict[str, str] = {
+    "hard_sfx": "SFX",
+}
+
+_MID_MIGRATION: dict[str, dict[str, str]] = {
+    "sfx": {
+        "impact_hit": "Impact",
+        "crash_break": "Impact",
+        "gunshot_weapon": "Weapon",
+        "water_impact": "Water",
+        "human_nonspeech": "Human",
+        "construction": "Mechanical",
+        "sports": "Sports",
+        "general": "Impact",
+    },
+    "cinematic": {
+        "riser_sweller": "Riser",
+        "hit_impact": "Hit",
+        "whoosh_transition": "Whoosh",
+        "drone_texture": "Drone",
+        "stab_sting": "Stinger",
+        "ui_notification": "Transition",
+        "dark": "Horror",
+        "fantasy": "Fantasy",
+        "impact": "Hit",
+    },
+    "foley": {
+        "cloth_rustle": "Cloth",
+        "body_movement": "Body",
+        "hand_touch": "Body",
+        "object_handling": "Object",
+        "object_interaction": "Object",
+        "eating_drinking": "Food_Drink",
+        "movement": "Object",
+        "misc_foley": "Object",
+        "material": "Material_Texture",
+    },
+    "ambience": {
+        "special": "Designed",
+        "human": "Crowd",
+        "mechanical": "Machine_Room",
+    },
+    "dialogue_vo": {
+        "narration_vo": "Narration",
+        "voiceover": "Narration",
+        "human": "Dialogue",
+    },
+    "music": {
+        "drone_pad": "Synth_Pad",
+        "stinger": "Jingle",
+    },
+}
+
+# ── 별칭 매핑 (Gemini 오분류 대응) ──
+_MID_ALIASES: dict[str, dict[str, str]] = {
+    "sfx": {
+        "footstep": "Impact",
+        "drone": "Electronic",
+        "whoosh": "Impact",
+    },
+    "cinematic": {
+        "drone": "Drone",
+    },
+    "foley": {
+        "footstep": "Footsteps",
+        "material": "Material_Texture",
+    },
+}
+
 
 def validate_classification(major: str, mid: str, sub: str | None) -> tuple[str, str, str | None]:
-    """분류 결과를 검증하고 유효하지 않으면 가장 가까운 값으로 매핑"""
-    if major not in VALID_MAJORS:
-        return "Hard_SFX", "General", None
+    """
+    분류 결과를 검증하고 정규화.
+    대소문자 무시, v1→v2 마이그레이션, 별칭 매핑.
+    """
+    major_lower = major.lower()
 
-    if mid not in VALID_MIDS.get(major, set()):
-        # mid가 유효하지 않으면 첫 번째 mid로 폴백
-        fallback_mid = list(TAXONOMY[major]["mid"].keys())[0]
-        return major, fallback_mid, None
+    # major 마이그레이션 (Hard_SFX → SFX)
+    norm_major = _MAJOR_MIGRATION.get(major_lower)
+    if not norm_major:
+        norm_major = _MAJOR_LOOKUP.get(major_lower)
+    if not norm_major:
+        return "SFX", "Impact", None
 
-    if sub and major in VALID_SUBS and mid in VALID_SUBS[major]:
-        if sub not in VALID_SUBS[major][mid]:
-            return major, mid, None
+    # mid 정규화
+    mid_lower = mid.lower()
+    norm_major_lower = norm_major.lower()
+    mid_lookup = _MID_LOOKUP.get(norm_major_lower, {})
+    norm_mid = mid_lookup.get(mid_lower)
 
-    return major, mid, sub
+    # v1 → v2 마이그레이션
+    if not norm_mid:
+        migrations = _MID_MIGRATION.get(norm_major_lower, {})
+        norm_mid = migrations.get(mid_lower)
+
+    # 별칭 체크
+    if not norm_mid:
+        aliases = _MID_ALIASES.get(norm_major_lower, {})
+        norm_mid = aliases.get(mid_lower)
+
+    # 여전히 못 찾으면 첫 번째 mid로 폴백
+    if not norm_mid:
+        norm_mid = list(TAXONOMY[norm_major]["mid"].keys())[0]
+
+    # sub 정규화
+    if sub:
+        sub_lower = sub.lower()
+        sub_lookup = _SUB_LOOKUP.get(norm_major_lower, {}).get(norm_mid.lower(), {})
+        norm_sub = sub_lookup.get(sub_lower)
+        if not norm_sub:
+            norm_sub = None
+    else:
+        norm_sub = None
+
+    return norm_major, norm_mid, norm_sub

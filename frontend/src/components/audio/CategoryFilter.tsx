@@ -3,17 +3,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { MAJOR_LABELS } from '@/lib/audio-taxonomy';
 import type { CategoryNode } from '@/services/api/audio';
-
-/** major별 표시 이름 */
-const MAJOR_LABELS: Record<string, string> = {
-  Dialogue_VO: 'Dialogue / VO',
-  Music: 'Music',
-  Ambience: 'Ambience',
-  Foley: 'Foley',
-  Hard_SFX: 'Hard SFX',
-  Cinematic: 'Cinematic',
-};
 
 interface CategoryFilterProps {
   categories: CategoryNode[];
