@@ -29,6 +29,9 @@ model User {
   projectMembers   ProjectMember[]
   notifications    Notification[]
   triggeredCommits Commit[]        @relation("TriggeredCommits")
+  // 골드셋 플랫폼
+  createdRounds    AssignmentRound[]    @relation("CreatedRounds")
+  responses        AssignmentResponse[]
 
   @@map("users")
 }
@@ -198,9 +201,9 @@ model AudioAsset {
   id          String   @id @default(uuid()) @db.Uuid
   fileName    String   @map("file_name") @db.VarChar(500)
   s3Key       String   @unique @map("s3_key") @db.VarChar(500)
-  major       String   @db.VarChar(50)
-  mid         String   @db.VarChar(100)
-  sub         String?  @db.VarChar(100)
+  majorId     Int      @map("major_id")
+  midId       Int      @map("mid_id")
+  subId       Int?     @map("sub_id")
   mood        String[] @default([])
   tags        String[] @default([])
   description String   @db.Text
@@ -212,8 +215,148 @@ model AudioAsset {
   embedding   Unsupported("vector(3072)")?
   createdAt   DateTime @default(now()) @map("created_at")
 
-  @@index([major])
-  @@index([major, mid])
-  @@index([major, mid, sub])
+  major CategoryMajor @relation(fields: [majorId], references: [id])
+  mid   CategoryMid   @relation(fields: [midId], references: [id])
+  sub   CategorySub?  @relation(fields: [subId], references: [id])
+
+  assignmentItems AssignmentItem[]
+  goldSet         GoldSet?
+
+  @@index([majorId])
+  @@index([majorId, midId])
+  @@index([majorId, midId, subId])
   @@map("audio_assets")
+}
+
+// ───────────────────────────────────────────
+// 카테고리 마스터 (정규화된 분류 체계)
+// ───────────────────────────────────────────
+model CategoryMajor {
+  id    Int    @id @default(autoincrement())
+  key   String @unique @db.VarChar(50)
+  label String @db.VarChar(100)
+
+  mids       CategoryMid[]
+  audioAssets AudioAsset[]
+  responses  AssignmentResponse[]
+  agreedItems AssignmentItem[]    @relation("ItemAgreedMajor")
+  goldSet    GoldSet[]
+
+  @@map("category_major")
+}
+
+model CategoryMid {
+  id      Int    @id @default(autoincrement())
+  majorId Int    @map("major_id")
+  key     String @db.VarChar(50)
+
+  major       CategoryMajor @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  subs        CategorySub[]
+  audioAssets AudioAsset[]
+  responses   AssignmentResponse[]
+  agreedItems AssignmentItem[]   @relation("ItemAgreedMid")
+  goldSet     GoldSet[]
+
+  @@unique([majorId, key])
+  @@index([majorId])
+  @@map("category_mid")
+}
+
+model CategorySub {
+  id    Int    @id @default(autoincrement())
+  midId Int    @map("mid_id")
+  key   String @db.VarChar(50)
+
+  mid         CategoryMid @relation(fields: [midId], references: [id], onDelete: Cascade)
+  audioAssets AudioAsset[]
+  responses   AssignmentResponse[]
+  agreedItems AssignmentItem[]   @relation("ItemAgreedSub")
+  goldSet     GoldSet[]
+
+  @@unique([midId, key])
+  @@index([midId])
+  @@map("category_sub")
+}
+
+// ───────────────────────────────────────────
+// 골드셋 수집 플랫폼 (라운드 / 응답 / 골드셋)
+// ───────────────────────────────────────────
+model AssignmentRound {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(200)
+  createdBy   String   @map("created_by") @db.Uuid
+  status      String   @default("open") @db.VarChar(20) // open | closed
+  itemCount   Int      @map("item_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  closedAt    DateTime? @map("closed_at")
+
+  creator User              @relation("CreatedRounds", fields: [createdBy], references: [id], onDelete: Cascade)
+  items   AssignmentItem[]
+  goldSet GoldSet[]
+
+  @@index([status, createdAt])
+  @@map("assignment_round")
+}
+
+model AssignmentItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  roundId        String   @map("round_id") @db.Uuid
+  audioAssetId   String   @map("audio_asset_id") @db.Uuid
+  status         String   @default("pending") @db.VarChar(20) // pending | agreed | disagreed
+  agreedMajorId  Int?     @map("agreed_major_id")
+  agreedMidId    Int?     @map("agreed_mid_id")
+  agreedSubId    Int?     @map("agreed_sub_id")
+  responseCount  Int      @default(0) @map("response_count")
+
+  round       AssignmentRound      @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  audioAsset  AudioAsset           @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+  responses   AssignmentResponse[]
+  agreedMajor CategoryMajor?       @relation("ItemAgreedMajor", fields: [agreedMajorId], references: [id])
+  agreedMid   CategoryMid?         @relation("ItemAgreedMid", fields: [agreedMidId], references: [id])
+  agreedSub   CategorySub?         @relation("ItemAgreedSub", fields: [agreedSubId], references: [id])
+
+  @@unique([roundId, audioAssetId])
+  @@index([roundId, status])
+  @@map("assignment_item")
+}
+
+model AssignmentResponse {
+  id          String   @id @default(uuid()) @db.Uuid
+  itemId      String   @map("item_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  majorId     Int      @map("major_id")
+  midId       Int      @map("mid_id")
+  subId       Int?     @map("sub_id")
+  respondedAt DateTime @default(now()) @map("responded_at")
+
+  item  AssignmentItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  major CategoryMajor  @relation(fields: [majorId], references: [id])
+  mid   CategoryMid    @relation(fields: [midId], references: [id])
+  sub   CategorySub?   @relation(fields: [subId], references: [id])
+
+  @@unique([itemId, userId])
+  @@index([userId])
+  @@map("assignment_response")
+}
+
+model GoldSet {
+  id            String   @id @default(uuid()) @db.Uuid
+  audioAssetId  String   @unique @map("audio_asset_id") @db.Uuid
+  majorId       Int      @map("major_id")
+  midId         Int      @map("mid_id")
+  subId         Int?     @map("sub_id")
+  roundId       String?  @map("round_id") @db.Uuid
+  agreedBy      String[] @map("agreed_by") @db.Uuid
+  confirmedAt   DateTime @default(now()) @map("confirmed_at")
+
+  audioAsset AudioAsset       @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+  major      CategoryMajor    @relation(fields: [majorId], references: [id])
+  mid        CategoryMid      @relation(fields: [midId], references: [id])
+  sub        CategorySub?     @relation(fields: [subId], references: [id])
+  round      AssignmentRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+
+  @@index([majorId, midId])
+  @@index([confirmedAt])
+  @@map("gold_set")
 }

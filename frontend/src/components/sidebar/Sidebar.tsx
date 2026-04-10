@@ -6,12 +6,9 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { PanelLeftClose, PanelLeft, Plus, Users, LogOut, Music } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { PanelLeftClose, PanelLeft, Users, LogOut, Music, ListChecks, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { ProjectTree } from './ProjectTree';
-import { CreateProjectDialog } from './CreateProjectDialog';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -23,7 +20,6 @@ import { useQueryClient } from '@tanstack/react-query';
 /** PC 고정 사이드바 — lg 이상에서만 렌더 */
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
 
   if (collapsed) {
     return (
@@ -45,29 +41,24 @@ export function Sidebar() {
       {/* 헤더: 로고 + 접기 버튼 */}
       <SidebarHeader onCollapse={() => setCollapsed(true)} />
 
-      {/* 트리 영역 */}
-      <ScrollArea className="flex-1 overflow-hidden">
-        <div className="px-2 py-1">
-          <ProjectTree />
-        </div>
-      </ScrollArea>
+      {/* 메인 네비게이션 — 과제/골드셋 */}
+      <nav className="flex-1 p-2 space-y-0.5">
+        <RoundsLink />
+        <GoldSetLink />
+      </nav>
 
       {/* 하단: 오디오 라이브러리 + 관리자 메뉴 + 로그아웃 */}
       <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
         <AudioLibraryLink />
         <AdminMenu />
-        <AdminProjectCreate onOpen={() => setCreateOpen(true)} />
         <LogoutButton />
       </div>
-
-      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </aside>
   );
 }
 
 /** 모바일 사이드바 드로어 — lg 미만에서만 렌더 */
 export function MobileSidebar() {
-  const [createOpen, setCreateOpen] = useState(false);
   const { mobileSidebarOpen, setMobileSidebarOpen } = useUiStore();
 
   return (
@@ -80,15 +71,11 @@ export function MobileSidebar() {
         {/* 헤더 */}
         <SidebarHeader onCollapse={() => setMobileSidebarOpen(false)} />
 
-        {/* 트리 영역 */}
-        <ScrollArea className="flex-1 overflow-hidden">
-          <div className="px-2 py-1">
-            {/* 항목 클릭 시 드로어 닫기 */}
-            <div onClick={() => setMobileSidebarOpen(false)}>
-              <ProjectTree />
-            </div>
-          </div>
-        </ScrollArea>
+        {/* 메인 네비게이션 — 과제/골드셋 */}
+        <nav className="flex-1 p-2 space-y-0.5" onClick={() => setMobileSidebarOpen(false)}>
+          <RoundsLink />
+          <GoldSetLink />
+        </nav>
 
         {/* 하단: 오디오 라이브러리 + 관리자 메뉴 + 로그아웃 */}
         <div className="border-t border-[#E8E5DE] p-2 space-y-0.5">
@@ -96,13 +83,52 @@ export function MobileSidebar() {
             <AudioLibraryLink />
             <AdminMenu />
           </div>
-          <AdminProjectCreate onOpen={() => setCreateOpen(true)} />
           <LogoutButton />
         </div>
-
-        <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** 분류 과제(라운드) 링크 */
+function RoundsLink() {
+  const pathname = usePathname();
+  const isActive = pathname.startsWith('/rounds');
+  return (
+    <Link href="/rounds" className="block">
+      <Button
+        variant="ghost"
+        className={`w-full justify-start gap-2 ${
+          isActive
+            ? 'bg-[#2D7D7B]/10 text-[#2D7D7B] hover:bg-[#2D7D7B]/15'
+            : 'text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]'
+        }`}
+      >
+        <ListChecks className="size-4" />
+        분류 과제
+      </Button>
+    </Link>
+  );
+}
+
+/** 골드셋 링크 */
+function GoldSetLink() {
+  const pathname = usePathname();
+  const isActive = pathname.startsWith('/gold-set');
+  return (
+    <Link href="/gold-set" className="block">
+      <Button
+        variant="ghost"
+        className={`w-full justify-start gap-2 ${
+          isActive
+            ? 'bg-[#2D7D7B]/10 text-[#2D7D7B] hover:bg-[#2D7D7B]/15'
+            : 'text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]'
+        }`}
+      >
+        <Award className="size-4" />
+        골드셋
+      </Button>
+    </Link>
   );
 }
 
@@ -128,46 +154,39 @@ function AudioLibraryLink() {
   );
 }
 
-/** 관리자 전용 프로젝트 생성 버튼 — admin만 표시 */
-function AdminProjectCreate({ onOpen }: { onOpen: () => void }) {
-  const { user } = useAuthStore();
-  if (user?.role !== 'admin') return null;
-
-  return (
-    <Button
-      variant="ghost"
-      className="w-full justify-start gap-2 text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]"
-      onClick={onOpen}
-    >
-      <Plus className="size-4" />
-      새 프로젝트
-    </Button>
-  );
-}
-
-/** 관리자 전용 메뉴 링크 — admin 역할인 경우에만 렌더 */
+/** 관리자 전용 메뉴 — admin 역할인 경우에만 렌더 */
 function AdminMenu() {
   const { user } = useAuthStore();
   const pathname = usePathname();
 
   if (user?.role !== 'admin') return null;
 
-  const isActive = pathname.startsWith('/admin');
+  const links: { href: string; icon: typeof Users; label: string }[] = [
+    { href: '/admin/rounds', icon: ListChecks, label: '라운드 관리' },
+    { href: '/admin/users', icon: Users, label: '사용자 관리' },
+  ];
 
   return (
-    <Link href="/admin/users" className="block">
-      <Button
-        variant="ghost"
-        className={`w-full justify-start gap-2 ${
-          isActive
-            ? 'bg-[#2D7D7B]/10 text-[#2D7D7B] hover:bg-[#2D7D7B]/15'
-            : 'text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]'
-        }`}
-      >
-        <Users className="size-4" />
-        사용자 관리
-      </Button>
-    </Link>
+    <>
+      {links.map(({ href, icon: Icon, label }) => {
+        const isActive = pathname.startsWith(href);
+        return (
+          <Link key={href} href={href} className="block">
+            <Button
+              variant="ghost"
+              className={`w-full justify-start gap-2 ${
+                isActive
+                  ? 'bg-[#2D7D7B]/10 text-[#2D7D7B] hover:bg-[#2D7D7B]/15'
+                  : 'text-[#6B6B7B] hover:bg-[#F5F5EF] hover:text-[#1A1A1A]'
+              }`}
+            >
+              <Icon className="size-4" />
+              {label}
+            </Button>
+          </Link>
+        );
+      })}
+    </>
   );
 }
 
